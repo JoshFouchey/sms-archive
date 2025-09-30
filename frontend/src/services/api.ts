@@ -20,8 +20,4 @@ export async function importXml(file: File): Promise<Response> {
     });
 }
 
-export async function searchSms(query: string): Promise<Sms[]> {
-    const res = await fetch(`${API_BASE}/sms/search?query=${encodeURIComponent(query)}`);
-    if (!res.ok) throw new Error("Search failed");
-    return res.json();
-}
+ 

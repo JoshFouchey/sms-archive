@@ -1,4 +1,3 @@
-<!-- frontend/src/views/Home.vue -->
 <template>
   <div class="p-6 max-w-2xl mx-auto">
     <h1 class="text-2xl font-bold mb-4">SMS Archive</h1>
@@ -6,50 +5,58 @@
     <!-- Import -->
     <div class="mb-6 border p-4 rounded shadow">
       <h2 class="text-xl font-semibold mb-2">Import SMS/MMS</h2>
-      <input type="file" ref="fileInput" class="mb-2" />
-      <button
-          class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          @click="uploadFile"
-      >
-        Upload & Import
-      </button>
-      <p v-if="importMessage" class="mt-2 text-green-600">{{ importMessage }}</p>
+      <FileUpload
+          mode="basic"
+          name="file"
+          accept=".xml"
+          chooseLabel="Choose File"
+          auto
+          customUpload
+          @uploader="onFileUpload"
+          class="mb-3"
+      />
+      <Message v-if="importMessage" severity="success" :closable="false">
+        {{ importMessage }}
+      </Message>
     </div>
 
     <!-- Search -->
     <div class="border p-4 rounded shadow">
       <h2 class="text-xl font-semibold mb-2">Search Messages</h2>
-      <input
-          v-model="query"
-          type="text"
-          placeholder="Search messages..."
-          class="border px-3 py-2 w-full mb-2 rounded"
-      />
-      <button
-          class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-          @click="searchMessages"
-      >
-        Search
-      </button>
 
-      <div v-if="results.length" class="mt-4">
-        <h3 class="text-lg font-semibold">Results:</h3>
-        <ul class="space-y-2 mt-2">
-          <li
-              v-for="msg in results"
-              :key="msg.id"
-              class="border p-2 rounded bg-gray-50"
-          >
-            <p><strong>{{ msg.contactName }}</strong> ({{ msg.address }})</p>
-            <p class="text-sm text-gray-700">{{ msg.body }}</p>
-            <p class="text-xs text-gray-500">
-              {{ new Date(msg.date).toLocaleString() }}
-            </p>
-          </li>
-        </ul>
+      <div class="flex space-x-2 mb-3">
+        <InputText
+            v-model="query"
+            placeholder="Search messages..."
+            class="flex-1"
+        />
+        <Button
+            label="Search"
+            icon="pi pi-search"
+            severity="success"
+            @click="searchMessages"
+        />
       </div>
 
-      <p v-else-if="searched" class="mt-4 text-gray-500">No results found.</p>
+      <DataTable v-if="results.length" :value="results" responsiveLayout="scroll">
+        <Column field="contactName" header="Contact"></Column>
+        <Column field="address" header="Address"></Column>
+        <Column field="body" header="Message"></Column>
+        <Column
+            field="date"
+            header="Date"
+            :body="(row) => new Date(row.date).toLocaleString()"
+        ></Column>
+      </DataTable>
+
+      <Message
+          v-else-if="searched"
+          severity="warn"
+          :closable="false"
+          class="mt-3"
+      >
+        No results found.
+      </Message>
     </div>
   </div>
 </template>
@@ -58,20 +65,25 @@
 import { ref } from "vue";
 import { importXml, searchSms, Sms } from "../services/api";
 
+// PrimeVue components
+import FileUpload from "primevue/fileupload";
+import Button from "primevue/button";
+import InputText from "primevue/inputtext";
+import DataTable from "primevue/datatable";
+import Column from "primevue/column";
+import Message from "primevue/message";
+
 const query = ref("");
 const results = ref<Sms[]>([]);
 const searched = ref(false);
 const importMessage = ref("");
-const fileInput = ref<HTMLInputElement | null>(null);
 
-async function uploadFile() {
-  if (!fileInput.value?.files?.length) {
-    alert("Please choose a file first.");
-    return;
-  }
+async function onFileUpload(event: any) {
+  const file = event.files[0];
+  if (!file) return;
 
   try {
-    const res = await importXml(fileInput.value.files[0]);
+    const res = await importXml(file);
     importMessage.value = res.ok ? "Import successful!" : "Import failed.";
   } catch (err) {
     console.error(err);
