@@ -6,10 +6,12 @@ export interface Message {
     protocol: string;
     sender: string;
     recipient?: string;
-    timestamp: string;  // ISO date
+    contactName?: string;   // add this
+    timestamp: string;
     body?: string;
     media?: any;
     metadata?: any;
+    parts?: any[];          // add this
 }
 
 export async function importXml(file: File): Promise<Response> {

@@ -1,5 +1,7 @@
 package com.joshfouchey.smsarchive.controller;
 
+import com.joshfouchey.smsarchive.dto.MessageDto;
+import com.joshfouchey.smsarchive.mapper.MessageMapper;
 import com.joshfouchey.smsarchive.model.Message;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -32,9 +34,11 @@ public class SearchController {
 
     // Search by body text
     @GetMapping("/text")
-    public List<Message> byText(@RequestParam String text) {
-        return repo.searchByText(text);
-    }
+    public List<MessageDto> byText(@RequestParam String text) {
+        return repo.searchByText(text)
+                .stream()
+                .map(MessageMapper::toDto)
+                .toList();    }
 
     // Search by timestamp range (was "date")
     @GetMapping("/dates")

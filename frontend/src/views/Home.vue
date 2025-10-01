@@ -43,6 +43,7 @@
         <Column field="sender" header="Sender"></Column>
         <Column field="recipient" header="Recipient"></Column>
         <Column field="body" header="Message"></Column>
+        <Column field="contactName" header="Contact"></Column>
         <Column
             field="timestamp"
             header="Date"
@@ -98,7 +99,9 @@ async function searchMessages() {
   if (!query.value) return;
 
   try {
-    results.value = await searchByText(query.value);
+    results.value = Array.isArray(await searchByText(query.value))
+        ? await searchByText(query.value)
+        : [];
     searched.value = true;
   } catch (err) {
     console.error(err);
