@@ -1,3 +1,4 @@
+// MessagePart.java
 package com.joshfouchey.smsarchive.model;
 
 import jakarta.persistence.*;
@@ -7,27 +8,27 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "mms_parts")
-public class MmsPart {
+@Table(name = "message_parts")
+public class MessagePart {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "mms_id", nullable = false)
-    private Mms mms;
+    @JoinColumn(name = "message_id", nullable = false)
+    private Message message;
 
     private Integer seq;
 
-    @Column(name = "ct", columnDefinition = "text")
-    private String contentType;   // maps to ct TEXT in DB
+    @Column(name = "ct")
+    private String contentType;
 
-    @Column(columnDefinition = "text")
     private String name;
 
     @Column(columnDefinition = "text")
     private String text;
 
-    @Column(name = "file_path", columnDefinition = "text")
     private String filePath;
+
+    // getters and setters
 }
