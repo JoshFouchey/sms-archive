@@ -20,7 +20,6 @@ import java.util.Map;
 public class ImportService {
 
     private final MessageRepository messageRepo;
-
     public ImportService(MessageRepository messageRepo) {
         this.messageRepo = messageRepo;
     }
@@ -77,31 +76,39 @@ public class ImportService {
 
             // --- Parse addresses ---
             String sender = null;
-            String recipient = null;
+            // You might have multiple recipients in a group chat
+            List<String> recipients = new ArrayList<>();
             NodeList addrs = el.getElementsByTagName("addr");
+
             for (int j = 0; j < addrs.getLength(); j++) {
                 Element addrEl = (Element) addrs.item(j);
                 String addr = addrEl.getAttribute("address");
                 String type = addrEl.getAttribute("type");
-                // 137=TO, 151=FROM
+
+                // Corrected Logic: 137=FROM (Sender), 151=TO (Recipient)
                 if ("137".equals(type)) {
-                    recipient = addr;
+                    sender = addr; // This is the SENDER
                 } else if ("151".equals(type)) {
-                    sender = addr;
+                    recipients.add(addr); // This is a RECIPIENT
                 }
             }
 
-            // fallback if addresses missing
-            if (sender == null || recipient == null) {
-                String address = el.getAttribute("address");
-                if (msgBox == 1) { // inbox
-                    sender = address;
-                    recipient = "me";
-                } else if (msgBox == 2) { // sent
-                    sender = "me";
-                    recipient = address;
-                }
+            // Replace your single 'recipient' string with a joined list
+            // This handles both single and group messages.
+            String recipient = String.join(",", recipients);
+
+            // This removes your own number from the recipient list for sent messages,
+            // as some backup tools include it.
+            if (msgBox == 2) { // Sent message
+                sender = "me";
+                // exclude the "from" addr since that's you, keep recipients as-is
+                recipient = String.join(",", recipients);
+            } else if (msgBox == 1) { // Inbox
+                // the fromAddr (type=137) is the sender
+                // you are always the recipient
+                recipient = "me";
             }
+
 
             msg.setSender(sender);
             msg.setRecipient(recipient);
@@ -169,31 +176,39 @@ public class ImportService {
 
             // --- Parse addresses ---
             String sender = null;
-            String recipient = null;
+            // You might have multiple recipients in a group chat
+            List<String> recipients = new ArrayList<>();
             NodeList addrs = el.getElementsByTagName("addr");
+
             for (int j = 0; j < addrs.getLength(); j++) {
                 Element addrEl = (Element) addrs.item(j);
                 String addr = addrEl.getAttribute("address");
                 String type = addrEl.getAttribute("type");
-                // 137=TO, 151=FROM (same as MMS)
+
+                // Corrected Logic: 137=FROM (Sender), 151=TO (Recipient)
                 if ("137".equals(type)) {
-                    recipient = addr;
+                    sender = addr; // This is the SENDER
                 } else if ("151".equals(type)) {
-                    sender = addr;
+                    recipients.add(addr); // This is a RECIPIENT
                 }
             }
 
-            // fallback if missing
-            if (sender == null || recipient == null) {
-                String address = el.getAttribute("address");
-                if (msgBox == 1) { // inbox
-                    sender = address;
-                    recipient = "me";
-                } else if (msgBox == 2) { // sent
-                    sender = "me";
-                    recipient = address;
-                }
+            // Replace your single 'recipient' string with a joined list
+            // This handles both single and group messages.
+            String recipient = String.join(",", recipients);
+
+            // This removes your own number from the recipient list for sent messages,
+            // as some backup tools include it.
+            if (msgBox == 2) { // Sent message
+                sender = "me";
+                // exclude the "from" addr since that's you, keep recipients as-is
+                recipient = String.join(",", recipients);
+            } else if (msgBox == 1) { // Inbox
+                // the fromAddr (type=137) is the sender
+                // you are always the recipient
+                recipient = "me";
             }
+
 
             msg.setSender(sender);
             msg.setRecipient(recipient);
