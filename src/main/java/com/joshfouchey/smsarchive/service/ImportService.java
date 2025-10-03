@@ -10,14 +10,18 @@ import org.w3c.dom.*;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+
+import static java.util.Base64.*;
 
 @Service
 public class ImportService {
+    private static final Path MEDIA_ROOT = Paths.get("media/messages");
 
     private final MessageRepository messageRepo;
     public ImportService(MessageRepository messageRepo) {
@@ -125,27 +129,49 @@ public class ImportService {
                 String ct = partEl.getAttribute("ct");
                 String text = partEl.getAttribute("text");
                 String name = partEl.getAttribute("name");
+                String data = partEl.getAttribute("data"); // raw base64/binary if present
 
                 MessagePart part = new MessagePart();
                 part.setContentType(ct);
-                part.setText(text);
                 part.setName(name);
                 part.setSeq(j);
                 part.setMessage(msg);
 
+                if ("text/plain".equals(ct) && text != null && !text.isEmpty()) {
+                    part.setText(text);
+                    textAggregate.append(text).append(" ");
+                } else if (data != null && !data.isEmpty()) {
+                    try {
+                        // Use message id if already assigned, otherwise temp folder
+                        String folderName = msg.getId() != null ? msg.getId().toString() : UUID.randomUUID().toString();
+                        Path msgDir = MEDIA_ROOT.resolve(folderName);
+                        Files.createDirectories(msgDir);
+
+                        String ext = guessExtension(ct, name);
+                        Path outFile = msgDir.resolve("part" + j + ext);
+
+                        byte[] bytes = getDecoder().decode(data);
+                        Files.write(outFile, bytes);
+
+                        part.setFilePath(outFile.toString());
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+
                 parts.add(part);
 
-                if ("text/plain".equals(ct) && text != null && !text.isEmpty()) {
-                    textAggregate.append(text).append(" ");
-                } else if (ct != null && !ct.isEmpty() && !"application/smil".equals(ct)) {
-                    // treat all non-text parts as media
+                // Collect media metadata (optional)
+                if (ct != null && !ct.isEmpty() && !"text/plain".equals(ct) && !"application/smil".equals(ct)) {
                     Map<String, Object> mediaEntry = new HashMap<>();
                     mediaEntry.put("contentType", ct);
                     mediaEntry.put("name", name);
                     mediaEntry.put("seq", j);
+                    mediaEntry.put("filePath", part.getFilePath());
                     mediaList.add(mediaEntry);
                 }
             }
+
 
             // --- Save aggregate fields on Message ---
             if (!textAggregate.isEmpty()) {
@@ -225,26 +251,49 @@ public class ImportService {
                 String ct = partEl.getAttribute("ct");
                 String text = partEl.getAttribute("text");
                 String name = partEl.getAttribute("name");
+                String data = partEl.getAttribute("data"); // raw base64/binary if present
 
                 MessagePart part = new MessagePart();
                 part.setContentType(ct);
-                part.setText(text);
                 part.setName(name);
                 part.setSeq(j);
                 part.setMessage(msg);
 
+                if ("text/plain".equals(ct) && text != null && !text.isEmpty()) {
+                    part.setText(text);
+                    textAggregate.append(text).append(" ");
+                } else if (data != null && !data.isEmpty()) {
+                    try {
+                        // Use message id if already assigned, otherwise temp folder
+                        String folderName = msg.getId() != null ? msg.getId().toString() : UUID.randomUUID().toString();
+                        Path msgDir = MEDIA_ROOT.resolve(folderName);
+                        Files.createDirectories(msgDir);
+
+                        String ext = guessExtension(ct, name);
+                        Path outFile = msgDir.resolve("part" + j + ext);
+
+                        byte[] bytes = Base64.getDecoder().decode(data);
+                        Files.write(outFile, bytes);
+
+                        part.setFilePath(outFile.toString());
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+
                 parts.add(part);
 
-                if ("text/plain".equals(ct) && text != null && !text.isEmpty()) {
-                    textAggregate.append(text).append(" ");
-                } else if (ct != null && !ct.isEmpty()) {
+                // Collect media metadata (optional)
+                if (ct != null && !ct.isEmpty() && !"text/plain".equals(ct) && !"application/smil".equals(ct)) {
                     Map<String, Object> mediaEntry = new HashMap<>();
                     mediaEntry.put("contentType", ct);
                     mediaEntry.put("name", name);
                     mediaEntry.put("seq", j);
+                    mediaEntry.put("filePath", part.getFilePath());
                     mediaList.add(mediaEntry);
                 }
             }
+
 
             // --- Save aggregate fields ---
             // Prefer parts over "body" attribute if present
@@ -264,4 +313,61 @@ public class ImportService {
         }
         return count;
     }
+
+    private String guessExtension(String ct, String name) {
+        // If original name has an extension, trust that first
+        if (name != null && !name.isEmpty()) {
+            int dot = name.lastIndexOf(".");
+            if (dot >= 0) {
+                return name.substring(dot).toLowerCase();
+            }
+        }
+
+        if (ct == null) return "";
+
+        switch (ct.toLowerCase()) {
+            // --- Images ---
+            case "image/jpeg":
+            case "image/jpg": return ".jpg";
+            case "image/png": return ".png";
+            case "image/gif": return ".gif";
+            case "image/webp": return ".webp";
+            case "image/bmp": return ".bmp";
+            case "image/heic": return ".heic";
+            case "image/heif": return ".heif";
+            case "image/tiff": return ".tiff";
+
+            // --- Video ---
+            case "video/mp4": return ".mp4";
+            case "video/3gpp":
+            case "video/3gp": return ".3gp";
+            case "video/quicktime": return ".mov";
+            case "video/x-msvideo": return ".avi";
+            case "video/x-matroska": return ".mkv";
+            case "video/webm": return ".webm";
+
+            // --- Audio ---
+            case "audio/mpeg": return ".mp3";
+            case "audio/amr": return ".amr";
+            case "audio/ogg": return ".ogg";
+            case "audio/mp4": return ".m4a";
+            case "audio/wav": return ".wav";
+            case "audio/x-ms-wma": return ".wma";
+            case "audio/flac": return ".flac";
+
+            // --- Other docs / misc ---
+            case "application/pdf": return ".pdf";
+            case "application/zip": return ".zip";
+            case "text/plain": return ".txt";
+            case "text/html": return ".html";
+            case "application/msword": return ".doc";
+            case "application/vnd.openxmlformats-officedocument.wordprocessingml.document": return ".docx";
+            case "application/vnd.ms-excel": return ".xls";
+            case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": return ".xlsx";
+
+            default: return "";
+        }
+    }
+
+
 }
