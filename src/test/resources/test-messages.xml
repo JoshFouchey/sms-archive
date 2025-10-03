@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<smses count="4">
+    <sms protocol="0" address="15552345678" date="1672531200000" type="1" subject="null" body="Hello from Jane!" contact_name="Jane Doe" />
+
+    <sms protocol="0" address="15558765432" date="1672617600000" type="2" subject="null" body="Hey John, are you free tonight?" contact_name="John Smith" />
+
+    <mms date="1672704000000" msg_box="1" contact_name="Mom">
+        <parts>
+            <part seq="0" ct="text/plain" text="Look at this cute puppy!" />
+            <part seq="1" ct="image/jpeg" name="puppy.jpg" data="SGVsbG8gd29ybGQ=" /> </parts>
+        <addrs>
+            <addr address="15551112222" type="137" /> <addr address="15550009999" type="151" /> </addrs>
+    </mms>
+
+    <rcs date="1672790400000" msg_box="2" contact_name="Project Group" body="Fallback: Check out the new design file.">
+        <parts>
+            <part seq="0" ct="text/plain" text="Check out the new design file." />
+        </parts>
+        <addrs>
+            <addr address="15550009999" type="137" /> <addr address="15553334444" type="151" /> <addr address="15555556666" type="151" /> </addrs>
+    </rcs>
+</smses>
