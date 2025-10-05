@@ -10,7 +10,14 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
-
+import net.coobird.thumbnailator.Thumbnails;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Base64;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -216,8 +223,12 @@ public class ImportService {
      * Decodes Base64 data and saves it to a file, returning the file path.
      */
     private Optional<String> saveMediaPart(String base64Data, MessagePart part) {
+        final List<String> SUPPORTED_THUMBNAIL_TYPES = List.of(
+                "image/jpeg", "image/jpg", "image/png", "image/gif", "image/bmp"
+        );
+
         try {
-            // Use a temporary UUID until message is saved and has an ID
+            // --- 1. Prepare directory ---
             String folderName = Optional.ofNullable(part.getMessage().getId())
                     .map(Object::toString)
                     .orElse(UUID.randomUUID().toString());
@@ -225,15 +236,48 @@ public class ImportService {
             Path msgDir = MEDIA_ROOT.resolve(folderName);
             Files.createDirectories(msgDir);
 
+            // --- 2. Save original file ---
             String ext = guessExtension(part.getContentType(), part.getName());
-            Path outFile = msgDir.resolve("part" + part.getSeq() + ext);
-
+            Path originalFile = msgDir.resolve("part" + part.getSeq() + ext);
             byte[] bytes = Base64.getDecoder().decode(base64Data);
-            Files.write(outFile, bytes);
+            Files.write(originalFile, bytes);
 
-            return Optional.of(outFile.toString());
-        } catch (IOException e) {
-            log.error("Failed to save media part for message", e);
+            part.setFilePath(originalFile.toString());
+
+            // --- 3. Determine thumbnail path (no schema change required) ---
+            Path thumbFile = msgDir.resolve("part" + part.getSeq() + "_thumb.jpg");
+
+            if (SUPPORTED_THUMBNAIL_TYPES.contains(part.getContentType().toLowerCase())) {
+                // --- 4. Create thumbnail with Thumbnailator ---
+                try {
+                    Thumbnails.of(originalFile.toFile())
+                            .size(400, 400)
+                            .outputFormat("jpg")
+                            .outputQuality(0.8)
+                            .toFile(thumbFile.toFile());
+
+                    log.info("✅ Created thumbnail: {}", thumbFile);
+                } catch (Exception e) {
+                    log.warn("⚠️ Failed to create thumbnail for {}. Using original image.", originalFile.getFileName(), e);
+                    thumbFile = originalFile; // fallback to original
+                }
+            } else {
+                // Unsupported format (HEIC, etc.)
+                log.debug("Skipping thumbnail for unsupported format: {}", part.getContentType());
+                thumbFile = originalFile;
+            }
+
+            // --- 5. Store or infer thumbnail path ---
+            // Option 1: Store directly in DB if `thumbnailPath` exists
+            // part.setThumbnailPath(thumbFile.toString());
+
+            // Option 2: Don’t change schema, infer it on demand:
+            // return Optional.of(originalFile.toString());
+
+            return Optional.of(originalFile.toString());
+
+        } catch (Exception e) {
+            log.error("❌ Failed to save media part", e);
             return Optional.empty();
         }
     }
