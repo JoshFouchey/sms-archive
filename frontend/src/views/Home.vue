@@ -1,10 +1,11 @@
 <template>
-  <div class="p-6 max-w-2xl mx-auto">
-    <h1 class="text-2xl font-bold mb-4">Message Archive</h1>
+  <div class="space-y-6">
+    <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Message Archive</h1>
 
-    <!-- Import -->
-    <div class="mb-6 border p-4 rounded shadow">
-      <h2 class="text-xl font-semibold mb-2">Import Messages</h2>
+    <!-- Import Section -->
+    <section class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
+      <h2 class="text-xl font-semibold mb-4">Import Messages</h2>
+
       <FileUpload
           mode="basic"
           name="file"
@@ -13,42 +14,34 @@
           auto
           customUpload
           @uploader="onFileUpload"
-          class="mb-3"
+          class="mb-4"
       />
-      <PrimeMessage v-if="importMessage" severity="success" :closable="false">
+
+      <PrimeMessage
+          v-if="importMessage"
+          severity="success"
+          :closable="false"
+      >
         {{ importMessage }}
       </PrimeMessage>
-    </div>
+    </section>
 
-    <!-- Search -->
-    <div class="border p-4 rounded shadow">
-      <h2 class="text-xl font-semibold mb-2">Search Messages</h2>
+    <!-- Search Section -->
+    <section class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
+      <h2 class="text-xl font-semibold mb-4">Search Messages</h2>
 
-      <div class="flex space-x-2 mb-3">
-        <InputText
-            v-model="query"
-            placeholder="Search text..."
-            class="flex-1"
-        />
-        <Button
-            label="Search"
-            icon="pi pi-search"
-            severity="success"
-            @click="searchMessages"
-        />
+      <div class="flex flex-col sm:flex-row gap-3 mb-4">
+        <InputText v-model="query" placeholder="Search text..." class="flex-1" />
+        <Button label="Search" icon="pi pi-search" severity="success" @click="searchMessages" />
       </div>
 
       <DataTable v-if="results.length" :value="results" responsiveLayout="scroll">
-        <Column field="protocol" header="Type"></Column>
-        <Column field="sender" header="Sender"></Column>
-        <Column field="recipient" header="Recipient"></Column>
-        <Column field="body" header="Message"></Column>
-        <Column field="contactName" header="Contact"></Column>
-        <Column
-            field="timestamp"
-            header="Date"
-            :body="(row: Msg) => new Date(row.timestamp).toLocaleString()"
-        ></Column>
+        <Column field="protocol" header="Type" />
+        <Column field="sender" header="Sender" />
+        <Column field="recipient" header="Recipient" />
+        <Column field="body" header="Message" />
+        <Column field="contactName" header="Contact" />
+        <Column field="timestamp" header="Date" :body="(row: Msg) => new Date(row.timestamp).toLocaleString()" />
       </DataTable>
 
       <PrimeMessage
@@ -59,9 +52,10 @@
       >
         No results found.
       </PrimeMessage>
-    </div>
+    </section>
   </div>
 </template>
+
 
 <script setup lang="ts">
 import { ref } from "vue";
