@@ -1,10 +1,14 @@
 <template>
   <div class="flex h-screen bg-gray-100 dark:bg-slate-950 text-gray-900 dark:text-gray-100">
-    <!-- Left panel: contacts list -->
+    <!-- Contacts panel -->
     <aside class="w-1/3 max-w-sm border-r border-gray-200 dark:border-slate-700 bg-gray-50/90 dark:bg-slate-900/70 backdrop-blur p-4 overflow-y-auto">
       <h2 class="text-lg font-semibold mb-4 tracking-tight text-gray-700 dark:text-gray-200">
         Contacts
       </h2>
+
+      <div v-if="contactsLoading" class="text-sm text-gray-500 dark:text-gray-400">Loading contacts...</div>
+      <div v-else-if="contactsError" class="text-sm text-red-600 dark:text-red-400">{{ contactsError }}</div>
+      <div v-else-if="!contacts.length" class="text-sm text-gray-500 dark:text-gray-400">No contacts.</div>
 
       <div
           v-for="contact in contacts"
@@ -45,23 +49,23 @@
         <p
             class="text-xs truncate"
             :class="selectedContact?.contactName === contact.contactName
-              ? 'text-blue-50/90'
-              : 'text-gray-600 dark:text-gray-400'"
+            ? 'text-blue-50/90'
+            : 'text-gray-600 dark:text-gray-400'"
         >
           {{ contact.lastMessagePreview }}
         </p>
         <p
             class="text-[10px] uppercase tracking-wide"
             :class="selectedContact?.contactName === contact.contactName
-              ? 'text-blue-100/70'
-              : 'text-gray-400 dark:text-gray-500'"
+            ? 'text-blue-100/70'
+            : 'text-gray-400 dark:text-gray-500'"
         >
-          {{ new Date(contact.lastMessageTimestamp).toLocaleString() }}
+          {{ formatDate(contact.lastMessageTimestamp) }}
         </p>
       </div>
     </aside>
 
-    <!-- Right panel: conversation -->
+    <!-- Conversation panel -->
     <main class="flex-1 flex flex-col p-4 overflow-y-auto bg-white/70 dark:bg-slate-900/60 backdrop-blur">
       <h2 class="text-lg font-semibold mb-4 tracking-tight text-gray-700 dark:text-gray-200">
         Conversation with
@@ -70,23 +74,25 @@
         </span>
       </h2>
 
-      <div
-          v-if="messages.length === 0"
-          class="mt-8 text-sm text-gray-500 dark:text-gray-500 italic"
-      >
+      <div v-if="messagesLoading" class="text-sm text-gray-500 dark:text-gray-400">Loading messages...</div>
+      <div v-else-if="messagesError" class="text-sm text-red-600 dark:text-red-400">{{ messagesError }}</div>
+      <div v-else-if="!selectedContact" class="mt-8 text-sm text-gray-500 dark:text-gray-500 italic">
         Select a contact to view conversation.
+      </div>
+      <div v-else-if="!messages.length" class="text-sm text-gray-500 dark:text-gray-400">
+        No messages.
       </div>
 
       <div
           v-for="msg in messages"
           :key="msg.id"
           class="mb-3 flex flex-col"
-          :class="msg.sender === 'Me' ? 'items-end' : 'items-start'"
+          :class="msg.isMe ? 'items-end' : 'items-start'"
       >
         <div
             :class="[
             'max-w-[78%] rounded-lg px-3 py-2 shadow-sm text-sm leading-snug',
-            msg.sender === 'Me'
+            msg.isMe
               ? 'bg-blue-600 dark:bg-blue-500 text-white'
               : 'bg-gray-200 text-gray-900 dark:bg-slate-700 dark:text-gray-100'
           ]"
@@ -95,11 +101,11 @@
         </div>
         <span
             class="mt-1 text-[10px] tracking-wide uppercase"
-            :class="msg.sender === 'Me'
-              ? 'text-blue-400/80 dark:text-blue-300/70'
-              : 'text-gray-400 dark:text-gray-500'"
+            :class="msg.isMe
+            ? 'text-blue-400/80 dark:text-blue-300/70'
+            : 'text-gray-400 dark:text-gray-500'"
         >
-          {{ new Date(msg.timestamp).toLocaleTimeString() }}
+          {{ formatTime(msg.timestamp) }}
         </span>
       </div>
     </main>
@@ -107,54 +113,67 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+import {
+  getAllContactSummaries,
+  getMessagesByContactId,
+  type ContactSummary as ApiContactSummary,
+  type Message as ApiMessage,
+  type PagedResponse
+} from '../services/api';
 
-interface ContactSummary {
-  contactName: string;
-  lastMessageTimestamp: string;
-  lastMessagePreview: string;
-  hasImage: boolean;
-}
-
-interface Message {
+interface UiMessage {
   id: number;
-  sender: string;
   body: string;
   timestamp: string;
+  isMe: boolean;
 }
 
-const contacts = ref<ContactSummary[]>([
-  {
-    contactName: 'Austin Bostic',
-    lastMessageTimestamp: new Date().toISOString(),
-    lastMessagePreview: 'Yeah take the time you need for sure.',
-    hasImage: false
-  },
-  {
-    contactName: 'Jane Doe',
-    lastMessageTimestamp: new Date().toISOString(),
-    lastMessagePreview: 'See you tomorrow!',
-    hasImage: true
-  },
-  {
-    contactName: 'John Smith',
-    lastMessageTimestamp: new Date().toISOString(),
-    lastMessagePreview: 'Got it, thanks!',
-    hasImage: false
+const contacts = ref<ApiContactSummary[]>([]);
+const contactsLoading = ref(true);
+const contactsError = ref('');
+
+const selectedContact = ref<ApiContactSummary | null>(null);
+
+const messages = ref<UiMessage[]>([]);
+const messagesLoading = ref(false);
+const messagesError = ref('');
+
+onMounted(async () => {
+  try {
+    contacts.value = await getAllContactSummaries();
+  } catch (e: any) {
+    contactsError.value = e?.message || 'Failed to load contacts';
+  } finally {
+    contactsLoading.value = false;
   }
-]);
+});
 
-const selectedContact = ref<ContactSummary | null>(null);
-const messages = ref<Message[]>([]);
-
-function selectContact(contact: ContactSummary) {
-  if (selectedContact.value?.contactName === contact.contactName) return;
+async function selectContact(contact: ApiContactSummary) {
+  if (selectedContact.value?.contactId === contact.contactId) return;
   selectedContact.value = contact;
-  messages.value = [
-    { id: 1, sender: 'Me', body: 'Hey, how’s it going?', timestamp: new Date().toISOString() },
-    { id: 2, sender: contact.contactName, body: 'Pretty good! You?', timestamp: new Date().toISOString() },
-    { id: 3, sender: 'Me', body: 'All good. Did you see the pics from last weekend?', timestamp: new Date().toISOString() },
-    { id: 4, sender: contact.contactName, body: 'Yes! They were amazing.', timestamp: new Date().toISOString() }
-  ];
+  messages.value = [];
+  messagesError.value = '';
+  messagesLoading.value = true;
+  try {
+    const paged: PagedResponse<ApiMessage> = await getMessagesByContactId(contact.contactId, 0, 100, 'desc');
+    messages.value = paged.content.map(m => ({
+      id: m.id,
+      body: m.body && m.body.trim().length ? m.body : '[media]',
+      timestamp: m.timestamp,
+      isMe: (m.sender?.toLowerCase?.() === 'me')
+    }));
+  } catch (e: any) {
+    messagesError.value = e?.message || 'Failed to load messages';
+  } finally {
+    messagesLoading.value = false;
+  }
+}
+
+function formatDate(iso: string) {
+  return iso ? new Date(iso).toLocaleString() : '';
+}
+function formatTime(iso: string) {
+  return iso ? new Date(iso).toLocaleTimeString() : '';
 }
 </script>

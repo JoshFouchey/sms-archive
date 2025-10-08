@@ -1,52 +1,60 @@
-    // MessageRepository.java
-    package com.joshfouchey.smsarchive.repository;
+package com.joshfouchey.smsarchive.repository;
 
-    import com.joshfouchey.smsarchive.dto.ContactSummaryDto;
-    import com.joshfouchey.smsarchive.model.Message;
-    import org.springframework.data.jpa.repository.JpaRepository;
-    import org.springframework.data.jpa.repository.Query;
+import com.joshfouchey.smsarchive.dto.ContactSummaryDto;
+import com.joshfouchey.smsarchive.model.Message;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
-    import java.time.Instant;
-    import java.util.List;
+import java.time.Instant;
+import java.util.List;
 
-    public interface MessageRepository extends JpaRepository<Message, Long> {
+public interface MessageRepository extends JpaRepository<Message, Long> {
 
-        // Search sender (formerly "address")
-        List<Message> findBySenderContainingIgnoreCase(String sender);
+    List<Message> findBySenderContainingIgnoreCase(String sender);
 
-        // Search recipient
-        List<Message> findByRecipientContainingIgnoreCase(String recipient);
+    List<Message> findByRecipientContainingIgnoreCase(String recipient);
 
-        // Search body text
-        @Query("select m from Message m where lower(m.body) like lower(concat('%', :text, '%'))")
-        List<Message> searchByText(String text);
+    @Query("select m from Message m where lower(m.body) like lower(concat('%', :text, '%'))")
+    List<Message> searchByText(String text);
 
-        // Time range search (formerly "date")
-        List<Message> findByTimestampBetween(Instant start, Instant end);
+    List<Message> findByTimestampBetween(Instant start, Instant end);
 
-        @Query("""
-        SELECT new com.joshfouchey.smsarchive.dto.ContactSummaryDto(
-            m.contactName,
-            MAX(m.timestamp),
-            SUBSTRING(
-                (SELECT m2.body FROM Message m2
-                 WHERE m2.contactName = m.contactName
-                 ORDER BY m2.timestamp DESC LIMIT 1),
-            1, 200),
-            EXISTS (
-                SELECT p.id FROM MessagePart p
-                WHERE p.message = (
-                    SELECT m3 FROM Message m3
-                    WHERE m3.contactName = m.contactName
-                    ORDER BY m3.timestamp DESC LIMIT 1
-                )
-                AND p.contentType LIKE 'image/%'
-            )
+    // Page messages for a contact
+    Page<Message> findByContactId(Long contactId, Pageable pageable);
+
+    // Java
+    @Query("""
+SELECT new com.joshfouchey.smsarchive.dto.ContactSummaryDto(
+    c.id,
+    COALESCE(c.name, c.number),
+    MAX(m.timestamp),
+    MAX(
+        CASE WHEN m.timestamp = (
+            SELECT MAX(m2.timestamp) FROM Message m2 WHERE m2.contact = c
         )
-        FROM Message m
-        WHERE m.contactName IS NOT NULL
-        GROUP BY m.contactName
-        ORDER BY MAX(m.timestamp) DESC
-    """)
-        List<ContactSummaryDto> findAllContactSummaries();
-    }
+        THEN SUBSTRING(COALESCE(m.body, ''), 1, 200)
+        ELSE NULL END
+    ),
+    MAX(
+        CASE WHEN m.timestamp = (
+            SELECT MAX(m3.timestamp) FROM Message m3 WHERE m3.contact = c
+        )
+        AND EXISTS (
+            SELECT 1 FROM MessagePart p
+            WHERE p.message = m
+              AND p.contentType LIKE 'image/%'
+        )
+        THEN 1 ELSE 0 END
+    ) = 1
+)
+FROM Message m
+JOIN m.contact c
+GROUP BY c.id, c.name
+ORDER BY MAX(m.timestamp) DESC
+""")
+    List<ContactSummaryDto> findAllContactSummaries();
+
+
+}
