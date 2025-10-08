@@ -41,7 +41,11 @@
         <Column field="recipient" header="Recipient" />
         <Column field="body" header="Message" />
         <Column field="contactName" header="Contact" />
-        <Column field="timestamp" header="Date" :body="(row: Msg) => new Date(row.timestamp).toLocaleString()" />
+        <Column field="timestamp" header="Date">
+          <template #body="{ data }">
+            {{ formatTimestamp(data) }}
+          </template>
+        </Column>
       </DataTable>
 
       <PrimeMessage
@@ -56,12 +60,11 @@
   </div>
 </template>
 
-
 <script setup lang="ts">
 import { ref } from "vue";
-import { importXml, searchByText, Message as Msg } from "../services/api";
+import { importXml, searchByText } from "../services/api";
+import type { Message as Msg } from "../services/api";
 
-// PrimeVue components
 import FileUpload from "primevue/fileupload";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
@@ -75,32 +78,34 @@ const searched = ref(false);
 const importMessage = ref("");
 
 async function onFileUpload(event: any) {
-  const file = event.files[0];
+  const file = event.files?.[0];
   if (!file) return;
-
   try {
     const res = await importXml(file);
-    importMessage.value = res.ok
-        ? "Messages imported successfully!"
-        : "Import failed.";
-  } catch (err) {
-    console.error(err);
+    importMessage.value = res.ok ? "Messages imported successfully!" : "Import failed.";
+  } catch {
     importMessage.value = "Error during import.";
   }
 }
 
 async function searchMessages() {
-  if (!query.value) return;
-
-  try {
-    results.value = Array.isArray(await searchByText(query.value))
-        ? await searchByText(query.value)
-        : [];
-    searched.value = true;
-  } catch (err) {
-    console.error(err);
+  const q = query.value.trim();
+  if (!q) {
     results.value = [];
+    searched.value = false;
+    return;
+  }
+  try {
+    const data = await searchByText(q);
+    results.value = Array.isArray(data) ? data : [];
+  } catch {
+    results.value = [];
+  } finally {
     searched.value = true;
   }
+}
+
+function formatTimestamp(row: Msg) {
+  return row?.timestamp ? new Date(row.timestamp).toLocaleString() : "";
 }
 </script>
