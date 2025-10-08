@@ -1,208 +1,204 @@
-// ImportService.java
 package com.joshfouchey.smsarchive.service;
 
-import com.joshfouchey.smsarchive.model.Message;
-import com.joshfouchey.smsarchive.model.MessagePart;
+import com.joshfouchey.smsarchive.model.*;
+import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
-import lombok.extern.slf4j.Slf4j; // Using Lombok for logging is a good practice
-import org.springframework.stereotype.Service;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
+import lombok.extern.slf4j.Slf4j;
 import net.coobird.thumbnailator.Thumbnails;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Base64;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import javax.xml.parsers.DocumentBuilder;
+import org.springframework.stereotype.Service;
+import org.w3c.dom.*;
+
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
 import java.time.Instant;
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
+import org.xml.sax.SAXException;
 
 @Slf4j
 @Service
 public class ImportService {
 
     private static final Path MEDIA_ROOT = Paths.get("media/messages");
+
     private static final String SENDER_ME = "me";
-    private static final String ADDR_TYPE_FROM = "137"; // Sender
-    private static final String ADDR_TYPE_TO = "151";   // Recipient
+    private static final String ADDR_TYPE_FROM = "137";
+    private static final String ADDR_TYPE_TO = "151";
     private static final int MSG_BOX_INBOX = 1;
     private static final int MSG_BOX_SENT = 2;
 
     private final MessageRepository messageRepo;
+    private final ContactRepository contactRepo;
 
-    public ImportService(MessageRepository messageRepo) {
+    // cache normalizedNumber -> Contact
+    private final Map<String, Contact> contactCache = new ConcurrentHashMap<>();
+
+    public ImportService(MessageRepository messageRepo,
+                         ContactRepository contactRepo) {
         this.messageRepo = messageRepo;
+        this.contactRepo = contactRepo;
     }
 
-    /**
-     * Imports SMS, MMS, and RCS messages from an XML backup file.
-     */
-    public int importFromXml(File xmlFile) throws ParserConfigurationException, IOException, SAXException {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder = factory.newDocumentBuilder();
-        Document doc = builder.parse(xmlFile);
+    public int importFromXml(File xmlFile) throws ParserConfigurationException, SAXException, java.io.IOException {
+        Document doc = DocumentBuilderFactory.newInstance()
+                .newDocumentBuilder()
+                .parse(xmlFile);
         doc.getDocumentElement().normalize();
 
-        List<Message> allMessages = new ArrayList<>();
-        allMessages.addAll(processSmsNodes(doc.getElementsByTagName("sms")));
-        allMessages.addAll(processMultipartNodes(doc.getElementsByTagName("mms"), "MMS"));
-        allMessages.addAll(processMultipartNodes(doc.getElementsByTagName("rcs"), "RCS"));
+        List<Message> all = new ArrayList<>();
+        all.addAll(processSmsNodes(doc.getElementsByTagName("sms")));
+        all.addAll(processMultipartNodes(doc.getElementsByTagName("mms"), MessageProtocol.MMS));
+        all.addAll(processMultipartNodes(doc.getElementsByTagName("rcs"), MessageProtocol.RCS));
 
-        if (!allMessages.isEmpty()) {
-            messageRepo.saveAll(allMessages);
+        if (!all.isEmpty()) {
+            messageRepo.saveAll(all);
         }
-
-        return allMessages.size();
+        return all.size();
     }
 
-    /**
-     * Processes all <sms> nodes from the XML document.
-     */
-    private List<Message> processSmsNodes(NodeList smsNodes) {
-        return nodeListToStream(smsNodes)
+    /* ---------- SMS ---------- */
+    private List<Message> processSmsNodes(NodeList nodes) {
+        return nodeListToStream(nodes)
                 .map(el -> {
                     Message msg = new Message();
-                    msg.setProtocol("SMS");
-                    msg.setTimestamp(Instant.ofEpochMilli(Long.parseLong(el.getAttribute("date"))));
-                    msg.setContactName(el.getAttribute("contact_name"));
+                    msg.setProtocol(MessageProtocol.SMS);
+                    msg.setTimestamp(parseInstant(el.getAttribute("date")));
                     msg.setBody(el.getAttribute("body"));
 
-                    int msgBox = Integer.parseInt(el.getAttribute("type"));
-                    msg.setMsgBox(msgBox);
+                    int box = parseInt(el.getAttribute("type"), 0);
+                    msg.setMsgBox(box);
+                    msg.setDirection(box == MSG_BOX_INBOX ? MessageDirection.INBOUND : MessageDirection.OUTBOUND);
 
                     String address = el.getAttribute("address");
-                    if (msgBox == MSG_BOX_INBOX) {
+                    if (msg.getDirection() == MessageDirection.INBOUND) {
                         msg.setSender(address);
                         msg.setRecipient(SENDER_ME);
-                    } else if (msgBox == MSG_BOX_SENT) {
+                    } else {
                         msg.setSender(SENDER_ME);
                         msg.setRecipient(address);
-                    } else {
-                        msg.setSender(address);
-                        msg.setRecipient(null); // Or some other default
                     }
+
+                    // Contact resolution
+                    String rawName = nullIfBlank(el.getAttribute("contact_name"));
+                    String counterparty = (msg.getDirection() == MessageDirection.INBOUND) ? msg.getSender() : msg.getRecipient();
+                    Contact contact = resolveContact(counterparty, rawName);
+                    msg.setContact(contact);
+
                     return msg;
                 })
-                .collect(Collectors.toList());
+                .toList();
     }
 
-    /**
-     * Processes all multipart message nodes (<mms> or <rcs>).
-     * This method abstracts the shared logic between MMS and RCS processing.
-     */
-    private List<Message> processMultipartNodes(NodeList multipartNodes, String protocol) {
-        return nodeListToStream(multipartNodes)
+    /* ---------- MMS / RCS ---------- */
+    private List<Message> processMultipartNodes(NodeList nodes, MessageProtocol protocol) {
+        return nodeListToStream(nodes)
                 .map(el -> {
                     Message msg = new Message();
                     msg.setProtocol(protocol);
-                    msg.setTimestamp(Instant.ofEpochMilli(Long.parseLong(el.getAttribute("date"))));
-                    msg.setContactName(el.getAttribute("contact_name"));
+                    msg.setTimestamp(parseInstant(el.getAttribute("date")));
+                    int box = parseInt(el.getAttribute("msg_box"), 0);
+                    msg.setMsgBox(box);
+                    msg.setDirection(box == MSG_BOX_INBOX ? MessageDirection.INBOUND : MessageDirection.OUTBOUND);
 
-                    int msgBox = Integer.parseInt(el.getAttribute("msg_box"));
-                    msg.setMsgBox(msgBox);
-
-                    AddressInfo addresses = parseAddresses(el, msgBox);
-                    msg.setSender(addresses.sender());
-                    msg.setRecipient(addresses.recipient());
+                    AddressInfo a = parseAddresses(el, box);
+                    msg.setSender(a.sender());
+                    msg.setRecipient(a.recipients());
 
                     processParts(el, msg);
 
-                    // RCS can have a 'body' attribute as a fallback
-                    if ("RCS".equals(protocol) && (msg.getBody() == null || msg.getBody().isEmpty())) {
-                        msg.setBody(el.getAttribute("body"));
+                    if (protocol == MessageProtocol.RCS &&
+                            (msg.getBody() == null || msg.getBody().isBlank())) {
+                        msg.setBody(nullIfBlank(el.getAttribute("body")));
                     }
+
+                    String rawName = nullIfBlank(el.getAttribute("contact_name"));
+                    String counterparty = pickCounterparty(msg);
+                    Contact contact = resolveContact(counterparty, rawName);
+                    msg.setContact(contact);
 
                     return msg;
                 })
-                .collect(Collectors.toList());
+                .toList();
     }
 
-    /**
-     * Parses the <addr> sub-elements to determine sender and recipients.
-     */
-    private AddressInfo parseAddresses(Element parent, int msgBox) {
-        String sender = null;
-        List<String> recipients = new ArrayList<>();
-
-        NodeList addrNodes = parent.getElementsByTagName("addr");
-        for (int i = 0; i < addrNodes.getLength(); i++) {
-            Element addrEl = (Element) addrNodes.item(i);
-            String type = addrEl.getAttribute("type");
-            String address = addrEl.getAttribute("address");
-
-            if (ADDR_TYPE_FROM.equals(type)) {
-                sender = address; // This is now perfectly valid
-            } else if (ADDR_TYPE_TO.equals(type)) {
-                recipients.add(address);
-            }
+    /* ---------- Contact Resolution ---------- */
+    private Contact resolveContact(String rawNumber, String suggestedName) {
+        if (rawNumber == null || rawNumber.isBlank()) {
+            // Single synthetic bucket for unknown
+            return contactCache.computeIfAbsent("__unknown__", k ->
+                    contactRepo.findByNormalizedNumber("__unknown__")
+                            .orElseGet(() -> contactRepo.save(Contact.builder()
+                                    .number("unknown")
+                                    .normalizedNumber("__unknown__")
+                                    .name(suggestedName)
+                                    .build())));
         }
-
-        String finalSender = sender;
-        String finalRecipients = String.join(",", recipients);
-
-        if (msgBox == MSG_BOX_SENT) {
-            finalSender = SENDER_ME;
-        } else if (msgBox == MSG_BOX_INBOX) {
-            finalRecipients = SENDER_ME;
-        }
-
-        return new AddressInfo(finalSender, finalRecipients);
+        String normalized = normalizeNumber(rawNumber);
+        return contactCache.computeIfAbsent(normalized, n ->
+                contactRepo.findByNormalizedNumber(n)
+                        .orElseGet(() -> contactRepo.save(Contact.builder()
+                                .number(rawNumber)
+                                .normalizedNumber(normalized)
+                                .name(suggestedName)
+                                .build())));
     }
 
-    /**
-     * Processes the <part> sub-elements of a multipart message.
-     * This handles text aggregation and saving media attachments.
-     */
+    private String normalizeNumber(String num) {
+        String digits = num == null ? "" : num.replaceAll("[^0-9]", "");
+        if (digits.length() == 11 && digits.startsWith("1")) {
+            digits = digits.substring(1);
+        }
+        return digits;
+    }
+
+    private String pickCounterparty(Message msg) {
+        if (msg.getDirection() == MessageDirection.INBOUND) {
+            return msg.getSender();
+        }
+        if (msg.getRecipient() == null) return null;
+        return Arrays.stream(msg.getRecipient().split(","))
+                .map(String::trim)
+                .filter(s -> !s.equalsIgnoreCase(SENDER_ME) && !s.isBlank())
+                .findFirst()
+                .orElse(null);
+    }
+
+    /* ---------- Parts / Media ---------- */
     private void processParts(Element parent, Message msg) {
         List<MessagePart> parts = new ArrayList<>();
-        List<Map<String, Object>> mediaList = new ArrayList<>();
-        StringBuilder textAggregate = new StringBuilder();
+        List<Map<String, Object>> mediaParts = new ArrayList<>();
+        StringBuilder textAgg = new StringBuilder();
 
         NodeList partNodes = parent.getElementsByTagName("part");
         for (int i = 0; i < partNodes.getLength(); i++) {
             Element partEl = (Element) partNodes.item(i);
-            String contentType = partEl.getAttribute("ct");
+            String ct = partEl.getAttribute("ct");
 
             MessagePart part = new MessagePart();
-            part.setContentType(contentType);
-            part.setName(partEl.getAttribute("name"));
-            part.setSeq(i);
             part.setMessage(msg);
+            part.setSeq(i);
+            part.setContentType(ct);
+            part.setName(nullIfBlank(partEl.getAttribute("name")));
+            part.setText(nullIfBlank(partEl.getAttribute("text")));
 
-            String text = partEl.getAttribute("text");
-            if ("text/plain".equals(contentType) && text != null && !text.isEmpty()) {
-                part.setText(text);
-                textAggregate.append(text).append(" ");
+            if (part.getText() != null && "text/plain".equalsIgnoreCase(ct)) {
+                textAgg.append(part.getText()).append(' ');
             }
 
             String data = partEl.getAttribute("data");
-            if (data != null && !data.isEmpty()) {
-                saveMediaPart(data, part).ifPresent(filePath -> {
-                    part.setFilePath(filePath);
-
-                    // Collect metadata for media parts
-                    if (!"text/plain".equals(contentType) && !"application/smil".equals(contentType)) {
-                        mediaList.add(Map.of(
-                                "contentType", contentType,
-                                "name", part.getName(),
+            if (data != null && !data.isBlank()) {
+                saveMediaPart(data, part).ifPresent(path -> {
+                    part.setFilePath(path);
+                    if (!"text/plain".equalsIgnoreCase(ct) && !"application/smil".equalsIgnoreCase(ct)) {
+                        mediaParts.add(Map.of(
                                 "seq", part.getSeq(),
-                                "filePath", filePath
+                                "contentType", ct,
+                                "name", part.getName(),
+                                "filePath", part.getFilePath()
                         ));
                     }
                 });
@@ -210,86 +206,47 @@ public class ImportService {
             parts.add(part);
         }
 
-        if (textAggregate.length() > 0) {
-            msg.setBody(textAggregate.toString().trim());
+        if (textAgg.length() > 0 && (msg.getBody() == null || msg.getBody().isBlank())) {
+            msg.setBody(textAgg.toString().trim());
         }
-        if (!mediaList.isEmpty()) {
-            msg.setMedia(Map.of("parts", mediaList));
+        if (!mediaParts.isEmpty()) {
+            msg.setMedia(Map.of("parts", mediaParts));
         }
         msg.setParts(parts);
     }
 
-    /**
-     * Decodes Base64 data and saves it to a file, returning the file path.
-     */
-    private Optional<String> saveMediaPart(String base64Data, MessagePart part) {
-        final List<String> SUPPORTED_THUMBNAIL_TYPES = List.of(
-                "image/jpeg", "image/jpg", "image/png", "image/gif", "image/bmp"
-        );
-
+    private Optional<String> saveMediaPart(String base64, MessagePart part) {
+        final Set<String> THUMB_TYPES = Set.of("image/jpeg","image/jpg","image/png","image/gif","image/bmp");
         try {
-            // --- 1. Prepare directory ---
-            String folderName = Optional.ofNullable(part.getMessage().getId())
+            String folder = Optional.ofNullable(part.getMessage().getId())
                     .map(Object::toString)
                     .orElse(UUID.randomUUID().toString());
+            Path dir = MEDIA_ROOT.resolve(folder);
+            Files.createDirectories(dir);
 
-            Path msgDir = MEDIA_ROOT.resolve(folderName);
-            Files.createDirectories(msgDir);
-
-            // --- 2. Save original file ---
             String ext = guessExtension(part.getContentType(), part.getName());
-            Path originalFile = msgDir.resolve("part" + part.getSeq() + ext);
-            byte[] bytes = Base64.getDecoder().decode(base64Data);
-            Files.write(originalFile, bytes);
+            Path original = dir.resolve("part" + part.getSeq() + ext);
+            Files.write(original, Base64.getDecoder().decode(base64));
 
-            part.setFilePath(originalFile.toString());
-
-            // --- 3. Determine thumbnail path (no schema change required) ---
-            Path thumbFile = msgDir.resolve("part" + part.getSeq() + "_thumb.jpg");
-
-            if (SUPPORTED_THUMBNAIL_TYPES.contains(part.getContentType().toLowerCase())) {
-                // --- 4. Create thumbnail with Thumbnailator ---
+            if (THUMB_TYPES.contains(part.getContentType().toLowerCase())) {
                 try {
-                    Thumbnails.of(originalFile.toFile())
+                    Thumbnails.of(original.toFile())
                             .size(400, 400)
                             .outputFormat("jpg")
-                            .outputQuality(0.8)
-                            .toFile(thumbFile.toFile());
-
-                    log.info("✅ Created thumbnail: {}", thumbFile);
+                            .outputQuality(0.80)
+                            .toFile(dir.resolve("part" + part.getSeq() + "_thumb.jpg").toFile());
                 } catch (Exception e) {
-                    log.warn("⚠️ Failed to create thumbnail for {}. Using original image.", originalFile.getFileName(), e);
-                    thumbFile = originalFile; // fallback to original
+                    log.warn("Thumbnail failed: {}", original, e);
                 }
-            } else {
-                // Unsupported format (HEIC, etc.)
-                log.debug("Skipping thumbnail for unsupported format: {}", part.getContentType());
-                thumbFile = originalFile;
             }
-
-            // --- 5. Store or infer thumbnail path ---
-            // Option 1: Store directly in DB if `thumbnailPath` exists
-            // part.setThumbnailPath(thumbFile.toString());
-
-            // Option 2: Don’t change schema, infer it on demand:
-            // return Optional.of(originalFile.toString());
-
-            return Optional.of(originalFile.toString());
-
+            return Optional.of(original.toString());
         } catch (Exception e) {
-            log.error("❌ Failed to save media part", e);
+            log.error("Media save failed", e);
             return Optional.empty();
         }
     }
 
-    /**
-     * A simple data carrier for sender/recipient info. A Java Record is perfect for this.
-     */
-    private record AddressInfo(String sender, String recipient) {}
-
-    /**
-     * Utility to convert a NodeList to a modern Java Stream of Elements.
-     */
+    /* ---------- Helpers ---------- */
     private Stream<Element> nodeListToStream(NodeList list) {
         return IntStream.range(0, list.getLength())
                 .mapToObj(list::item)
@@ -297,50 +254,78 @@ public class ImportService {
                 .map(Element.class::cast);
     }
 
-    /**
-     * Guesses a file extension based on content type or filename.
-     * Refactored to use a Map for better organization.
-     */
-    private static final Map<String, String> CONTENT_TYPE_TO_EXTENSION_MAP = Map.ofEntries(
-            // --- Images ---
-            Map.entry("image/jpeg", ".jpg"),
-            Map.entry("image/jpg", ".jpg"),
-            Map.entry("image/png", ".png"),
-            Map.entry("image/gif", ".gif"),
-            Map.entry("image/webp", ".webp"),
-            Map.entry("image/bmp", ".bmp"),
-            Map.entry("image/heic", ".heic"), // High Efficiency Image Format (Apple)
-            Map.entry("image/heif", ".heif"),
+    private Instant parseInstant(String ms) {
+        try {
+            return Instant.ofEpochMilli(Long.parseLong(ms));
+        } catch (Exception e) {
+            return Instant.now();
+        }
+    }
 
-            // --- Video ---
-            Map.entry("video/mp4", ".mp4"),
-            Map.entry("video/3gpp", ".3gp"), // Common for MMS
-            Map.entry("video/quicktime", ".mov"), // Common from iPhones
-            Map.entry("video/webm", ".webm"),
+    private int parseInt(String v, int def) {
+        try {
+            return Integer.parseInt(v);
+        } catch (Exception e) {
+            return def;
+        }
+    }
 
-            // --- Audio ---
-            Map.entry("audio/mpeg", ".mp3"),
-            Map.entry("audio/amr", ".amr"), // Adaptive Multi-Rate (Voice notes)
-            Map.entry("audio/ogg", ".ogg"),
-            Map.entry("audio/mp4", ".m4a"), // M4A is an audio-only MP4
-            Map.entry("audio/wav", ".wav"),
+    private String nullIfBlank(String s) {
+        return (s == null || s.isBlank()) ? null : s;
+    }
 
-            // --- Other Common Files ---
-            Map.entry("application/pdf", ".pdf"),
-            Map.entry("text/vcard", ".vcf"), // Virtual Contact File
-            Map.entry("text/x-vcard", ".vcf")
+    private record AddressInfo(String sender, String recipients) {}
+
+    private AddressInfo parseAddresses(Element parent, int msgBox) {
+        String sender = null;
+        List<String> recipients = new ArrayList<>();
+        NodeList addrNodes = parent.getElementsByTagName("addr");
+        for (int i = 0; i < addrNodes.getLength(); i++) {
+            Element addrEl = (Element) addrNodes.item(i);
+            String type = addrEl.getAttribute("type");
+            String address = addrEl.getAttribute("address");
+            if (ADDR_TYPE_FROM.equals(type)) sender = address;
+            else if (ADDR_TYPE_TO.equals(type)) recipients.add(address);
+        }
+        if (msgBox == MSG_BOX_SENT) {
+            sender = SENDER_ME;
+        } else if (msgBox == MSG_BOX_INBOX) {
+            recipients = List.of(SENDER_ME);
+        }
+        return new AddressInfo(sender, String.join(",", recipients));
+    }
+
+    private static final Map<String,String> CONTENT_TYPE_TO_EXTENSION = Map.ofEntries(
+            Map.entry("image/jpeg",".jpg"),
+            Map.entry("image/jpg",".jpg"),
+            Map.entry("image/png",".png"),
+            Map.entry("image/gif",".gif"),
+            Map.entry("image/webp",".webp"),
+            Map.entry("image/bmp",".bmp"),
+            Map.entry("image/heic",".heic"),
+            Map.entry("image/heif",".heif"),
+            Map.entry("video/mp4",".mp4"),
+            Map.entry("video/3gpp",".3gp"),
+            Map.entry("video/quicktime",".mov"),
+            Map.entry("video/webm",".webm"),
+            Map.entry("audio/mpeg",".mp3"),
+            Map.entry("audio/amr",".amr"),
+            Map.entry("audio/ogg",".ogg"),
+            Map.entry("audio/mp4",".m4a"),
+            Map.entry("audio/wav",".wav"),
+            Map.entry("application/pdf",".pdf"),
+            Map.entry("text/vcard",".vcf"),
+            Map.entry("text/x-vcard",".vcf")
     );
 
     private String guessExtension(String ct, String name) {
         if (name != null) {
-            int dotIndex = name.lastIndexOf(".");
-            if (dotIndex >= 0) {
-                return name.substring(dotIndex).toLowerCase();
-            }
+            int i = name.lastIndexOf('.');
+            if (i >= 0) return name.substring(i).toLowerCase();
         }
         return Optional.ofNullable(ct)
                 .map(String::toLowerCase)
-                .map(CONTENT_TYPE_TO_EXTENSION_MAP::get)
-                .orElse(""); // Default to no extension
+                .map(CONTENT_TYPE_TO_EXTENSION::get)
+                .orElse("");
     }
 }

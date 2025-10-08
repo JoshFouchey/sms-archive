@@ -12,7 +12,13 @@ import java.util.List;
 import java.util.Map;
 
 @Entity
-@Table(name = "messages")
+@Table(name = "messages",
+        indexes = {
+                @Index(name = "ix_messages_timestamp", columnList = "timestamp"),
+                @Index(name = "ix_messages_contact", columnList = "contact_id"),
+                @Index(name = "ix_messages_sender", columnList = "sender"),
+                @Index(name = "ix_messages_recipient", columnList = "recipient")
+        })
 @Getter
 @Setter
 public class Message {
@@ -21,24 +27,63 @@ public class Message {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String protocol;      // "SMS", "MMS", "RCS"
-    private String contactName;      // "SMS", "MMS", "RCS"
-    private String sender;        // normalized sender field
-    private String recipient;     // normalized recipient field
-    private Instant timestamp;    // consistent timestamp naming
-    private Integer msgBox;       // inbox=1, sent=2, etc.
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10, nullable = false)
+    private MessageProtocol protocol;   // SMS/MMS/RCS
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10, nullable = false)
+    private MessageDirection direction; // INBOUND / OUTBOUND (derived at import)
+
+    // Original roles (retain for auditing / multi-recipient)
+    private String sender;
+    private String recipient;           // comma-separated list if multiple
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "contact_id")
+    private Contact contact;
+
+    @Column(nullable = false)
+    private Instant timestamp;
 
     @Column(columnDefinition = "text")
-    private String body;          // SMS/RCS text, or MMS caption
+    private String body;
 
+    // Optional original box code if you still want it (remove if not needed)
+    private Integer msgBox;             // nullable; omit usage if redundant
+
+    // JSON attachments summary (thumbnails, part refs, etc.)
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb")
-    private Map<String, Object> media;     // MMS parts, RCS attachments, gifs, etc.
+    private Map<String, Object> media;
 
+    // Arbitrary metadata: statuses, reactions, import raw fields, subject, group id
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb")
-    private Map<String, Object> metadata;  // delivery status, reactions, read receipts, etc.
+    private Map<String, Object> metadata;
+
+    // Delivery/read tracking (promote if you need fast querying)
+    private Instant deliveredAt;
+    private Instant readAt;
+
+    @Column(name = "created_at", updatable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at")
+    private Instant updatedAt;
 
     @OneToMany(mappedBy = "message", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MessagePart> parts = new ArrayList<>();
+
+    @PrePersist
+    void prePersist() {
+        Instant now = Instant.now();
+        createdAt = now;
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    void preUpdate() {
+        updatedAt = Instant.now();
+    }
 }

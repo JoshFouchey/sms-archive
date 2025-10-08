@@ -1,21 +1,25 @@
-// MessagePart.java
 package com.joshfouchey.smsarchive.model;
 
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+@Entity
+@Table(name = "message_parts",
+        indexes = {
+                @Index(name = "ix_message_parts_message", columnList = "message_id"),
+                @Index(name = "ix_message_parts_ct", columnList = "ct")
+        })
 @Getter
 @Setter
-@Entity
-@Table(name = "message_parts")
 public class MessagePart {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "message_id", nullable = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "message_id")
     private Message message;
 
     private Integer seq;
@@ -29,6 +33,5 @@ public class MessagePart {
     private String text;
 
     private String filePath;
-
-    // getters and setters
+    private Long sizeBytes;
 }

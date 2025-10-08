@@ -1,41 +1,53 @@
-// src/services/api.ts
+// frontend/src/services/api.ts
 const API_BASE = "http://localhost:8080";
 
 /* ==============================
    Types / Interfaces
 ============================== */
 
+export interface PagedResponse<T> {
+    content: T[];
+    page: number;
+    size: number;
+    totalElements: number;
+    totalPages: number;
+    first: boolean;
+    last: boolean;
+}
+
 export interface Message {
     id: number;
     protocol: string;
+    direction: string;
     sender: string;
     recipient?: string;
     contactName?: string;
+    contactNumber?: string;
+    contactNormalizedNumber?: string;
     timestamp: string;
     body?: string;
+    msgBox?: number;
+    deliveredAt?: string;
+    readAt?: string;
     media?: any;
     metadata?: any;
+    createdAt?: string;
+    updatedAt?: string;
     parts?: MessagePart[];
 }
 
 export interface MessagePart {
     id: number;
-    messageId: number;
-    sender: string;
-    recipient: string;
-    timestamp: number;
+    messageId?: number;      // (Server may not expose; keep optional.)
+    sender?: string;
+    recipient?: string;
+    timestamp?: number | string;
     filePath: string;
     contentType: string;
 }
 
 export interface ContactSummary {
-    contactName: string;
-    lastMessageTimestamp: string;
-    lastMessagePreview: string;
-    hasImage: boolean;
-}
-
-export interface ContactSummary {
+    contactId: number;
     contactName: string;
     lastMessageTimestamp: string;
     lastMessagePreview: string;
@@ -46,37 +58,37 @@ export interface ContactSummary {
    Contacts
 ============================== */
 
-/**
- * Fetch all contacts with their last message + timestamp
- */
-export async function getContacts(): Promise<ContactSummary[]> {
+export async function getAllContactSummaries(): Promise<ContactSummary[]> {
     const res = await fetch(`${API_BASE}/api/messages/contacts`);
     if (!res.ok) throw new Error("Failed to fetch contacts");
     return res.json();
 }
+
+/* (Optional older alias) */
+export const getContacts = getAllContactSummaries;
 
 /* ==============================
    Messages
 ============================== */
 
 /**
- * Fetch paginated messages for a contact
+ * Fetch paginated messages for a contact by ID
+ * Backend endpoint: GET /api/messages/contact/{contactId}?page=&size=&sort=(asc|desc)
  */
-export async function getMessagesByContact(
-    contactName: string,
+export async function getMessagesByContactId(
+    contactId: number,
     page: number = 0,
-    size: number = 50
-): Promise<Message[]> {
+    size: number = 50,
+    sort: "asc" | "desc" = "desc"
+): Promise<PagedResponse<Message>> {
     const params = new URLSearchParams({
-        contact: contactName,
         page: page.toString(),
         size: size.toString(),
+        sort
     });
-
-    const url = `${API_BASE}/api/messages/by-contact?${params.toString()}`;
+    const url = `${API_BASE}/api/messages/contact/${contactId}?${params.toString()}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error("Failed to load messages");
-
     return res.json();
 }
 
@@ -90,19 +102,12 @@ export async function getImages(
     size: number = 50
 ): Promise<MessagePart[]> {
     const params = new URLSearchParams();
-
-    if (contact && contact.trim().length > 0) {
-        params.append("contact", contact);
-    }
-
+    if (contact && contact.trim().length > 0) params.append("contact", contact);
     params.append("page", page.toString());
     params.append("size", size.toString());
-
     const url = `${API_BASE}/api/media/images?${params.toString()}`;
     const res = await fetch(url);
-
     if (!res.ok) throw new Error("Failed to load images");
-
     return res.json();
 }
 
@@ -118,11 +123,7 @@ export async function deleteImageById(id: number): Promise<boolean> {
 export async function importXml(file: File): Promise<Response> {
     const formData = new FormData();
     formData.append("file", file);
-
-    return fetch(`${API_BASE}/import`, {
-        method: "POST",
-        body: formData,
-    });
+    return fetch(`${API_BASE}/import`, { method: "POST", body: formData });
 }
 
 /* ==============================
@@ -146,11 +147,5 @@ export async function searchByText(text: string): Promise<Message[]> {
 
 export async function searchByDateRange(start: string, end: string): Promise<Message[]> {
     const res = await fetch(`${API_BASE}/search/dates?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
-    return res.json();
-}
-
-export async function getAllContactSummaries(): Promise<ContactSummary[]> {
-    const res = await fetch(`${API_BASE}/api/messages/contacts`);
-    if (!res.ok) throw new Error("Failed to fetch contacts");
     return res.json();
 }

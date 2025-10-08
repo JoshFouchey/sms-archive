@@ -3,18 +3,25 @@ package com.joshfouchey.smsarchive.dto;
 import java.time.Instant;
 
 public class ContactSummaryDto {
+    private Long contactId;
     private String contactName;
     private Instant lastMessageTimestamp;
     private String lastMessagePreview;
     private boolean hasImage;
 
-    public ContactSummaryDto(String contactName, Instant lastMessageTimestamp, String lastMessagePreview, boolean hasImage) {
+    public ContactSummaryDto(Long contactId,
+                             String contactName,
+                             Instant lastMessageTimestamp,
+                             String lastMessagePreview,
+                             boolean hasImage) {
+        this.contactId = contactId;
         this.contactName = contactName;
         this.lastMessageTimestamp = lastMessageTimestamp;
         this.lastMessagePreview = lastMessagePreview;
         this.hasImage = hasImage;
     }
 
+    public Long getContactId() { return contactId; }
     public String getContactName() { return contactName; }
     public Instant getLastMessageTimestamp() { return lastMessageTimestamp; }
     public String getLastMessagePreview() { return lastMessagePreview; }
