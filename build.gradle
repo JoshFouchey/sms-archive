@@ -10,7 +10,7 @@ description = 'sms-archive'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
@@ -38,9 +38,12 @@ dependencies {
     // Utils
     implementation 'commons-io:commons-io:2.15.1'
     implementation'net.coobird:thumbnailator:0.4.21'
+
     // Lombok
-    implementation 'org.projectlombok:lombok:1.18.32'
-    annotationProcessor 'org.projectlombok:lombok:1.18.32'
+    compileOnly 'org.projectlombok:lombok:1.18.42'
+    annotationProcessor 'org.projectlombok:lombok:1.18.42'
+    testCompileOnly 'org.projectlombok:lombok:1.18.42'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.42'
 
     // Test
     testImplementation("org.springframework.boot:spring-boot-starter-test:3.5.6")
