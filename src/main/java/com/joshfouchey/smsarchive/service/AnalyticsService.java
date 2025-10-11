@@ -7,7 +7,6 @@ import com.joshfouchey.smsarchive.repository.MessageRepository;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -35,14 +34,14 @@ public class AnalyticsService {
     }
 
     public List<TopContactDto> getTopContacts(int days, int limit) {
-        Instant since = Instant.now().minus(Duration.ofDays(days));
-        List<TopContactDto> all = messageRepository.findTopContactsSince(since);
+        // Always compute all-time top contacts ignoring days parameter
+        List<TopContactDto> all = messageRepository.findTopContactsSince(Instant.EPOCH);
         return all.stream().limit(limit).collect(Collectors.toList());
     }
 
     public List<MessageCountPerDayDto> getMessagesPerDay(int days) {
-        Instant since = Instant.now().minus(Duration.ofDays(days));
-        return messageRepository.countMessagesPerDaySince(since).stream()
+        // Always compute from the beginning of time (Instant.EPOCH)
+        return messageRepository.countMessagesPerDaySince(Instant.EPOCH).stream()
                 .map(p -> new MessageCountPerDayDto(
                         p.getDay_ts().toLocalDateTime().toLocalDate(),
                         p.getCount()
@@ -54,11 +53,11 @@ public class AnalyticsService {
         return contactRepository.count();
     }
 
-    @Cacheable(value = "analyticsDashboard", key = "#topContactDays + '|' + #topLimit + '|' + #perDayDays")
+    @Cacheable(value = "analyticsDashboard", key = "'ALL|' + #topLimit")
     public AnalyticsDashboardDto getDashboard(int topContactDays, int topLimit, int perDayDays) {
         AnalyticsSummaryDto summary = getSummary();
-        List<TopContactDto> top = getTopContacts(topContactDays, topLimit);
-        List<MessageCountPerDayDto> perDay = getMessagesPerDay(perDayDays);
+        List<TopContactDto> top = getTopContacts(0, topLimit);
+        List<MessageCountPerDayDto> perDay = getMessagesPerDay(0);
         return new AnalyticsDashboardDto(summary, top, perDay);
     }
 }

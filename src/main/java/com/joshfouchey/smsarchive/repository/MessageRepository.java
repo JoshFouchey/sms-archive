@@ -63,8 +63,7 @@ ORDER BY MAX(m.timestamp) DESC
 SELECT new com.joshfouchey.smsarchive.dto.TopContactDto(
   c.id,
   COALESCE(c.name, c.number),
-  COUNT(m),
-  MAX(m.timestamp)
+  COUNT(m)
 )
 FROM Message m
 JOIN m.contact c

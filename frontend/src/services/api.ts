@@ -64,7 +64,6 @@ export interface TopContactDto {
     contactId: number;
     displayName: string;
     messageCount: number;
-    lastMessageAt: string;
 }
 export interface MessageCountPerDayDto {
     day: string; // ISO date (yyyy-MM-dd)

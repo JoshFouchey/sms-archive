@@ -55,9 +55,6 @@
       <DataTable :value="dashboard.topContacts" size="small" :rows="10" :paginator="dashboard.topContacts.length > 10">
         <Column field="displayName" header="Contact" />
         <Column field="messageCount" header="Messages" />
-        <Column field="lastMessageAt" header="Last Message">
-          <template #body="{ data }">{{ formatDateTime(data.lastMessageAt) }}</template>
-        </Column>
       </DataTable>
     </Panel>
 

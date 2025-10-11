@@ -29,7 +29,7 @@ public class AnalyticsController {
 
     @GetMapping("/top-contacts")
     public List<TopContactDto> topContacts(
-            @RequestParam(defaultValue = "30") int days,
+            @RequestParam(defaultValue = "365") int days,
             @RequestParam(defaultValue = "10") int limit
     ) {
         return service.getTopContacts(days, limit);
