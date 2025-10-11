@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USER}
-    password: ${DB_PASS}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/sms_archive}
+    username: ${DB_USER:sms_user}
+    password: ${DB_PASS:sms_pass}
     driver-class-name: org.postgresql.Driver
   flyway:
     enabled: true

@@ -1,5 +1,6 @@
 spring:
   datasource:
+    # H2 fallback (overridden by Testcontainers DataSource bean in tests)
     url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
     username: sa
@@ -8,7 +9,8 @@ spring:
     hibernate:
       ddl-auto: create-drop
     show-sql: true
-  # application-test.yml
   flyway:
     enabled: false
 
+# Note: A Testcontainers PostgreSQL DataSource is provided in test scope to exercise
+# jsonb columns and native SQL; Flyway remains disabled in tests via this profile.

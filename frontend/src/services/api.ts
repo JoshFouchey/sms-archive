@@ -54,6 +54,28 @@ export interface ContactSummary {
     hasImage: boolean;
 }
 
+// Analytics DTOs
+export interface AnalyticsSummary {
+    totalContacts: number;
+    totalMessages: number;
+    totalImages: number;
+}
+export interface TopContactDto {
+    contactId: number;
+    displayName: string;
+    messageCount: number;
+    lastMessageAt: string;
+}
+export interface MessageCountPerDayDto {
+    day: string; // ISO date (yyyy-MM-dd)
+    count: number;
+}
+export interface AnalyticsDashboardDto {
+    summary: AnalyticsSummary;
+    topContacts: TopContactDto[];
+    messagesPerDay: MessageCountPerDayDto[];
+}
+
 /* ==============================
    Contacts
 ============================== */
@@ -66,6 +88,24 @@ export async function getAllContactSummaries(): Promise<ContactSummary[]> {
 
 /* (Optional older alias) */
 export const getContacts = getAllContactSummaries;
+
+/* ==============================
+   Analytics
+============================== */
+export async function getAnalyticsDashboard(params?: {
+    topContactDays?: number;
+    topLimit?: number;
+    perDayDays?: number;
+}): Promise<AnalyticsDashboardDto> {
+    const p = new URLSearchParams();
+    if (params?.topContactDays) p.append("topContactDays", String(params.topContactDays));
+    if (params?.topLimit) p.append("topLimit", String(params.topLimit));
+    if (params?.perDayDays) p.append("perDayDays", String(params.perDayDays));
+    const q = p.toString();
+    const res = await fetch(`${API_BASE}/api/analytics/dashboard${q ? `?${q}` : ""}`);
+    if (!res.ok) throw new Error("Failed to fetch analytics dashboard");
+    return res.json();
+}
 
 /* ==============================
    Messages

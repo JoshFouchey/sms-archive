@@ -22,4 +22,7 @@ public interface MessagePartRepository extends JpaRepository<MessagePart, Long> 
           AND (c.name = :contact OR c.normalizedNumber = :contact)
         """)
     Page<MessagePart> findImagesByContact(@Param("contact") String contact, Pageable pageable);
+
+    @Query("select count(p) from MessagePart p where p.contentType like 'image/%'")
+    long countImageParts();
 }

@@ -1,0 +1,20 @@
+# Gradle
+.gradle
+build/
+!gradlew
+!gradlew.bat
+
+# Node / frontend build artifacts
+frontend/node_modules
+frontend/dist
+
+# IDE
+.idea
+*.iml
+.vscode
+
+# OS / misc
+.DS_Store
+.git
+.gitignore
+media/

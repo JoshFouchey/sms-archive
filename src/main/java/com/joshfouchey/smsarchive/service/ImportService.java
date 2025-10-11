@@ -5,6 +5,7 @@ import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
 import lombok.extern.slf4j.Slf4j;
 import net.coobird.thumbnailator.Thumbnails;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.*;
 
@@ -43,21 +44,58 @@ public class ImportService {
         this.contactRepo = contactRepo;
     }
 
+    @CacheEvict(value = "analyticsDashboard", allEntries = true)
     public int importFromXml(File xmlFile) throws ParserConfigurationException, SAXException, java.io.IOException {
         Document doc = DocumentBuilderFactory.newInstance()
                 .newDocumentBuilder()
                 .parse(xmlFile);
         doc.getDocumentElement().normalize();
 
-        List<Message> all = new ArrayList<>();
-        all.addAll(processSmsNodes(doc.getElementsByTagName("sms")));
-        all.addAll(processMultipartNodes(doc.getElementsByTagName("mms"), MessageProtocol.MMS));
-        all.addAll(processMultipartNodes(doc.getElementsByTagName("rcs"), MessageProtocol.RCS));
+        int duplicateCount = 0;
+        List<Message> toPersist = new ArrayList<>();
 
-        if (!all.isEmpty()) {
-            messageRepo.saveAll(all);
+        List<Message> sms = processSmsNodes(doc.getElementsByTagName("sms"));
+        for (Message m : sms) {
+            if (isDuplicate(m)) { duplicateCount++; continue; }
+            toPersist.add(m);
         }
-        return all.size();
+        List<Message> mms = processMultipartNodes(doc.getElementsByTagName("mms"), MessageProtocol.MMS);
+        for (Message m : mms) {
+            if (isDuplicate(m)) { duplicateCount++; continue; }
+            toPersist.add(m);
+        }
+        List<Message> rcs = processMultipartNodes(doc.getElementsByTagName("rcs"), MessageProtocol.RCS);
+        for (Message m : rcs) {
+            if (isDuplicate(m)) { duplicateCount++; continue; }
+            toPersist.add(m);
+        }
+
+        if (!toPersist.isEmpty()) {
+            messageRepo.saveAll(toPersist);
+        }
+        int imported = toPersist.size();
+        if (duplicateCount > 0) {
+            log.info("Import skipped {} duplicate messages (imported: {})", duplicateCount, imported);
+        } else {
+            log.info("Import completed with {} messages imported (no duplicates)", imported);
+        }
+        return imported;
+    }
+
+    private boolean isDuplicate(Message msg) {
+        try {
+            String normalizedBody = msg.getBody() == null ? null : msg.getBody().trim();
+            return messageRepo.existsDuplicate(
+                    msg.getContact(),
+                    msg.getTimestamp(),
+                    msg.getMsgBox(),
+                    msg.getProtocol(),
+                    normalizedBody
+            );
+        } catch (Exception e) {
+            log.warn("Duplicate check failed, proceeding to insert message: {}", e.getMessage());
+            return false; // fail-open to avoid data loss
+        }
     }
 
     /* ---------- SMS ---------- */

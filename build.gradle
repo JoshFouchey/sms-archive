@@ -21,6 +21,8 @@ repositories {
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
 
     // Database & migration
     implementation "org.flywaydb:flyway-core:11.13.2"
@@ -37,7 +39,8 @@ dependencies {
 
     // Utils
     implementation 'commons-io:commons-io:2.15.1'
-    implementation'net.coobird:thumbnailator:0.4.21'
+    implementation 'net.coobird:thumbnailator:0.4.21'
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
 
     // Lombok
     compileOnly 'org.projectlombok:lombok:1.18.42'
@@ -46,12 +49,17 @@ dependencies {
     testAnnotationProcessor 'org.projectlombok:lombok:1.18.42'
 
     // Test
-    testImplementation("org.springframework.boot:spring-boot-starter-test:3.5.6")
+    testImplementation 'org.springframework.boot:spring-boot-starter-test:3.5.6'
     testImplementation 'com.h2database:h2:2.4.240'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // Testcontainers for real Postgres in tests (ensures jsonb + functions work)
+    testImplementation 'org.testcontainers:junit-jupiter:1.20.1'
+    testImplementation 'org.testcontainers:postgresql:1.20.1'
 }
 
 
 tasks.named('test') {
     useJUnitPlatform()
+    systemProperty 'spring.profiles.active', System.getProperty('spring.profiles.active', 'test')
 }
