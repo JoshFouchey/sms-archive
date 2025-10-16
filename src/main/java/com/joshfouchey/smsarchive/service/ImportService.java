@@ -220,8 +220,8 @@ public class ImportService {
             part.setMessage(msg);
             part.setSeq(i);
             part.setContentType(ct);
-            part.setName(nullIfBlank(partEl.getAttribute("name")));
-            part.setText(nullIfBlank(partEl.getAttribute("text")));
+            part.setName(nullIfBlank(partEl.getAttribute("name"))); // may be null
+            part.setText(nullIfBlank(partEl.getAttribute("text"))); // may be null
 
             if (part.getText() != null && "text/plain".equalsIgnoreCase(ct)) {
                 textAgg.append(part.getText()).append(' ');
@@ -231,13 +231,17 @@ public class ImportService {
             if (data != null && !data.isBlank()) {
                 saveMediaPart(data, part).ifPresent(path -> {
                     part.setFilePath(path);
+                    // Determine if this should be treated as a media part (exclude pure text & SMIL control parts)
                     if (!"text/plain".equalsIgnoreCase(ct) && !"application/smil".equalsIgnoreCase(ct)) {
-                        mediaParts.add(Map.of(
-                                "seq", part.getSeq(),
-                                "contentType", ct,
-                                "name", part.getName(),
-                                "filePath", part.getFilePath()
-                        ));
+                        // Provide safe defaults: contentType -> application/octet-stream if blank, name -> "" if null
+                        String safeCt = (ct == null || ct.isBlank()) ? "application/octet-stream" : ct;
+                        String safeName = part.getName() == null ? "" : part.getName();
+                        Map<String, Object> mediaMap = new LinkedHashMap<>();
+                        mediaMap.put("seq", part.getSeq());
+                        mediaMap.put("contentType", safeCt);
+                        mediaMap.put("name", safeName);
+                        mediaMap.put("filePath", part.getFilePath()); // filePath should always be non-null here
+                        mediaParts.add(mediaMap);
                     }
                 });
             }

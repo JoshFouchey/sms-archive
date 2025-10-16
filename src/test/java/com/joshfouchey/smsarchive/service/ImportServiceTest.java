@@ -14,6 +14,8 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -76,5 +78,53 @@ class ImportServiceTest {
                         assertThat(path.getFileName().toString()).startsWith("part");
                     });
         }
+    }
+
+    @Test
+    void testImportNullMediaAttributes() throws Exception {
+        File xmlFile = new File("src/test/resources/test-messages-null-media.xml");
+        assertThat(xmlFile).exists();
+
+        int count = importService.importFromXml(xmlFile);
+        assertThat(count).isEqualTo(1); // only one mms message
+
+        ArgumentCaptor<List<Message>> captor = ArgumentCaptor.forClass(List.class);
+        verify(messageRepo, times(1)).saveAll(captor.capture());
+
+        List<Message> savedMessages = captor.getValue();
+        assertThat(savedMessages).hasSize(1);
+        Message mms = savedMessages.get(0);
+        assertThat(mms.getProtocol()).isEqualTo(MessageProtocol.MMS);
+        assertThat(mms.getParts()).hasSize(4); // all parts including text + smil + 2 media
+
+        // Media summary map should exist
+        Map<String, Object> media = mms.getMedia();
+        assertThat(media).isNotNull();
+        assertThat(media).containsKey("parts");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> mediaParts = (List<Map<String, Object>>) media.get("parts");
+        assertThat(mediaParts).hasSize(2); // exclude text/plain and application/smil
+
+        // helper to find map by seq
+        Map<String, Object> seq1 = mediaParts.stream()
+                .filter(mp -> Objects.equals(mp.get("seq"), 1))
+                .findFirst().orElseThrow();
+        Map<String, Object> seq3 = mediaParts.stream()
+                .filter(mp -> Objects.equals(mp.get("seq"), 3))
+                .findFirst().orElseThrow();
+
+        // Validate defaults for blank/missing ct and name
+        assertThat(seq1.get("contentType")).isEqualTo("application/octet-stream");
+        assertThat(seq1.get("name")).isEqualTo("");
+        assertThat(seq1.get("filePath")).isInstanceOf(String.class);
+        assertThat(Files.exists(Path.of(seq1.get("filePath").toString()))).isTrue();
+
+        assertThat(seq3.get("contentType")).isEqualTo("application/octet-stream");
+        assertThat(seq3.get("name")).isEqualTo("");
+        assertThat(seq3.get("filePath")).isInstanceOf(String.class);
+        assertThat(Files.exists(Path.of(seq3.get("filePath").toString()))).isTrue();
+
+        // Ensure SMIL part was excluded
+        assertThat(mediaParts.stream().anyMatch(mp -> Objects.equals(mp.get("seq"), 2))).isFalse();
     }
 }

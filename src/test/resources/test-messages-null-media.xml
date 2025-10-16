@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<smses count="1">
+    <mms date="1672800000000" msg_box="1" contact_name="Unknown Media Contact">
+        <parts>
+            <!-- Text only part with ct present -->
+            <part seq="0" ct="text/plain" text="Here are some files" />
+            <!-- Media part with blank ct and no name -->
+            <part seq="1" ct="" data="SGVsbG8=" />
+            <!-- SMIL control part should be excluded from media list -->
+            <part seq="2" ct="application/smil" data="U01JTA==" />
+            <!-- Media part with missing ct attribute entirely and no name -->
+            <part seq="3" data="SGVsbG8=" />
+        </parts>
+        <addrs>
+            <addr address="15559998888" type="137" />
+            <addr address="15557770000" type="151" />
+        </addrs>
+    </mms>
+</smses>
+
