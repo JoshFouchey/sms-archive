@@ -8,17 +8,21 @@ import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.*;
+import org.xml.sax.SAXException;
 
+import javax.imageio.ImageIO;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.nio.file.*;
 import java.time.Instant;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.xml.sax.SAXException;
 
 @Slf4j
 @Service
@@ -94,11 +98,10 @@ public class ImportService {
             );
         } catch (Exception e) {
             log.warn("Duplicate check failed, proceeding to insert message: {}", e.getMessage());
-            return false; // fail-open to avoid data loss
+            return false;
         }
     }
 
-    /* ---------- SMS ---------- */
     private List<Message> processSmsNodes(NodeList nodes) {
         return nodeListToStream(nodes)
                 .map(el -> {
@@ -120,7 +123,6 @@ public class ImportService {
                         msg.setRecipient(address);
                     }
 
-                    // Contact resolution
                     String rawName = nullIfBlank(el.getAttribute("contact_name"));
                     String counterparty = (msg.getDirection() == MessageDirection.INBOUND) ? msg.getSender() : msg.getRecipient();
                     Contact contact = resolveContact(counterparty, rawName);
@@ -131,7 +133,6 @@ public class ImportService {
                 .toList();
     }
 
-    /* ---------- MMS / RCS ---------- */
     private List<Message> processMultipartNodes(NodeList nodes, MessageProtocol protocol) {
         return nodeListToStream(nodes)
                 .map(el -> {
@@ -163,10 +164,8 @@ public class ImportService {
                 .toList();
     }
 
-    /* ---------- Contact Resolution ---------- */
     private Contact resolveContact(String rawNumber, String suggestedName) {
         if (rawNumber == null || rawNumber.isBlank()) {
-            // Single synthetic bucket for unknown
             return contactCache.computeIfAbsent("__unknown__", k ->
                     contactRepo.findByNormalizedNumber("__unknown__")
                             .orElseGet(() -> contactRepo.save(Contact.builder()
@@ -205,7 +204,6 @@ public class ImportService {
                 .orElse(null);
     }
 
-    /* ---------- Parts / Media ---------- */
     private void processParts(Element parent, Message msg) {
         List<MessagePart> parts = new ArrayList<>();
         List<Map<String, Object>> mediaParts = new ArrayList<>();
@@ -220,8 +218,8 @@ public class ImportService {
             part.setMessage(msg);
             part.setSeq(i);
             part.setContentType(ct);
-            part.setName(nullIfBlank(partEl.getAttribute("name"))); // may be null
-            part.setText(nullIfBlank(partEl.getAttribute("text"))); // may be null
+            part.setName(nullIfBlank(partEl.getAttribute("name")));
+            part.setText(nullIfBlank(partEl.getAttribute("text")));
 
             if (part.getText() != null && "text/plain".equalsIgnoreCase(ct)) {
                 textAgg.append(part.getText()).append(' ');
@@ -231,16 +229,14 @@ public class ImportService {
             if (data != null && !data.isBlank()) {
                 saveMediaPart(data, part).ifPresent(path -> {
                     part.setFilePath(path);
-                    // Determine if this should be treated as a media part (exclude pure text & SMIL control parts)
                     if (!"text/plain".equalsIgnoreCase(ct) && !"application/smil".equalsIgnoreCase(ct)) {
-                        // Provide safe defaults: contentType -> application/octet-stream if blank, name -> "" if null
                         String safeCt = (ct == null || ct.isBlank()) ? "application/octet-stream" : ct;
                         String safeName = part.getName() == null ? "" : part.getName();
                         Map<String, Object> mediaMap = new LinkedHashMap<>();
                         mediaMap.put("seq", part.getSeq());
                         mediaMap.put("contentType", safeCt);
                         mediaMap.put("name", safeName);
-                        mediaMap.put("filePath", part.getFilePath()); // filePath should always be non-null here
+                        mediaMap.put("filePath", part.getFilePath());
                         mediaParts.add(mediaMap);
                     }
                 });
@@ -257,8 +253,11 @@ public class ImportService {
         msg.setParts(parts);
     }
 
+    // Added HEIC/HEIF unsupported thumbnail handling
     private Optional<String> saveMediaPart(String base64, MessagePart part) {
-        final Set<String> THUMB_TYPES = Set.of("image/jpeg","image/jpg","image/png","image/gif","image/bmp");
+        final Set<String> SUPPORTED_THUMB_TYPES = Set.of("image/jpeg","image/jpg","image/png","image/gif","image/bmp");
+        final Set<String> UNSUPPORTED_IMAGE_TYPES = Set.of("image/heic","image/heif");
+
         try {
             String folder = Optional.ofNullable(part.getMessage().getId())
                     .map(Object::toString)
@@ -270,7 +269,8 @@ public class ImportService {
             Path original = dir.resolve("part" + part.getSeq() + ext);
             Files.write(original, Base64.getDecoder().decode(base64));
 
-            if (THUMB_TYPES.contains(part.getContentType().toLowerCase())) {
+            String ctLower = Optional.ofNullable(part.getContentType()).map(String::toLowerCase).orElse("");
+            if (SUPPORTED_THUMB_TYPES.contains(ctLower)) {
                 try {
                     Thumbnails.of(original.toFile())
                             .size(400, 400)
@@ -280,7 +280,10 @@ public class ImportService {
                 } catch (Exception e) {
                     log.warn("Thumbnail failed: {}", original, e);
                 }
+            } else if (UNSUPPORTED_IMAGE_TYPES.contains(ctLower)) {
+                createUnsupportedThumbnail(dir, part.getSeq());
             }
+
             return Optional.of(original.toString());
         } catch (Exception e) {
             log.error("Media save failed", e);
@@ -288,7 +291,30 @@ public class ImportService {
         }
     }
 
-    /* ---------- Helpers ---------- */
+    // Generates a simple placeholder jpg saying NOT SUPPORTED
+    private void createUnsupportedThumbnail(Path dir, int seq) {
+        try {
+            int w = 400, h = 400;
+            BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+            Graphics2D g = img.createGraphics();
+            g.setColor(Color.DARK_GRAY);
+            g.fillRect(0,0,w,h);
+            g.setColor(Color.WHITE);
+            g.setFont(new Font("SansSerif", Font.BOLD, 32));
+            String text = "HEIC";
+            int tw = g.getFontMetrics().stringWidth(text);
+            g.drawString(text, (w - tw)/2, h/2 - 10);
+            g.setFont(new Font("SansSerif", Font.PLAIN, 20));
+            String sub = "Not Supported";
+            int sw = g.getFontMetrics().stringWidth(sub);
+            g.drawString(sub, (w - sw)/2, h/2 + 25);
+            g.dispose();
+            ImageIO.write(img, "jpg", dir.resolve("part" + seq + "_thumb.jpg").toFile());
+        } catch (Exception e) {
+            log.warn("Failed to create unsupported thumbnail placeholder", e);
+        }
+    }
+
     private Stream<Element> nodeListToStream(NodeList list) {
         return IntStream.range(0, list.getLength())
                 .mapToObj(list::item)
