@@ -90,7 +90,6 @@ const toast = useToast();
 
 // Import state
 const importMessage = ref("");
-const importSuccess = ref<boolean>(false);
 const loadingImport = ref(false);
 
 async function fetchDashboard() {
@@ -110,11 +109,6 @@ async function refreshDashboard() {
 }
 
 onMounted(fetchDashboard);
-
-function formatDateTime(iso: string) {
-  if (!iso) return '';
-  return new Date(iso).toLocaleString();
-}
 
 const messagesPerDayChartData = computed(() => {
   const rows: MessageCountPerDayDto[] = dashboard.value?.messagesPerDay || [];

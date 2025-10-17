@@ -98,7 +98,7 @@ import InputText from "primevue/inputtext";
 import Galleria from "primevue/galleria";
 import PrimeMessage from "primevue/message";
 import ProgressSpinner from "primevue/progressspinner";
-import { getImages, deleteImageById, MessagePart } from "../services/api";
+import { getImages, deleteImageById, type MessagePart } from "../services/api";
 
 const contact = ref("");
 const images = ref<MessagePart[]>([]);
@@ -114,7 +114,7 @@ async function loadImages() {
   if (loading.value || allLoaded.value) return;
   loading.value = true;
   try {
-    const newImages = await getImages(contact.value, page.value.toString(), size.toString());
+    const newImages = await getImages(contact.value, page.value, size);
     if (!Array.isArray(newImages) || newImages.length === 0) {
       allLoaded.value = true;
     } else {
@@ -155,27 +155,17 @@ function openGallery(index: number) {
   displayGalleria.value = true;
 }
 
-/**
- * Thumbnail URL factory
- * - assumes thumbnails are saved as originalFileName_thumb.jpg (your save logic).
- * - normalizes backslashes to forward slashes for browser URLs.
- */
 function getThumbnailUrl(img: MessagePart) {
   const normalized = normalizePath(img.filePath);
   const thumb = normalized.replace(/(\.\w+)$/, "_thumb.jpg");
-  // return thumbnail URL (backend serves /media/** paths via addResourceHandlers)
   return `http://localhost:8080/${thumb}`;
 }
 
-/**
- * If the thumbnail 404s, fallback to the full-size image.
- */
 function onThumbError(ev: Event, img: MessagePart) {
   const target = ev.target as HTMLImageElement;
   target.src = `http://localhost:8080/${normalizePath(img.filePath)}`;
 }
 
-/** Normalize Windows backslashes to web-friendly forward slashes */
 function normalizePath(p: string) {
   return (p || "").replace(/\\/g, "/");
 }
@@ -184,13 +174,11 @@ const sentinel = ref<HTMLElement | null>(null);
 
 onMounted(() => {
   const observer = new IntersectionObserver((entries) => {
-    if (entries[0].isIntersecting) loadImages();
+    const first = entries[0];
+    if (first && first.isIntersecting) loadImages();
   }, { rootMargin: "200px" });
 
-  // Observe after next tick so sentinel is available
   if (sentinel.value) observer.observe(sentinel.value);
-
-  // initial load
   loadImages();
 });
 </script>
