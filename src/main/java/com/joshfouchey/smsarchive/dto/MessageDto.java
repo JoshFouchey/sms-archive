@@ -4,6 +4,7 @@ import com.joshfouchey.smsarchive.model.MessageDirection;
 import com.joshfouchey.smsarchive.model.MessageProtocol;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 public record MessageDto(
@@ -22,6 +23,7 @@ public record MessageDto(
         Instant readAt,
         Map<String, Object> media,
         Map<String, Object> metadata,
+        List<MessagePartDto> parts,
         Instant createdAt,
         Instant updatedAt
 ) {}

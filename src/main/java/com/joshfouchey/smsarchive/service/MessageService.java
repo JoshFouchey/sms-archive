@@ -8,6 +8,7 @@ import com.joshfouchey.smsarchive.model.Message;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -24,6 +25,7 @@ public class MessageService {
         return messageRepository.findAllContactSummaries();
     }
 
+    @Transactional(readOnly = true)
     public PagedResponse<MessageDto> getMessagesByContactId(Long contactId,
                                                             int page,
                                                             int size,
@@ -31,11 +33,7 @@ public class MessageService {
         if (size > 500) size = 500;
         if (size < 1) size = 1;
         Sort sort = Sort.by("timestamp");
-        if ("asc".equalsIgnoreCase(sortDir)) {
-            sort = sort.ascending();
-        } else {
-            sort = sort.descending();
-        }
+        sort = "asc".equalsIgnoreCase(sortDir) ? sort.ascending() : sort.descending();
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<Message> result = messageRepository.findByContactId(contactId, pageable);
         List<MessageDto> content = result.getContent().stream()
