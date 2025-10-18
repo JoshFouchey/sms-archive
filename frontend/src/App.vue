@@ -29,6 +29,7 @@ const items = [
   { label: "Dashboard", icon: "pi pi-home", command: () => router.push("/") },
   { label: "Gallery", icon: "pi pi-images", command: () => router.push("/gallery") },
   { label: "Messages", icon: "pi pi-comments", command: () => router.push("/messages") },
-  { label: "Search", icon: "pi pi-search", command: () => router.push("/search") }
+  { label: "Search", icon: "pi pi-search", command: () => router.push("/search") },
+  { label: "Import", icon: "pi pi-upload", command: () => router.push("/import") }
 ];
 </script>

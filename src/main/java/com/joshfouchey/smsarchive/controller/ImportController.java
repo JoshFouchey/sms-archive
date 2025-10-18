@@ -1,14 +1,16 @@
 package com.joshfouchey.smsarchive.controller;
 
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
+import java.util.UUID;
 
 import com.joshfouchey.smsarchive.service.ImportService;
+import com.joshfouchey.smsarchive.service.ImportService.ImportProgress;
+
 @RestController
 @RequestMapping("/import")
 public class ImportController {
@@ -19,11 +21,16 @@ public class ImportController {
         this.importService = importService;
     }
 
-    @PostMapping
-    public String upload(@RequestParam("file") MultipartFile file) throws Exception {
-        File tmp = File.createTempFile("sms", ".xml");
-        file.transferTo(tmp);
-        importService.importFromXml(tmp);
-        return "Import complete!";
+    @PostMapping("/stream")
+    public Map<String,Object> uploadStream(@RequestParam("file") MultipartFile file) throws Exception {
+        Path tmp = Files.createTempFile("sms-stream", ".xml");
+        file.transferTo(tmp.toFile());
+        UUID id = importService.startImportAsync(tmp);
+        return Map.of("jobId", id.toString(), "status", "STARTED");
+    }
+
+    @GetMapping("/progress/{id}")
+    public ImportProgress progress(@PathVariable String id) {
+        return importService.getProgress(UUID.fromString(id));
     }
 }

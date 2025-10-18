@@ -3,30 +3,11 @@
     <div class="flex items-center gap-4 flex-wrap">
       <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Dashboard</h1>
       <Button label="Refresh" icon="pi pi-refresh" size="small" @click="refreshDashboard" :loading="loading" />
+      <RouterLink to="/import" class="inline-flex">
+        <Button label="Import Messages" icon="pi pi-upload" size="small" severity="help" />
+      </RouterLink>
       <span v-if="lastRefreshed" class="text-xs text-gray-500 dark:text-gray-400">Last updated: {{ lastRefreshed }}</span>
     </div>
-
-    <!-- Import + Status -->
-    <section class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow space-y-4">
-      <div class="flex items-center gap-3 flex-wrap">
-        <h2 class="text-xl font-semibold m-0">Import Backup XML</h2>
-        <Button label="Clear Status" size="small" severity="secondary" @click="importMessage = ''" v-if="importMessage" />
-      </div>
-      <FileUpload
-        mode="basic"
-        name="file"
-        accept=".xml"
-        chooseLabel="Choose File"
-        :auto="true"
-        :disabled="loadingImport"
-        customUpload
-        @uploader="onFileUpload"
-      />
-      <div class="flex items-center gap-3" v-if="loadingImport">
-        <i class="pi pi-spin pi-spinner text-primary"></i>
-        <span class="text-sm text-gray-600 dark:text-gray-300">Uploading & importing…</span>
-      </div>
-    </section>
 
     <!-- Summary Cards -->
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -70,27 +51,21 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { getAnalyticsDashboard, importXml, type AnalyticsDashboardDto, type AnalyticsSummary, type MessageCountPerDayDto } from '@/services/api';
+import { getAnalyticsDashboard, type AnalyticsDashboardDto, type AnalyticsSummary, type MessageCountPerDayDto } from '@/services/api';
 import Card from 'primevue/card';
 import Panel from 'primevue/panel';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Chart from 'primevue/chart';
 import PrimeMessage from 'primevue/message';
-import FileUpload from 'primevue/fileupload';
 import Button from 'primevue/button';
-import { useToast } from 'primevue/usetoast';
+import { RouterLink } from 'vue-router';
 
 const dashboard = ref<AnalyticsDashboardDto | null>(null);
 const summary = computed<AnalyticsSummary | null>(() => dashboard.value?.summary ?? null);
 const loading = ref(true);
 const error = ref<string | null>(null);
 const lastRefreshed = ref<string | null>(null);
-const toast = useToast();
-
-// Import state
-const importMessage = ref("");
-const loadingImport = ref(false);
 
 async function fetchDashboard() {
   loading.value = true;
@@ -136,27 +111,8 @@ const messagesPerDayChartOptions = {
     y: { beginAtZero: true, title: { display: true, text: 'Messages' } }
   }
 };
-
-async function onFileUpload(event: any) {
-  const file = event.files?.[0];
-  if (!file) return;
-  loadingImport.value = true;
-  try {
-    const res = await importXml(file);
-    if (res.ok) {
-      toast.add({ severity: 'success', summary: 'Import Complete', detail: 'Messages imported successfully', life: 4000 });
-      setTimeout(() => { fetchDashboard(); }, 750);
-    } else {
-      toast.add({ severity: 'warn', summary: 'Import Failed', detail: 'Import endpoint returned error', life: 5000 });
-    }
-  } catch (e: any) {
-    toast.add({ severity: 'error', summary: 'Import Error', detail: e?.message || 'Unexpected error', life: 6000 });
-  } finally {
-    loadingImport.value = false;
-  }
-}
 </script>
 
 <style scoped>
-:deep(.p-card) { background: var(--surface-card); }
+/* Removed custom background override for .p-card to avoid unresolved variable error */
 </style>

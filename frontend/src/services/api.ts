@@ -159,10 +159,34 @@ export async function deleteImageById(id: number): Promise<boolean> {
    Import
 ============================== */
 
-export async function importXml(file: File): Promise<Response> {
-    const formData = new FormData();
-    formData.append("file", file);
-    return fetch(`${API_BASE}/import`, { method: "POST", body: formData });
+export interface ImportProgress {
+  id: string;
+  totalBytes: number;
+  bytesRead: number;
+  processedMessages: number;
+  importedMessages: number;
+  duplicateMessages: number; // atomic in-flight count
+  duplicateMessagesFinal?: number; // final count when completed
+  status: string; // PENDING/RUNNING/COMPLETED/FAILED
+  error?: string;
+  startedAt?: string;
+  finishedAt?: string;
+  percentBytes: number; // derived on server
+}
+
+export async function startStreamingImport(file: File): Promise<{ jobId: string; status: string; }> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(`${API_BASE}/import/stream`, { method: "POST", body: fd });
+  if (!res.ok) throw new Error("Failed to start streaming import");
+  return res.json();
+}
+
+export async function getImportProgress(jobId: string): Promise<ImportProgress | null> {
+  const res = await fetch(`${API_BASE}/import/progress/${jobId}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("Failed to fetch import progress");
+  return res.json();
 }
 
 /* ==============================

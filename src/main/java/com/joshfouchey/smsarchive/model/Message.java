@@ -17,7 +17,9 @@ import java.util.Map;
                 @Index(name = "ix_messages_timestamp", columnList = "timestamp"),
                 @Index(name = "ix_messages_contact", columnList = "contact_id"),
                 @Index(name = "ix_messages_sender", columnList = "sender"),
-                @Index(name = "ix_messages_recipient", columnList = "recipient")
+                @Index(name = "ix_messages_recipient", columnList = "recipient"),
+                // Composite prefix index used by duplicate check BEFORE body comparison
+                @Index(name = "ix_messages_dedupe_prefix", columnList = "contact_id,timestamp,msg_box,protocol")
         })
 @Getter
 @Setter

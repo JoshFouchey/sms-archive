@@ -93,4 +93,17 @@ ORDER BY day_ts
                             @Param("msgBox") int msgBox,
                             @Param("protocol") MessageProtocol protocol,
                             @Param("body") String bodyNormalized);
+
+    @Query("select (count(m) > 0) from Message m " +
+            "where m.contact.id = :contactId " +
+            "and m.timestamp = :ts " +
+            "and m.msgBox = :msgBox " +
+            "and m.protocol = :protocol " +
+            "and lower(coalesce(m.body,'')) = lower(coalesce(:body,''))")
+    boolean existsDuplicateHash(@Param("contactId") Long contactId,
+                                @Param("ts") Instant timestamp,
+                                @Param("msgBox") int msgBox,
+                                @Param("protocol") MessageProtocol protocol,
+                                @Param("body") String body);
 }
+

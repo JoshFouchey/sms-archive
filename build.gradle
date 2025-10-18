@@ -23,7 +23,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-cache'
-
+    implementation("com.google.guava:guava:33.4.8-jre")
+    implementation 'org.apache.commons:commons-lang3:3.14.0'
     // Database & migration
     implementation "org.flywaydb:flyway-core:11.13.2"
     implementation "org.flywaydb:flyway-database-postgresql:11.13.2"
@@ -52,6 +53,7 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test:3.5.6'
     testImplementation 'com.h2database:h2:2.4.240'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.awaitility:awaitility:4.2.0'
 
     // Testcontainers for real Postgres in tests (ensures jsonb + functions work)
     testImplementation 'org.testcontainers:junit-jupiter:1.20.1'
@@ -63,3 +65,5 @@ tasks.named('test') {
     useJUnitPlatform()
     systemProperty 'spring.profiles.active', System.getProperty('spring.profiles.active', 'test')
 }
+
+configurations.all { resolutionStrategy { force 'org.apache.commons:commons-compress:1.26.1' } }
