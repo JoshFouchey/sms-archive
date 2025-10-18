@@ -108,7 +108,7 @@
           <span
             class="mt-1 text-[10px] tracking-wide uppercase"
             :class="msg.isMe ? 'accent-dark-text' : 'text-gray-400 dark:text-gray-500'"
-          >{{ formatTime(msg.timestamp) }}</span>
+          >{{ formatDateTime(msg.timestamp) }}</span>
         </div>
       </div>
     </main>
@@ -270,8 +270,14 @@ function scrollToBottom() {
 function formatDate(iso: string) {
   return iso ? new Date(iso).toLocaleString() : '';
 }
-function formatTime(iso: string) {
-  return iso ? new Date(iso).toLocaleTimeString() : '';
+function formatDateTime(iso: string) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  // Provide concise date-time; fallback to locale full string
+  return d.toLocaleString(undefined, {
+    year: 'numeric', month: 'short', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
+  });
 }
 function onThumbError(ev: Event, img: UiImagePart) {
   const el = ev.target as HTMLImageElement;
