@@ -11,17 +11,12 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface MessagePartRepository extends JpaRepository<MessagePart, Long> {
 
-    @Query("SELECT p FROM MessagePart p WHERE p.contentType LIKE 'image/%'")
+    @Query("SELECT p FROM MessagePart p WHERE p.contentType LIKE 'image/%' ORDER BY p.id DESC")
     Page<MessagePart> findAllImages(Pageable pageable);
 
-    @Query("""
-        SELECT p FROM MessagePart p
-        JOIN p.message m
-        JOIN m.contact c
-        WHERE p.contentType LIKE 'image/%'
-          AND (c.name = :contact OR c.normalizedNumber = :contact)
-        """)
-    Page<MessagePart> findImagesByContact(@Param("contact") String contact, Pageable pageable);
+
+    @Query("SELECT p FROM MessagePart p JOIN p.message m JOIN m.contact c WHERE p.contentType LIKE 'image/%' AND c.id = :contactId ORDER BY p.id DESC")
+    Page<MessagePart> findImagesByContactId(@Param("contactId") Long contactId, Pageable pageable);
 
     @Query("select count(p) from MessagePart p where p.contentType like 'image/%'")
     long countImageParts();

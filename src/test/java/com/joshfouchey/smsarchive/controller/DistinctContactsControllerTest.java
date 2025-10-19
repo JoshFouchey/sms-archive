@@ -1,8 +1,11 @@
 package com.joshfouchey.smsarchive.controller;
 
+import com.joshfouchey.smsarchive.config.EnhancedPostgresTestContainer;
 import com.joshfouchey.smsarchive.dto.ContactDto;
 import com.joshfouchey.smsarchive.model.Contact;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
+import com.joshfouchey.smsarchive.repository.MessageRepository;
+import com.joshfouchey.smsarchive.repository.MessagePartRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,11 +13,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.DynamicPropertyRegistry;
 
 import java.util.Arrays;
 import java.util.List;
@@ -23,28 +21,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-@Testcontainers
-class DistinctContactsControllerTest {
-
-    @Container
-    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
-
-    @DynamicPropertySource
-    static void postgresProps(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
-        registry.add("spring.datasource.driver-class-name", POSTGRES::getDriverClassName);
-    }
+class DistinctContactsControllerTest extends EnhancedPostgresTestContainer {
 
     @Autowired
     private TestRestTemplate restTemplate;
 
     @Autowired
     private ContactRepository contactRepository;
+    @Autowired
+    private MessageRepository messageRepository;
+    @Autowired
+    private MessagePartRepository messagePartRepository;
 
     @BeforeEach
     void setUp() {
+        // Clean in dependency order (parts -> messages -> contacts) to avoid FK & unique constraint issues if data left from previous tests.
+        messagePartRepository.deleteAll();
+        messageRepository.deleteAll();
         contactRepository.deleteAll();
         contactRepository.saveAll(Arrays.asList(
                 Contact.builder().name("Alice").number("+1 (555) 111-2222").normalizedNumber("15551112222").build(),
@@ -70,4 +63,3 @@ class DistinctContactsControllerTest {
         assertThat(contacts.get(2).name()).isNull();
     }
 }
-

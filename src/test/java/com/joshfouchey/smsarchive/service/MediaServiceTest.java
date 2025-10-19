@@ -1,5 +1,6 @@
 package com.joshfouchey.smsarchive.service;
 
+import com.joshfouchey.smsarchive.config.EnhancedPostgresTestContainer;
 import com.joshfouchey.smsarchive.model.*;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
@@ -24,7 +25,7 @@ import static org.assertj.core.api.Assertions.*;
  */
 @SpringBootTest
 @Transactional
-class MediaServiceMergedTest {
+class MediaServiceTest extends EnhancedPostgresTestContainer {
 
     @Autowired private MediaService mediaService;
     @Autowired private ContactRepository contactRepository;
@@ -131,4 +132,3 @@ class MediaServiceMergedTest {
                 .hasMessageContaining("Contact not found");
     }
 }
-

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -51,8 +52,17 @@ public class AnalyticsController {
     public AnalyticsDashboardDto dashboard(
             @RequestParam(name = "topContactDays", defaultValue = "30") int topContactDays,
             @RequestParam(name = "topLimit", defaultValue = "10") int topLimit,
-            @RequestParam(name = "perDayDays", defaultValue = "30") int perDayDays
+            @RequestParam(name = "perDayDays", defaultValue = "30") int perDayDays,
+            @RequestParam(name = "startDate", required = false) String startDateStr,
+            @RequestParam(name = "endDate", required = false) String endDateStr,
+            @RequestParam(name = "contactId", required = false) Long contactId
     ) {
-        return service.getDashboard(topContactDays, topLimit, perDayDays);
+        LocalDate startDate = startDateStr != null && !startDateStr.isBlank() ? LocalDate.parse(startDateStr) : null;
+        LocalDate endDate = endDateStr != null && !endDateStr.isBlank() ? LocalDate.parse(endDateStr) : null;
+        // Swap if user provided reversed dates
+        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+            LocalDate tmp = startDate; startDate = endDate; endDate = tmp;
+        }
+        return service.getDashboard(topContactDays, topLimit, perDayDays, startDate, endDate, contactId);
     }
 }

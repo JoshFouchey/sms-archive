@@ -1,16 +1,28 @@
 spring:
   datasource:
-    # H2 fallback (overridden by Testcontainers DataSource bean in tests)
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    # URL provided dynamically by EnhancedPostgresTestContainer
+    # driver-class-name provided dynamically
+    username: postgres
+    password: postgres
+    hikari:
+      maximumPoolSize: 5
+      minimumIdle: 1
+      maxLifetime: 60000    # >=30000ms to avoid Hikari warning; shorter for fast test recycle
+      idleTimeout: 30000
+      validationTimeout: 5000
   jpa:
     hibernate:
-      ddl-auto: create-drop
-    show-sql: true
+      ddl-auto: none
+    show-sql: false
+    open-in-view: false
   flyway:
-    enabled: false
+    enabled: true
+    locations: classpath:db/migration
 
-# Note: A Testcontainers PostgreSQL DataSource is provided in test scope to exercise
-# jsonb columns and native SQL; Flyway remains disabled in tests via this profile.
+# Test profile uses singleton Postgres Testcontainer (EnhancedPostgresTestContainer).
+# application-test.properties has been removed; all test config lives here.
+
+smsarchive:
+  import:
+    inline: true      # process import synchronously in tests for deterministic progress
+    batchSize: 500    # batch size for import persistence logic

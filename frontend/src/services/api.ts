@@ -108,11 +108,17 @@ export async function getAnalyticsDashboard(params?: {
     topContactDays?: number;
     topLimit?: number;
     perDayDays?: number;
+    startDate?: string; // yyyy-MM-dd
+    endDate?: string;   // yyyy-MM-dd
+    contactId?: number | null;
 }): Promise<AnalyticsDashboardDto> {
     const p = new URLSearchParams();
     if (params?.topContactDays) p.append("topContactDays", String(params.topContactDays));
     if (params?.topLimit) p.append("topLimit", String(params.topLimit));
     if (params?.perDayDays) p.append("perDayDays", String(params.perDayDays));
+    if (params?.startDate) p.append("startDate", params.startDate);
+    if (params?.endDate) p.append("endDate", params.endDate);
+    if (params?.contactId != null) p.append("contactId", String(params.contactId));
     const q = p.toString();
     const res = await fetch(`${API_BASE}/api/analytics/dashboard${q ? `?${q}` : ""}`);
     if (!res.ok) throw new Error("Failed to fetch analytics dashboard");

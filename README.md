@@ -3,7 +3,7 @@
 Ingests backup XML files for SMS, MMS, and RCS messages, normalizes them, and stores structured data (and media) in PostgreSQL for querying and future analysis.
 
 ## Status
-Experimental \- schema, importer, and API surface likely to change.
+Experimental - schema, importer, and API surface likely to change.
 
 ## Features (current)
 - Parse XML backups (SMS / MMS / RCS) (details TBD).
@@ -26,11 +26,11 @@ Experimental \- schema, importer, and API surface likely to change.
 ## Tech Stack
 - Java 25 (Gradle toolchain enforced).
 - Spring Boot 3.5.6 (Web, Data JPA).
-- PostgreSQL 15 (primary DB) + Flyway.
-- H2 for tests.
+- PostgreSQL 16 (primary DB) + Flyway (Testcontainers for integration tests).
+- Testcontainers PostgreSQL for integration tests (real jsonb & indexes).
 - Node 22.20.0 (frontend: Vue / TypeScript).
 - JAXB for XML parsing.
-- Lombok 1.18.42 (pending long\-term JDK 25 stability).
+- Lombok 1.18.42 (pending long-term JDK 25 stability).
 - Commons IO, Thumbnailator utilities.
 
 ## Project Structure (conceptual)
@@ -43,3 +43,36 @@ Experimental \- schema, importer, and API surface likely to change.
 1. Ensure Java 25 installed (or allow Gradle toolchain provisioning).
 2. Start PostgreSQL 15.
 3. Create database:
+
+## Testcontainers Reuse (Faster Integration Tests)
+To speed up local and CI runs, enable container reuse so the PostgreSQL Testcontainer is not re-created for each test JVM.
+
+Add to your `~/.testcontainers.properties` (DO NOT COMMIT THIS FILE):
+```
+testcontainers.reuse.enable=true
+```
+The singleton container in `EnhancedPostgresTestContainer` already calls `.withReuse(true)`. Without the global flag, Testcontainers will still create a fresh container.
+
+### CI Setup
+In CI, create the properties file in the home directory of the build user or export:
+```
+mkdir -p ~/.testcontainers && echo 'testcontainers.reuse.enable=true' >> ~/.testcontainers.properties
+```
+(Exact location may vary depending on runner image.)
+
+## Schema Verification Tests
+`SchemaMigrationTest` asserts the presence of critical indexes, constraints, and triggers after Flyway runs:
+- Indexes: `ux_messages_dedupe`, `ix_messages_dedupe_prefix`, `idx_messages_body_fts`
+- Constraints: `chk_messages_protocol`, `chk_messages_direction`
+- Trigger: `trg_messages_updated_at`
+This guards against accidental migration regressions.
+
+## Removed Legacy Test Properties
+The legacy `application-test.properties` file is deprecated and now empty. All test profile configuration lives in `application-test.yml` plus dynamic Testcontainer overrides in `EnhancedPostgresTestContainer`. You can safely delete `src/test/resources/application-test.properties`:
+```
+rm src/test/resources/application-test.properties
+```
+(No replacement needed; Spring Boot will load `application-test.yml` when `@ActiveProfiles("test")` is used.)
+
+## Controller Test Modernization
+`MediaControllerTest` no longer uses deprecated `@MockBean`; a lightweight stub bean is supplied via an inner `@TestConfiguration` to avoid Mockito deprecation warnings.
