@@ -3,12 +3,17 @@
     <Toast />
     <h1 class="text-2xl font-bold mb-4 text-gray-800">Image Gallery</h1>
 
-    <!-- Search / Filter -->
+    <!-- Contact Filter Dropdown -->
     <div class="flex flex-col sm:flex-row sm:space-x-2 mb-6 space-y-2 sm:space-y-0">
-      <InputText
-          v-model="contact"
-          placeholder="Filter by contact..."
-          class="flex-1"
+      <Dropdown
+        v-model="selectedContactId"
+        :options="contactOptions"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Filter by contact..."
+        showClear
+        class="flex-1"
+        @change="onContactChange"
       />
       <Button
           :label="loading ? 'Searching...' : 'Search'"
@@ -125,18 +130,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from "vue";
+import { ref, onMounted, onUnmounted, computed } from "vue";
 import Button from "primevue/button";
-import InputText from "primevue/inputtext";
+import Dropdown from "primevue/dropdown";
 import PrimeMessage from "primevue/message";
 import ProgressSpinner from "primevue/progressspinner";
 import Toast from "primevue/toast";
 import { useToast } from "primevue/usetoast";
-import { getImages, deleteImageById, type MessagePart } from "../services/api";
+import { getImages, deleteImageById, getDistinctContacts, type MessagePart, type Contact } from "../services/api";
 
 const toast = useToast();
 
-const contact = ref("");
+// Removed text contact string; now using numeric ID
+const selectedContactId = ref<number | null>(null);
+const contacts = ref<Contact[]>([]);
+const contactOptions = computed(() => contacts.value.map(c => ({
+  label: c.name ? `${c.name} (${c.number})` : c.number,
+  value: c.id
+})));
+
 const images = ref<MessagePart[]>([]);
 const page = ref(0);
 const size = 40; // batch size
@@ -227,7 +239,7 @@ async function loadImages() {
   if (loading.value || allLoaded.value) return;
   loading.value = true;
   try {
-    const newImages = await getImages(contact.value, page.value, size);
+    const newImages = await getImages(page.value, size, selectedContactId.value ?? undefined);
     if (!Array.isArray(newImages) || newImages.length === 0) {
       if (page.value === 0) {
         // no initial results toast (optional)
@@ -253,14 +265,9 @@ function reloadImages() {
   loadImages();
 }
 
-// Debounced search reload
-let searchTimeout: number | undefined;
-watch(contact, () => {
-  if (searchTimeout) clearTimeout(searchTimeout);
-  searchTimeout = window.setTimeout(() => {
-    reloadImages();
-  }, 500); // 500ms debounce
-});
+function onContactChange() {
+  reloadImages();
+}
 
 async function deleteImage(id: number) {
   try {
@@ -345,58 +352,39 @@ function handleKey(e: KeyboardEvent) {
 }
 
 let io: IntersectionObserver | null = null;
-onMounted(() => {
+onMounted(async () => {
+  // Load contacts for dropdown
+  try {
+    contacts.value = await getDistinctContacts();
+  } catch (e) {
+    console.error(e);
+    toast.add({ severity: "warn", summary: "Contacts", detail: "Could not load contacts", life: 3000 });
+  }
   io = new IntersectionObserver((entries) => {
     const first = entries[0];
     if (first && first.isIntersecting) loadImages();
   }, { rootMargin: "200px" });
   if (sentinel.value) io.observe(sentinel.value);
   loadImages();
-  globalThis.addEventListener("keydown", handleKey);
+  window.addEventListener("keydown", handleKey);
 });
 
 onUnmounted(() => {
   if (io && sentinel.value) io.unobserve(sentinel.value);
-  io?.disconnect();
-  globalThis.removeEventListener("keydown", handleKey);
+  io = null;
+  window.removeEventListener("keydown", handleKey);
   unlockBodyScroll();
 });
 </script>
 
 <style>
-/* Fallback square aspect if Tailwind aspect-ratio is not available */
-.aspect-square {
-  position: relative;
-  width: 100%;
-  padding-top: 100%;
-  overflow: hidden;
-}
-.aspect-square > img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
 .skeleton {
-  position: relative;
-  background: #e2e8f0;
-  overflow: hidden;
-}
-.skeleton::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: -100%;
-  height: 100%;
-  width: 100%;
-  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.6) 50%, rgba(255,255,255,0) 100%);
-  animation: shimmer 1.2s infinite;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 37%, #f0f0f0 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
 }
 @keyframes shimmer {
-  0% { left: -100%; }
-  100% { left: 100%; }
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
 }
 </style>

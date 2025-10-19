@@ -75,6 +75,13 @@ export interface AnalyticsDashboardDto {
     messagesPerDay: MessageCountPerDayDto[];
 }
 
+export interface Contact {
+    id: number;
+    name: string | null;
+    number: string;
+    normalizedNumber: string;
+}
+
 /* ==============================
    Contacts
 ============================== */
@@ -87,6 +94,12 @@ export async function getAllContactSummaries(): Promise<ContactSummary[]> {
 
 /* (Optional older alias) */
 export const getContacts = getAllContactSummaries;
+
+export async function getDistinctContacts(): Promise<Contact[]> {
+    const res = await fetch(`${API_BASE}/api/contacts`);
+    if (!res.ok) throw new Error("Failed to fetch distinct contacts");
+    return res.json();
+}
 
 /* ==============================
    Analytics
@@ -136,14 +149,14 @@ export async function getMessagesByContactId(
 ============================== */
 
 export async function getImages(
-    contact?: string,
     page: number = 0,
-    size: number = 50
+    size: number = 50,
+    contactId?: number
 ): Promise<MessagePart[]> {
     const params = new URLSearchParams();
-    if (contact && contact.trim().length > 0) params.append("contact", contact);
     params.append("page", page.toString());
     params.append("size", size.toString());
+    if (contactId != null) params.append("contactId", contactId.toString());
     const url = `${API_BASE}/api/media/images?${params.toString()}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error("Failed to load images");
