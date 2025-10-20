@@ -210,7 +210,8 @@ function toUiMessage(m: ApiMessage): UiMessage {
     const single = imageParts.length === 1;
     for (const p of imageParts) {
       const normalized = normalizePath(p.filePath || '');
-      const fullUrl = `http://localhost:8080/${normalized}`;
+      // Use relative path so Nginx or reverse proxy can route without hardcoded host
+      const fullUrl = `/${normalized}`;
       const thumbUrl = fullUrl.replace(/(\.[A-Za-z0-9]+)$/,'_thumb.jpg');
       images.push({ fullUrl, thumbUrl, contentType: p.contentType, isSingle: single });
     }

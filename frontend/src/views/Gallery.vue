@@ -93,7 +93,7 @@
       <div class="relative max-h-full max-w-full flex flex-col items-center select-none">
         <img
           v-if="currentImage"
-          :src="`http://localhost:8080/${normalizePath(currentImage.filePath)}`"
+          :src="`/${normalizePath(currentImage.filePath)}`"
           :alt="currentAlt"
           class="max-h-[80vh] max-w-[90vw] object-contain mb-4 shadow-lg"
           @load="imageLoaded = true"
@@ -299,12 +299,12 @@ function confirmAndDeleteCurrent() {
 function getThumbnailUrl(img: MessagePart) {
   const normalized = normalizePath(img.filePath);
   const thumb = normalized.replace(/(\.\w+)$/, "_thumb.jpg");
-  return `http://localhost:8080/${thumb}`;
+  return `/${thumb}`;
 }
 
 function onThumbError(ev: Event, img: MessagePart) {
   const target = ev.target as HTMLImageElement;
-  target.src = `http://localhost:8080/${normalizePath(img.filePath)}`;
+  target.src = `/${normalizePath(img.filePath)}`;
 }
 
 function getAlt(img: MessagePart) {

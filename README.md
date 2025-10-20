@@ -172,3 +172,66 @@ For small homelab setups a quick restart is fine. If you later add a separate mi
 - `.env` is ignored by Git; keep secrets (future JWT, etc.) there.
 - Expose only port 8080 internally and use the reverse proxy for public access.
 - Consider adding a firewall rule or restricting the Postgres port to the Docker network only (omit the `ports:` entry if the DB need not be accessed from host directly).
+
+## Full Docker Deployment (Backend + Frontend)
+This repo now includes a dedicated frontend image (Vue static build + Nginx) alongside the backend Spring Boot service.
+
+### Build & Run (All Services)
+```bash
+# Ensure external proxy network exists if you use a global reverse proxy
+docker network create proxy || true
+
+# Build and start everything
+docker compose up --build -d
+
+# View logs
+docker compose logs -f frontend
+docker compose logs -f app
+```
+Frontend listens on port 80 (mapped to host 80). Backend remains available directly on 8080 for debugging (you may remove the port mapping if you want it isolated).
+
+### Nginx Frontend Proxy Behavior
+`nginx.conf` proxies dynamic paths to the backend:
+- `/api` → `app:8080/api`
+- `/search` → `app:8080/search`
+- `/import` → `app:8080/import`
+- `/media` → `app:8080/media` (image & thumbnail files)
+All other paths fall back to `index.html` for SPA routing.
+
+### Custom Domain / Reverse Proxy Upstream
+If you route a public reverse proxy (e.g. Traefik, Nginx Proxy Manager) to this stack, point it at the **frontend** container (port 80). The backend service name `app` stays internal. Ensure forwarded headers are preserved; Spring Boot will already honor them.
+
+### Adjusting API Base For Frontend
+The frontend code expects absolute/relative paths that already include `/api` where needed. Leave `VITE_API_BASE` blank (default). Only set a value if you introduce an additional path segment (e.g. `/sms`) at the outer reverse proxy and want the frontend to call `/sms/api/...`.
+
+To customize during build:
+```bash
+docker compose build --build-arg VITE_API_BASE="/sms" frontend
+```
+Then update outer proxy to rewrite `/sms` appropriately.
+
+### Production Hardening Checklist
+- Remove backend port mapping (`8080:8080`) if not needed externally.
+- Add TLS termination at outer proxy; ensure HSTS if appropriate.
+- Configure automated Postgres backups (cron + `pg_dump` into mounted volume).
+- Consider setting JVM memory limits via `JAVA_OPTS=-Xms512m -Xmx512m`.
+- Monitor container health: both containers expose basic health checks.
+
+### Updating Only Frontend
+```bash
+git pull
+# Rebuild only frontend
+docker compose build frontend
+docker compose up -d frontend
+```
+
+### Updating Backend & Running Migrations
+```bash
+git pull
+docker compose build app
+docker compose up -d app
+```
+Flyway migrations run automatically on backend startup.
+
+### Media Paths
+Images are requested by the frontend using relative paths (`/media/messages/...`). Nginx proxies these to the backend which serves the file system under the mounted volume.
