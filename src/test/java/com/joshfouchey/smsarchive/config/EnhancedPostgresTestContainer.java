@@ -14,7 +14,7 @@ import java.time.Duration;
  * Includes Hikari tuning & startup robustness.
  */
 public abstract class EnhancedPostgresTestContainer {
-    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"))
+    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
             .withDatabaseName("sms_archive_test")
             .withUsername("postgres")
             .withPassword("postgres")
@@ -41,4 +41,3 @@ public abstract class EnhancedPostgresTestContainer {
         registry.add("spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation", () -> true);
     }
 }
-

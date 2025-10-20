@@ -1,0 +1,55 @@
+version: '3.9'
+
+networks:
+  proxy:
+    external: true  # create with: docker network create proxy
+  internal:
+    driver: bridge
+
+services:
+  db:
+    image: postgres:${DB_VERSION}
+    container_name: sms-archive-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      TZ: ${TZ}
+    ports:
+      - "${DB_PORT}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ${DB_DATA_HOST_PATH}:/var/lib/postgresql/data
+    networks:
+      - internal
+
+  app:
+    build: .
+    container_name: sms-archive-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASSWORD}
+      SPRING_PROFILES_ACTIVE: prod
+      APP_BASE_URL: ${APP_BASE_URL}
+      LOG_LEVEL: ${LOG_LEVEL}
+      TZ: ${TZ}
+      SMSARCHIVE_MEDIA_ROOT: /app/media/messages  # maps to smsarchive.media.root
+    ports:
+      - "8080:8080"
+    volumes:
+      - ${MEDIA_ROOT_HOST_PATH}:/app/media/messages
+    networks:
+      - internal
+      - proxy
+
+volumes: {}

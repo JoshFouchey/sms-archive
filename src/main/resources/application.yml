@@ -17,3 +17,15 @@ spring:
     multipart:
       max-file-size: 2GB
       max-request-size: 2GB
+
+# Media storage root (env override: SMSARCHIVE_MEDIA_ROOT)
+smsarchive:
+  media:
+    root: ${SMSARCHIVE_MEDIA_ROOT:media/messages}
+
+logging:
+  level:
+    root: ${LOG_LEVEL:INFO}
+
+server:
+  forward-headers-strategy: framework
