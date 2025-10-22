@@ -44,6 +44,12 @@ services:
       SMSARCHIVE_MEDIA_ROOT: /app/media/messages  # maps to smsarchive.media.root
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
     volumes:
       - ${MEDIA_ROOT_HOST_PATH}:/app/media/messages
     networks:
@@ -59,13 +65,15 @@ services:
     container_name: sms-archive-frontend
     restart: unless-stopped
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     ports:
       - "80:80"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
       interval: 30s
       timeout: 5s
+      start_period: 10s
       retries: 5
     networks:
       - internal
