@@ -43,7 +43,7 @@ services:
       TZ: ${TZ}
       SMSARCHIVE_MEDIA_ROOT: /app/media/messages  # maps to smsarchive.media.root
     ports:
-      - "8080:8080"
+      - "${APP_PORT}:8080"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
       interval: 30s
@@ -68,7 +68,7 @@ services:
       app:
         condition: service_healthy
     ports:
-      - "80:80"
+      - "${FRONTEND_PORT}:80"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
       interval: 30s
