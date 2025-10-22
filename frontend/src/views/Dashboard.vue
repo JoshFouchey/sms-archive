@@ -189,7 +189,7 @@ const messagesPerDayChartData = computed(() => {
 });
 
 const messagesPerPeriodTotal = computed(() => {
-  const data = messagesPerDayChartData.value?.datasets[0].data as number[] | undefined;
+  const data = messagesPerDayChartData.value?.datasets?.[0]?.data as number[] | undefined;
   return data?.reduce((a, b) => a + b, 0) ?? 0;
 });
 
