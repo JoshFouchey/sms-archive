@@ -29,6 +29,9 @@ ENV APP_HOME=/app \
     SPRING_PROFILES_ACTIVE=""
 WORKDIR ${APP_HOME}
 
+# Install wget for healthcheck (as root before switching user)
+RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
+
 # Copy the built jar
 COPY --from=build /workspace/build/libs/*SNAPSHOT.jar app.jar
 
