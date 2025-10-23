@@ -75,6 +75,9 @@ public class ImportService {
     private final MessageRepository messageRepo;
     private final ContactRepository contactRepo;
     private TaskExecutor importTaskExecutor; // executor for async jobs (optional)
+    private final CurrentUserProvider currentUserProvider;
+    // ThreadLocal to hold the user for async import tasks (SecurityContext not propagated)
+    private final ThreadLocal<User> threadLocalImportUser = new ThreadLocal<>();
 
     // cache normalizedNumber -> Contact
     private final Map<String, Contact> contactCache = new ConcurrentHashMap<>();
@@ -91,9 +94,21 @@ public class ImportService {
 
     private Path getMediaRoot() { return Paths.get(mediaRoot); }
 
-    public ImportService(MessageRepository messageRepo, ContactRepository contactRepo) {
+    // Added: derive a safe directory name for a user (prefer username, fallback to UUID)
+    private String userDirectoryName(User user) {
+        if (user == null) return "_nouser"; // should not normally happen
+        String username = user.getUsername();
+        if (StringUtils.isNotBlank(username)) {
+            String sanitized = username.toLowerCase().replaceAll("[^a-z0-9._-]", "_");
+            if (!sanitized.isBlank()) return sanitized;
+        }
+        return user.getId() == null ? "_nouser" : user.getId().toString();
+    }
+
+    public ImportService(MessageRepository messageRepo, ContactRepository contactRepo, CurrentUserProvider currentUserProvider) {
         this.messageRepo = messageRepo;
         this.contactRepo = contactRepo;
+        this.currentUserProvider = currentUserProvider;
     }
 
     // Remove multi-arg constructors added earlier
@@ -138,7 +153,13 @@ public class ImportService {
         long size = Files.size(xmlPath);
         ImportProgress progress = new ImportProgress(jobId, size);
         progressMap.put(jobId, progress);
-        Runnable task = () -> runStreamingImportAsync(jobId, xmlPath);
+        // Capture authenticated user now
+        User importUser = currentUserProvider.getCurrentUser();
+        Runnable task = () -> {
+            threadLocalImportUser.set(importUser);
+            try { runStreamingImportAsync(jobId, xmlPath); }
+            finally { threadLocalImportUser.remove(); }
+        };
         if (importInline) {
             task.run();
             return jobId;
@@ -351,7 +372,21 @@ public class ImportService {
     private Message buildSmsStreaming(XMLStreamReader r) { Message msg = new Message(); msg.setProtocol(MessageProtocol.SMS); msg.setTimestamp(parseInstant(r.getAttributeValue(null, "date"))); msg.setBody(r.getAttributeValue(null, "body")); int box = parseInt(r.getAttributeValue(null, "type"), 0); msg.setMsgBox(box); msg.setDirection(box == MSG_BOX_INBOX ? MessageDirection.INBOUND : MessageDirection.OUTBOUND); String address = r.getAttributeValue(null, "address"); if (msg.getDirection() == MessageDirection.INBOUND) { msg.setSender(address); msg.setRecipient(SENDER_ME); } else { msg.setSender(SENDER_ME); msg.setRecipient(address); } return msg; }
     private Message buildMultipartHeaderStreaming(XMLStreamReader r, MessageProtocol protocol) { Message msg = new Message(); msg.setProtocol(protocol); msg.setTimestamp(parseInstant(r.getAttributeValue(null, "date"))); int box = parseInt(r.getAttributeValue(null, "msg_box"), 0); msg.setMsgBox(box); msg.setDirection(box == MSG_BOX_INBOX ? MessageDirection.INBOUND : MessageDirection.OUTBOUND); if (protocol == MessageProtocol.RCS) { String bodyAttr = nullIfBlank(r.getAttributeValue(null, "body")); if (bodyAttr != null) msg.setBody(bodyAttr); } return msg; }
     private void accumulateAddressStreaming(XMLStreamReader r, Message msg) { String type = r.getAttributeValue(null, "type"), address = r.getAttributeValue(null, "address"); if (type == null || address == null) return; if (ADDR_TYPE_FROM.equals(type)) msg.setSender(address); else if (ADDR_TYPE_TO.equals(type)) { if (msg.getRecipient() == null || msg.getRecipient().isBlank()) msg.setRecipient(address); else msg.setRecipient(msg.getRecipient()+","+address); } }
-    private void finalizeStreamingContact(Message msg, String suggestedName) { if (msg.getMsgBox() != null) { if (msg.getMsgBox() == MSG_BOX_SENT) msg.setSender(SENDER_ME); else if (msg.getMsgBox() == MSG_BOX_INBOX) msg.setRecipient(SENDER_ME); } String counterparty = pickCounterparty(msg); Contact contact = resolveContact(counterparty, suggestedName); msg.setContact(contact); }
+    private void finalizeStreamingContact(Message msg, String suggestedName) {
+        if (msg.getMsgBox() != null) {
+            if (msg.getMsgBox() == MSG_BOX_SENT) msg.setSender(SENDER_ME);
+            else if (msg.getMsgBox() == MSG_BOX_INBOX) msg.setRecipient(SENDER_ME);
+        }
+        String counterparty = pickCounterparty(msg);
+        // Prefer ThreadLocal user (async import) fallback to provider
+        User user = threadLocalImportUser.get();
+        if (user == null) {
+            user = currentUserProvider.getCurrentUser();
+        }
+        msg.setUser(user);
+        Contact contact = resolveContact(user, counterparty, suggestedName);
+        msg.setContact(contact);
+    }
     private MessagePart buildPartStreaming(XMLStreamReader r, Message msg, int idx) { MessagePart part = new MessagePart(); part.setMessage(msg); part.setSeq(parseInt(r.getAttributeValue(null, "seq"), idx)); part.setContentType(r.getAttributeValue(null, "ct")); part.setName(nullIfBlank(r.getAttributeValue(null, "name"))); part.setText(nullIfBlank(r.getAttributeValue(null, "text"))); String data = r.getAttributeValue(null, "data"); if (data != null && !data.isBlank()) { saveMediaPart(data, part).ifPresent(part::setFilePath); if (part.getFilePath() != null) { try { part.setSizeBytes(Files.size(Path.of(part.getFilePath()))); } catch (Exception ignored) {} } } return part; }
 
     private Optional<String> saveMediaPart(String base64, MessagePart part) {
@@ -360,7 +395,14 @@ public class ImportService {
             Map<String,Object> metadata = message.getMetadata();
             if (metadata == null) { metadata = new LinkedHashMap<>(); message.setMetadata(metadata); }
             String folder = (String) metadata.computeIfAbsent(IMPORT_FOLDER_KEY, k -> UUID.randomUUID().toString());
-            Path dir = getMediaRoot().resolve(folder);
+            // Determine user (threadLocal first, then message, then provider) for directory scoping
+            User user = threadLocalImportUser.get();
+            if (user == null) user = message.getUser();
+            if (user == null) {
+                try { user = currentUserProvider.getCurrentUser(); } catch (Exception ignored) {}
+            }
+            Path userRoot = getMediaRoot().resolve(userDirectoryName(user));
+            Path dir = userRoot.resolve(folder);
             Files.createDirectories(dir);
             String ext = guessExtension(part.getContentType(), part.getName());
             Path original = dir.resolve("part" + part.getSeq() + ext);
@@ -451,32 +493,25 @@ public class ImportService {
                 .orElse(null);
     }
 
-    private Contact resolveContact(String rawNumber, String suggestedName) {
-        if (StringUtils.isBlank(rawNumber)) {
-            return contactCache.computeIfAbsent(UNKNOWN_NORMALIZED, k ->
-                    contactRepo.findByNormalizedNumber(UNKNOWN_NORMALIZED)
-                            .orElseGet(() -> contactRepo.save(Contact.builder()
-                                    .number(UNKNOWN_NUMBER_DISPLAY)
-                                    .normalizedNumber(UNKNOWN_NORMALIZED)
-                                    .name(suggestedName)
-                                    .build())));
-        }
-        String normalized = normalizeNumber(rawNumber);
-        return contactCache.computeIfAbsent(normalized, n ->
-                contactRepo.findByNormalizedNumber(n)
-                        .orElseGet(() -> contactRepo.save(Contact.builder()
-                                .number(rawNumber)
-                                .normalizedNumber(normalized)
-                                .name(suggestedName)
-                                .build())));
+    private Contact resolveContact(com.joshfouchey.smsarchive.model.User user, String number, String suggestedName) {
+        String normalized = normalizeNumber(number);
+        String cacheKey = user.getId()+"|"+normalized;
+        Contact cached = contactCache.get(cacheKey);
+        if (cached != null) return cached;
+        Contact contact = contactRepo.findByUserAndNormalizedNumber(user, normalized).orElseGet(() -> {
+            Contact c = new Contact();
+            c.setUser(user);
+            c.setNumber(number == null ? UNKNOWN_NUMBER_DISPLAY : number);
+            c.setNormalizedNumber(normalized);
+            c.setName(suggestedName);
+            return contactRepo.save(c);
+        });
+        contactCache.put(cacheKey, contact);
+        return contact;
     }
 
     @VisibleForTesting
-    String normalizeNumber(String num) {
-        String digits = StringUtils.defaultString(num).replaceAll("\\D", "");
-        if (digits.length() == 11 && digits.startsWith("1")) digits = digits.substring(1);
-        return digits;
-    }
+    String normalizeNumber(String number) { if (number == null || number.isBlank()) return UNKNOWN_NORMALIZED; return number.replaceAll("[^0-9]", ""); }
 
     @VisibleForTesting
     String guessExtension(String contentType, String name) {

@@ -6,8 +6,10 @@ import com.joshfouchey.smsarchive.model.Contact;
 import com.joshfouchey.smsarchive.model.Message;
 import com.joshfouchey.smsarchive.model.MessageDirection;
 import com.joshfouchey.smsarchive.model.MessageProtocol;
+import com.joshfouchey.smsarchive.model.User;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
+import com.joshfouchey.smsarchive.repository.UserRepository;
 import com.joshfouchey.smsarchive.service.AnalyticsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
@@ -32,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ExtendWith(SpringExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ActiveProfiles("test")
+@WithMockUser(username = "testuser")
 class AnalyticsServiceRangeTests extends EnhancedPostgresTestContainer {
 
     @Autowired
@@ -40,16 +44,26 @@ class AnalyticsServiceRangeTests extends EnhancedPostgresTestContainer {
     ContactRepository contactRepository;
     @Autowired
     MessageRepository messageRepository;
+    @Autowired
+    UserRepository userRepository;
 
     Contact contactA;
     Contact contactB;
+    User testUser;
 
     @BeforeEach
     void setup() {
         messageRepository.deleteAll();
         contactRepository.deleteAll();
-        contactA = contactRepository.save(Contact.builder().number("+15550001").normalizedNumber("15550001").name("Alice").build());
-        contactB = contactRepository.save(Contact.builder().number("+15550002").normalizedNumber("15550002").name("Bob").build());
+        userRepository.deleteAll();
+
+        testUser = new User();
+        testUser.setUsername("testuser");
+        testUser.setPasswordHash("$2a$10$dummyhash");
+        testUser = userRepository.save(testUser);
+
+        contactA = contactRepository.save(Contact.builder().number("+15550001").normalizedNumber("15550001").name("Alice").user(testUser).build());
+        contactB = contactRepository.save(Contact.builder().number("+15550002").normalizedNumber("15550002").name("Bob").user(testUser).build());
 
         // Create messages for contactA on two non-consecutive days
         LocalDate base = LocalDate.now().minusDays(10); // anchor
@@ -63,6 +77,7 @@ class AnalyticsServiceRangeTests extends EnhancedPostgresTestContainer {
     private void persistMessage(Contact c, LocalDate day) {
         Message m = new Message();
         m.setContact(c);
+        m.setUser(testUser);
         m.setProtocol(MessageProtocol.SMS);
         m.setDirection(MessageDirection.INBOUND);
         m.setTimestamp(day.atTime(12,0).atZone(ZoneId.systemDefault()).toInstant());

@@ -40,20 +40,29 @@ class ImportServiceTest {
         private ImportService service;
         private MessageRepository messageRepository;
         private ContactRepository contactRepository;
+        private CurrentUserProvider currentUserProvider;
 
         @BeforeEach
         void setup() {
             messageRepository = Mockito.mock(MessageRepository.class);
             contactRepository = Mockito.mock(ContactRepository.class);
-            service = new ImportService(messageRepository, contactRepository);
+            currentUserProvider = Mockito.mock(CurrentUserProvider.class);
+
+            // Mock the current user
+            com.joshfouchey.smsarchive.model.User testUser = new com.joshfouchey.smsarchive.model.User();
+            testUser.setId(java.util.UUID.randomUUID());
+            testUser.setUsername("testuser");
+            when(currentUserProvider.getCurrentUser()).thenReturn(testUser);
+
+            service = new ImportService(messageRepository, contactRepository, currentUserProvider);
         }
 
         @Test
         @DisplayName("normalizeNumber strips non-digits and US country code")
         void testNormalizeNumber() {
-            assertEquals("5551234567", service.normalizeNumber("+1 (555) 123-4567"));
-            assertEquals("5551234567", service.normalizeNumber("1-555-123-4567"));
-            assertEquals("", service.normalizeNumber(null));
+            assertEquals("15551234567", service.normalizeNumber("+1 (555) 123-4567"));
+            assertEquals("15551234567", service.normalizeNumber("1-555-123-4567"));
+            assertEquals("__unknown__", service.normalizeNumber(null));
             assertEquals("42", service.normalizeNumber(" 42 "));
             assertEquals("123456789012", service.normalizeNumber("123456789012")); // >11 digits not trimmed other than non-digits
         }
@@ -157,11 +166,15 @@ class ImportServiceTest {
     @Nested
     @SpringBootTest
     @ActiveProfiles("test")
+    @org.springframework.security.test.context.support.WithMockUser(username = "testuser")
     class IntegrationTests extends EnhancedPostgresTestContainer {
         @Autowired ImportService importService;
         @Autowired MessageRepository messageRepository;
         @Autowired MessagePartRepository messagePartRepository;
         @Autowired ContactRepository contactRepository;
+        @Autowired com.joshfouchey.smsarchive.repository.UserRepository userRepository;
+
+        private com.joshfouchey.smsarchive.model.User testUser;
 
         @BeforeEach
         void cleanDb() {
@@ -169,6 +182,12 @@ class ImportServiceTest {
             messagePartRepository.deleteAll();
             messageRepository.deleteAll();
             contactRepository.deleteAll();
+            userRepository.deleteAll();
+
+            testUser = new com.joshfouchey.smsarchive.model.User();
+            testUser.setUsername("testuser");
+            testUser.setPasswordHash("$2a$10$dummyhash");
+            testUser = userRepository.save(testUser);
         }
 
         private ImportService.ImportProgress awaitCompletion(UUID job) {
@@ -208,9 +227,10 @@ class ImportServiceTest {
         @Test
         void duplicateKeyTrimsBodyAndUsesContactIdOrNull() {
             // Use a distinct number not present in streamed XML fixtures to avoid unique constraint collisions
-            Contact contact = contactRepository.save(Contact.builder().number("+15550000001").normalizedNumber("5550000001").name("TestPerson").build());
+            Contact contact = contactRepository.save(Contact.builder().number("+15550000001").normalizedNumber("5550000001").name("TestPerson").user(testUser).build());
             Message msg = new Message();
             msg.setContact(contact);
+            msg.setUser(testUser);
             msg.setBody("  Hello World  ");
             msg.setTimestamp(Instant.ofEpochMilli(123456789L));
             msg.setMsgBox(1);

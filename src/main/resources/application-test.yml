@@ -26,3 +26,8 @@ smsarchive:
   import:
     inline: true      # process import synchronously in tests for deterministic progress
     batchSize: 500    # batch size for import persistence logic
+
+jwt:
+  secret: test-secret-123456789012345678901234567890
+  accessTtlMinutes: 5
+  refreshTtlDays: 7

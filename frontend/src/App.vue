@@ -1,7 +1,11 @@
 <template>
   <div class="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
     <!-- Navbar -->
-    <Menubar :model="items" class="shadow-sm bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700" />
+    <Menubar :model="items" class="shadow-sm bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <template #end>
+        <UserBadge />
+      </template>
+    </Menubar>
 
     <!-- Toast Container -->
     <Toast position="top-right" />
@@ -22,6 +26,7 @@
 import { useRouter } from "vue-router";
 import Menubar from "primevue/menubar";
 import Toast from "primevue/toast";
+import UserBadge from './components/UserBadge.vue';
 
 const router = useRouter();
 

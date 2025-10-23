@@ -15,7 +15,9 @@
     "primevue": "^4.3.9",
     "vue": "^3.5.21",
     "vue-router": "^4.5.1",
-    "chart.js": "^4.4.3"
+    "chart.js": "^4.4.3",
+    "axios": "^1.7.7",
+    "pinia": "^2.1.7"
   },
   "devDependencies": {
     "@types/vue-router": "^2.0.0",

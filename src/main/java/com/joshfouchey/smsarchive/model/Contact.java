@@ -6,7 +6,9 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "contacts",
-        indexes = @Index(name = "ux_contacts_normalized", columnList = "normalized_number", unique = true))
+        indexes = {
+                @Index(name = "ux_contacts_user_normalized", columnList = "user_id,normalized_number", unique = true)
+        })
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Contact {
 
@@ -19,7 +21,7 @@ public class Contact {
     private String number;
 
     // Canonical digits-only (normalized)
-    @Column(name = "normalized_number", nullable = false, unique = true)
+    @Column(name = "normalized_number", nullable = false)
     private String normalizedNumber;
 
     private String name;
@@ -29,6 +31,10 @@ public class Contact {
 
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 
     @PrePersist
     void prePersist() {

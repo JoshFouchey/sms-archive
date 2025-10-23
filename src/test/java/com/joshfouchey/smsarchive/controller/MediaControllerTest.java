@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -35,7 +36,7 @@ class MediaControllerTest {
     static class StubConfig {
         @Bean
         MediaService mediaService() {
-            return new MediaService(null, null) { // override methods; repositories not used
+            return new MediaService(null, null, null) { // override methods; repositories not used
                 @Override
                 public Page<MessagePart> getImages(Long contactId, int page, int size) {
                     if (contactId != null) {
@@ -73,6 +74,7 @@ class MediaControllerTest {
     }
 
     @Test
+    @WithMockUser
     void getImages_handlesNullAndNormalizesPaths() throws Exception {
         mockMvc.perform(get("/api/media/images"))
                 .andExpect(status().isOk())
@@ -84,6 +86,7 @@ class MediaControllerTest {
     }
 
     @Test
+    @WithMockUser
     void getImages_invalidContact_returns404() throws Exception {
         mockMvc.perform(get("/api/media/images").param("contactId", "9999"))
                 .andExpect(status().isNotFound())

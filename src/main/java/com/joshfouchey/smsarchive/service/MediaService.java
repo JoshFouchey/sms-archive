@@ -18,23 +18,26 @@ import jakarta.persistence.EntityNotFoundException;
 public class MediaService {
     private final MessagePartRepository partRepo;
     private final ContactRepository contactRepo;
+    private final CurrentUserProvider currentUserProvider;
     private static final Logger log = LoggerFactory.getLogger(MediaService.class);
 
-    public MediaService(MessagePartRepository partRepo, ContactRepository contactRepo) {
+    public MediaService(MessagePartRepository partRepo, ContactRepository contactRepo, CurrentUserProvider currentUserProvider) {
         this.partRepo = partRepo;
         this.contactRepo = contactRepo;
+        this.currentUserProvider = currentUserProvider;
     }
 
     // Uses repository methods only; throws if contact not found
     public Page<MessagePart> getImages(Long contactId, int page, int size) {
         PageRequest pageable = PageRequest.of(page, size);
+        var user = currentUserProvider.getCurrentUser();
         if (contactId != null) {
             if (!contactRepo.existsById(contactId)) {
                 throw new EntityNotFoundException("Contact not found: " + contactId);
             }
-            return partRepo.findImagesByContactId(contactId, pageable);
+            return partRepo.findImagesByContactId(contactId, user, pageable);
         }
-        return partRepo.findAllImages(pageable);
+        return partRepo.findAllImages(user, pageable);
     }
 
     public boolean deleteImage(Long id) {

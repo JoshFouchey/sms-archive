@@ -1,0 +1,4 @@
+# Production configuration - CORS is not needed as frontend is served by same origin (nginx)
+cors:
+  allowed-origins: ""
+

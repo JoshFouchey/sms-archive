@@ -1,4 +1,4 @@
-// frontend/src/services/api.ts
+import axios from 'axios';
 const API_BASE = (import.meta.env.VITE_API_BASE as string) || '';
 /* ==============================
    Types / Interfaces
@@ -86,18 +86,16 @@ export interface Contact {
 ============================== */
 
 export async function getAllContactSummaries(): Promise<ContactSummary[]> {
-    const res = await fetch(`${API_BASE}/api/messages/contacts`);
-    if (!res.ok) throw new Error("Failed to fetch contacts");
-    return res.json();
+    const res = await axios.get(`${API_BASE}/api/messages/contacts`);
+    return res.data;
 }
 
 /* (Optional older alias) */
 export const getContacts = getAllContactSummaries;
 
 export async function getDistinctContacts(): Promise<Contact[]> {
-    const res = await fetch(`${API_BASE}/api/contacts`);
-    if (!res.ok) throw new Error("Failed to fetch distinct contacts");
-    return res.json();
+    const res = await axios.get(`${API_BASE}/api/contacts`);
+    return res.data;
 }
 
 /* ==============================
@@ -118,10 +116,8 @@ export async function getAnalyticsDashboard(params?: {
     if (params?.startDate) p.append("startDate", params.startDate);
     if (params?.endDate) p.append("endDate", params.endDate);
     if (params?.contactId != null) p.append("contactId", String(params.contactId));
-    const q = p.toString();
-    const res = await fetch(`${API_BASE}/api/analytics/dashboard${q ? `?${q}` : ""}`);
-    if (!res.ok) throw new Error("Failed to fetch analytics dashboard");
-    return res.json();
+    const res = await axios.get(`${API_BASE}/api/analytics/dashboard${p.toString()?`?${p.toString()}`:''}`);
+    return res.data;
 }
 
 /* ==============================
@@ -138,15 +134,9 @@ export async function getMessagesByContactId(
     size: number = 50,
     sort: "asc" | "desc" = "desc"
 ): Promise<PagedResponse<Message>> {
-    const params = new URLSearchParams({
-        page: page.toString(),
-        size: size.toString(),
-        sort
-    });
-    const url = `${API_BASE}/api/messages/contact/${contactId}?${params.toString()}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Failed to load messages");
-    return res.json();
+    const params = { page, size, sort };
+    const res = await axios.get(`${API_BASE}/api/messages/contact/${contactId}`, { params });
+    return res.data;
 }
 
 /* ==============================
@@ -158,19 +148,14 @@ export async function getImages(
     size: number = 50,
     contactId?: number
 ): Promise<MessagePart[]> {
-    const params = new URLSearchParams();
-    params.append("page", page.toString());
-    params.append("size", size.toString());
-    if (contactId != null) params.append("contactId", contactId.toString());
-    const url = `${API_BASE}/api/media/images?${params.toString()}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Failed to load images");
-    return res.json();
+    const params: any = { page, size }; if (contactId != null) params.contactId = contactId;
+    const res = await axios.get(`${API_BASE}/api/media/images`, { params });
+    return res.data;
 }
 
 export async function deleteImageById(id: number): Promise<boolean> {
-    const res = await fetch(`${API_BASE}/api/media/images/${id}`, { method: "DELETE" });
-    return res.ok;
+    const res = await axios.delete(`${API_BASE}/api/media/images/${id}`);
+    return res.status === 200;
 }
 
 /* ==============================
@@ -193,40 +178,20 @@ export interface ImportProgress {
 }
 
 export async function startStreamingImport(file: File): Promise<{ jobId: string; status: string; }> {
-  const fd = new FormData();
-  fd.append("file", file);
-  const res = await fetch(`${API_BASE}/import/stream`, { method: "POST", body: fd });
-  if (!res.ok) throw new Error("Failed to start streaming import");
-  return res.json();
+    const fd = new FormData(); fd.append("file", file);
+    const res = await axios.post(`${API_BASE}/import/stream`, fd);
+    return res.data;
 }
 
 export async function getImportProgress(jobId: string): Promise<ImportProgress | null> {
-  const res = await fetch(`${API_BASE}/import/progress/${jobId}`);
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error("Failed to fetch import progress");
-  return res.json();
+    try { const res = await axios.get(`${API_BASE}/import/progress/${jobId}`); return res.data; } catch (e: any) { if (e.response?.status === 404) return null; throw e; }
 }
 
 /* ==============================
    Search
 ============================== */
 
-export async function searchBySender(sender: string): Promise<Message[]> {
-    const res = await fetch(`${API_BASE}/search/sender?sender=${encodeURIComponent(sender)}`);
-    return res.json();
-}
-
-export async function searchByRecipient(recipient: string): Promise<Message[]> {
-    const res = await fetch(`${API_BASE}/search/recipient?recipient=${encodeURIComponent(recipient)}`);
-    return res.json();
-}
-
-export async function searchByText(text: string): Promise<Message[]> {
-    const res = await fetch(`${API_BASE}/search/text?text=${encodeURIComponent(text)}`);
-    return res.json();
-}
-
-export async function searchByDateRange(start: string, end: string): Promise<Message[]> {
-    const res = await fetch(`${API_BASE}/search/dates?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
-    return res.json();
-}
+export async function searchBySender(sender: string): Promise<Message[]> { const res = await axios.get(`${API_BASE}/search/sender`, { params: { sender }}); return res.data; }
+export async function searchByRecipient(recipient: string): Promise<Message[]> { const res = await axios.get(`${API_BASE}/search/recipient`, { params: { recipient }}); return res.data; }
+export async function searchByText(text: string): Promise<Message[]> { const res = await axios.get(`${API_BASE}/search/text`, { params: { text }}); return res.data; }
+export async function searchByDateRange(start: string, end: string): Promise<Message[]> { const res = await axios.get(`${API_BASE}/search/dates`, { params: { start, end }}); return res.data; }

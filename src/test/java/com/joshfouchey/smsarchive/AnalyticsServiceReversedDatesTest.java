@@ -6,8 +6,10 @@ import com.joshfouchey.smsarchive.model.Contact;
 import com.joshfouchey.smsarchive.model.Message;
 import com.joshfouchey.smsarchive.model.MessageDirection;
 import com.joshfouchey.smsarchive.model.MessageProtocol;
+import com.joshfouchey.smsarchive.model.User;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
+import com.joshfouchey.smsarchive.repository.UserRepository;
 import com.joshfouchey.smsarchive.service.AnalyticsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDate;
@@ -26,24 +29,35 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ActiveProfiles("test")
+@WithMockUser(username = "testuser")
 class AnalyticsServiceReversedDatesTest extends EnhancedPostgresTestContainer {
 
     @Autowired AnalyticsService analyticsService;
     @Autowired ContactRepository contactRepository;
     @Autowired MessageRepository messageRepository;
+    @Autowired UserRepository userRepository;
 
     Contact contact;
+    User testUser;
 
     @BeforeEach
     void init() {
         messageRepository.deleteAll();
         contactRepository.deleteAll();
-        contact = contactRepository.save(Contact.builder().number("+15550123").normalizedNumber("15550123").name("X").build());
+        userRepository.deleteAll();
+
+        testUser = new User();
+        testUser.setUsername("testuser");
+        testUser.setPasswordHash("$2a$10$dummyhash");
+        testUser = userRepository.save(testUser);
+
+        contact = contactRepository.save(Contact.builder().number("+15550123").normalizedNumber("15550123").name("X").user(testUser).build());
         // messages across a 5 day span
         LocalDate start = LocalDate.now().minusDays(5);
         for (int i = 0; i < 5; i++) {
             Message m = new Message();
             m.setContact(contact);
+            m.setUser(testUser);
             m.setProtocol(MessageProtocol.SMS);
             m.setDirection(MessageDirection.OUTBOUND);
             m.setTimestamp(start.plusDays(i).atTime(9,0).atZone(ZoneId.systemDefault()).toInstant());

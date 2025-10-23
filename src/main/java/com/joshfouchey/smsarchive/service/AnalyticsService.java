@@ -1,6 +1,7 @@
 package com.joshfouchey.smsarchive.service;
 
 import com.joshfouchey.smsarchive.dto.*;
+import com.joshfouchey.smsarchive.model.User;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessagePartRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
@@ -20,34 +21,38 @@ public class AnalyticsService {
     private final ContactRepository contactRepository;
     private final MessageRepository messageRepository;
     private final MessagePartRepository messagePartRepository;
+    private final CurrentUserProvider currentUserProvider;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     public AnalyticsService(ContactRepository contactRepository,
                             MessageRepository messageRepository,
-                            MessagePartRepository messagePartRepository) {
+                            MessagePartRepository messagePartRepository,
+                            CurrentUserProvider currentUserProvider) {
         this.contactRepository = contactRepository;
         this.messageRepository = messageRepository;
         this.messagePartRepository = messagePartRepository;
+        this.currentUserProvider = currentUserProvider;
     }
 
     public AnalyticsSummaryDto getSummary() {
-        long totalContacts = contactRepository.count();
-        long totalMessages = messageRepository.count();
-        long totalImages = messagePartRepository.countImageParts();
+        User user = currentUserProvider.getCurrentUser();
+        long totalContacts = contactRepository.findAllByUser(user).size();
+        long totalMessages = messageRepository.countByUser(user);
+        long totalImages = messagePartRepository.countImageParts(user);
         return new AnalyticsSummaryDto(totalContacts, totalMessages, totalImages);
     }
 
     public List<TopContactDto> getTopContacts(int days, int limit) {
-        // Always compute all-time top contacts ignoring days parameter
-        List<TopContactDto> all = messageRepository.findTopContactsSince(Instant.EPOCH);
+        User user = currentUserProvider.getCurrentUser();
+        List<TopContactDto> all = messageRepository.findTopContactsSince(Instant.EPOCH, user);
         return all.stream().limit(limit).collect(Collectors.toList());
     }
 
     public List<MessageCountPerDayDto> getMessagesPerDay(int days) {
-        // Always compute from the beginning of time (Instant.EPOCH)
-        return messageRepository.countMessagesPerDaySince(Instant.EPOCH).stream()
+        User user = currentUserProvider.getCurrentUser();
+        return messageRepository.countMessagesPerDaySince(Instant.EPOCH, user.getId()).stream()
                 .map(p -> new MessageCountPerDayDto(
                         p.getDay_ts().toLocalDateTime().toLocalDate(),
                         p.getCount()
@@ -56,26 +61,28 @@ public class AnalyticsService {
     }
 
     public long getTotalContacts() {
-        return contactRepository.count();
+        User user = currentUserProvider.getCurrentUser();
+        return contactRepository.findAllByUser(user).size();
     }
 
     public List<MessageCountPerDayDto> getMessagesPerDayRange(LocalDate startDate, LocalDate endDate, Long contactId) {
+        User user = currentUserProvider.getCurrentUser();
         if (startDate.isAfter(endDate)) { LocalDate tmp = startDate; startDate = endDate; endDate = tmp; }
         Instant start = startDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
         Instant endExclusive = endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
-        StringBuilder sql = new StringBuilder("SELECT CAST(m.timestamp AS DATE) AS day_date, COUNT(*) AS count FROM messages m WHERE m.timestamp >= :start AND m.timestamp < :end");
+        StringBuilder sql = new StringBuilder("SELECT CAST(m.timestamp AS DATE) AS day_date, COUNT(*) AS count FROM messages m WHERE m.timestamp >= :start AND m.timestamp < :end AND m.user_id = :userId");
         if (contactId != null) sql.append(" AND m.contact_id = :contactId");
         sql.append(" GROUP BY day_date ORDER BY day_date");
         var query = entityManager.createNativeQuery(sql.toString())
                 .setParameter("start", start)
-                .setParameter("end", endExclusive);
+                .setParameter("end", endExclusive)
+                .setParameter("userId", user.getId());
         if (contactId != null) query.setParameter("contactId", contactId);
         @SuppressWarnings("unchecked") List<Object[]> rows = query.getResultList();
         return rows.stream().map(r -> new MessageCountPerDayDto(((java.sql.Date) r[0]).toLocalDate(), ((Number) r[1]).longValue())).collect(Collectors.toList());
     }
 
     public AnalyticsDashboardDto getDashboard(int topContactDays, int topLimit, int perDayDays, LocalDate startDate, LocalDate endDate, Long contactId) {
-        // Fallback: if no explicit range provided, derive from perDayDays ending today
         LocalDate derivedEnd = endDate != null ? endDate : LocalDate.now();
         LocalDate derivedStart = startDate != null ? startDate : derivedEnd.minusDays(Math.max(perDayDays, 1) - 1);
         AnalyticsSummaryDto summary = getSummary();

@@ -29,3 +29,8 @@ logging:
 
 server:
   forward-headers-strategy: framework
+
+jwt:
+  secret: ${JWT_SECRET:changeme-secret}
+  accessTtlMinutes: ${JWT_ACCESS_TTL_MINUTES:15}
+  refreshTtlDays: ${JWT_REFRESH_TTL_DAYS:30}

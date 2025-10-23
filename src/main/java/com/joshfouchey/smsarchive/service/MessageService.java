@@ -16,13 +16,16 @@ import java.util.List;
 public class MessageService {
 
     private final MessageRepository messageRepository;
+    private final CurrentUserProvider currentUserProvider;
 
-    public MessageService(MessageRepository messageRepository) {
+    public MessageService(MessageRepository messageRepository, CurrentUserProvider currentUserProvider) {
         this.messageRepository = messageRepository;
+        this.currentUserProvider = currentUserProvider;
     }
 
     public List<ContactSummaryDto> getAllContactSummaries() {
-        return messageRepository.findAllContactSummaries();
+        var user = currentUserProvider.getCurrentUser();
+        return messageRepository.findAllContactSummaries(user);
     }
 
     @Transactional(readOnly = true)
@@ -35,7 +38,7 @@ public class MessageService {
         Sort sort = Sort.by("timestamp");
         sort = "asc".equalsIgnoreCase(sortDir) ? sort.ascending() : sort.descending();
         Pageable pageable = PageRequest.of(page, size, sort);
-        Page<Message> result = messageRepository.findByContactId(contactId, pageable);
+        Page<Message> result = messageRepository.findByContactIdAndUser(contactId, currentUserProvider.getCurrentUser(), pageable);
         List<MessageDto> content = result.getContent().stream()
                 .map(MessageMapper::toDto)
                 .toList();
