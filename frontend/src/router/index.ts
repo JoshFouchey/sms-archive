@@ -24,7 +24,7 @@ const router = createRouter({
 });
 
 import { useAuthStore } from '../stores/authStore';
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   const store = useAuthStore();
   const publicPaths = ['/login','/register'];
   if (!store.accessToken && !publicPaths.includes(to.path)) {

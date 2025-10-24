@@ -65,7 +65,8 @@ public class SecurityConfig {
                                 "/api/auth/login", "/api/auth/refresh", "/api/auth/register", "/api/auth/me",
                                 "/api/contacts",
                                 "/media/**", // static media
-                                "/import/**" // adjust if should be secured
+                                "/import/**", // adjust if should be secured
+                                "/actuator/health" // for Docker health checks
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
