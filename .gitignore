@@ -66,3 +66,4 @@ frontend/coverage/
 frontend/.eslintcache
 *.swp
 *.swo
+/docker-compose.yml
