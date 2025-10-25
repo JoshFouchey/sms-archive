@@ -1,6 +1,8 @@
+version: "3.9"
+
 networks:
   proxy:
-    external: true  # create with: docker network create proxy
+    external: true  # Use your existing Nginx Proxy Manager network
   internal:
     driver: bridge
 
@@ -9,6 +11,8 @@ services:
     image: postgres:${DB_VERSION}
     container_name: sms-archive-postgres
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -16,42 +20,47 @@ services:
       TZ: ${TZ}
     ports:
       - "${DB_PORT}:5432"
+    volumes:
+      - ${DB_DATA_HOST_PATH}:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    volumes:
-      - ${DB_DATA_HOST_PATH}:/var/lib/postgresql/data
     networks:
       - internal
 
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: sms-archive-app
     restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
+    env_file:
+      - .env
     environment:
+      SPRING_PROFILES_ACTIVE: prod
       DB_URL: jdbc:postgresql://db:5432/${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASS: ${DB_PASSWORD}
-      SPRING_PROFILES_ACTIVE: prod
       APP_BASE_URL: ${APP_BASE_URL}
       LOG_LEVEL: ${LOG_LEVEL}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      SMSARCHIVE_MEDIA_ROOT: /app/media/messages
       TZ: ${TZ}
-      SMSARCHIVE_MEDIA_ROOT: /app/media/messages  # maps to smsarchive.media.root
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "${APP_PORT}:8080"
+    volumes:
+      - ${MEDIA_ROOT_HOST_PATH}:/app/media/messages
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
       interval: 30s
       timeout: 10s
       start_period: 60s
       retries: 5
-    volumes:
-      - ${MEDIA_ROOT_HOST_PATH}:/app/media/messages
     networks:
       - internal
       - proxy
@@ -64,6 +73,8 @@ services:
         VITE_API_BASE: ${VITE_API_BASE}
     container_name: sms-archive-frontend
     restart: unless-stopped
+    env_file:
+      - .env
     depends_on:
       app:
         condition: service_healthy
@@ -78,5 +89,3 @@ services:
     networks:
       - internal
       - proxy
-
-volumes: {}
