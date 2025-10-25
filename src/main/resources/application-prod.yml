@@ -1,3 +1,2 @@
-# Production configuration - allow explicit localhost frontend access when needed
 cors:
-  allowed-origins: "http://localhost:8071,http://127.0.0.1:8071"
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:8070,http://127.0.0.1:8070}
