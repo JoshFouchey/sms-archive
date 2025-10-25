@@ -1,4 +1,3 @@
-# Production configuration - CORS is not needed as frontend is served by same origin (nginx)
+# Production configuration - allow explicit localhost frontend access when needed
 cors:
-  allowed-origins: ""
-
+  allowed-origins: "http://localhost:8071,http://127.0.0.1:8071"
