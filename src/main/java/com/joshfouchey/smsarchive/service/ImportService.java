@@ -5,7 +5,6 @@ import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
 import lombok.extern.slf4j.Slf4j;
 import lombok.Getter;
-import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,15 +12,10 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.imageio.ImageIO;
 import javax.sql.DataSource;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamReader;
-import java.awt.Color;
-import java.awt.Graphics2D;
-import java.awt.Font;
-import java.awt.image.BufferedImage;
 import java.nio.file.*;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
@@ -50,13 +44,7 @@ public class ImportService {
     private static final String IMPORT_FOLDER_KEY = "importFolder";
     private static final String UNKNOWN_NUMBER_DISPLAY = "unknown";
 
-    // Media type sets & content-type mapping extracted to constants (avoid recreation each call)
-    private static final Set<String> SUPPORTED_THUMB_TYPES = Set.of(
-            "image/jpeg", "image/jpg", "image/png", "image/gif", "image/bmp"
-    );
-    private static final Set<String> UNSUPPORTED_IMAGE_TYPES = Set.of(
-            "image/heic", "image/heif"
-    );
+    // Content-type mapping for file extensions
     private static final Map<String,String> CONTENT_TYPE_EXT_MAP = Map.ofEntries(
             Map.entry("image/jpeg", ".jpg"),
             Map.entry("image/jpg", ".jpg"),
@@ -74,6 +62,7 @@ public class ImportService {
 
     private final MessageRepository messageRepo;
     private final ContactRepository contactRepo;
+    private final ThumbnailService thumbnailService;
     private TaskExecutor importTaskExecutor; // executor for async jobs (optional)
     private final CurrentUserProvider currentUserProvider;
     // ThreadLocal to hold the user for async import tasks (SecurityContext not propagated)
@@ -105,10 +94,12 @@ public class ImportService {
         return user.getId() == null ? "_nouser" : user.getId().toString();
     }
 
-    public ImportService(MessageRepository messageRepo, ContactRepository contactRepo, CurrentUserProvider currentUserProvider) {
+    public ImportService(MessageRepository messageRepo, ContactRepository contactRepo,
+                         CurrentUserProvider currentUserProvider, ThumbnailService thumbnailService) {
         this.messageRepo = messageRepo;
         this.contactRepo = contactRepo;
         this.currentUserProvider = currentUserProvider;
+        this.thumbnailService = thumbnailService;
     }
 
     // Remove multi-arg constructors added earlier
@@ -414,25 +405,16 @@ public class ImportService {
                 original = dir.resolve("part" + part.getSeq() + "_" + System.currentTimeMillis() + ext);
             }
             Files.write(original, Base64.getDecoder().decode(base64));
-            String ctLower = Optional.ofNullable(part.getContentType()).map(String::toLowerCase).orElse("");
-            if (SUPPORTED_THUMB_TYPES.contains(ctLower)) {
-                try {
-                    Path thumbPath = dir.resolve(original.getFileName().toString().replace(ext, "_thumb.jpg"));
-                    Thumbnails.of(original.toFile())
-                            .size(400, 400)
-                            .outputFormat("jpg")
-                            .outputQuality(0.80)
-                            .toFile(thumbPath.toFile());
-                } catch (Exception e) { log.warn("Thumbnail failed: {}", original, e); }
-            } else if (UNSUPPORTED_IMAGE_TYPES.contains(ctLower)) {
-                createUnsupportedThumbnail(dir, part.getSeq());
-            }
+
+            // Delegate thumbnail creation to ThumbnailService
+            Path thumbPath = thumbnailService.deriveThumbnailPath(original, part.getSeq());
+            thumbnailService.createThumbnail(original, thumbPath, part.getContentType(), false);
+
             part.setFilePath(original.toString());
             try { part.setSizeBytes(Files.size(original)); } catch (Exception ignored) {}
             return Optional.of(original.toString());
         } catch (Exception e) { log.error("Media save failed", e); return Optional.empty(); }
     }
-    private void createUnsupportedThumbnail(Path dir, int seq) { try { int w = 400, h = 400; BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB); Graphics2D g = img.createGraphics(); g.setColor(Color.DARK_GRAY); g.fillRect(0,0,w,h); g.setColor(Color.WHITE); g.setFont(new Font("SansSerif", Font.BOLD, 32)); String text = "HEIC"; int tw = g.getFontMetrics().stringWidth(text); g.drawString(text, (w - tw)/2, h/2 - 10); g.setFont(new Font("SansSerif", Font.PLAIN, 20)); String sub = "Not Supported"; int sw = g.getFontMetrics().stringWidth(sub); g.drawString(sub, (w - sw)/2, h/2 + 25); g.dispose(); ImageIO.write(img, "jpg", dir.resolve("part" + seq + "_thumb.jpg").toFile()); } catch (Exception e) { log.warn("Failed to create unsupported thumbnail placeholder", e); } }
 
     public static class ImportProgress {
         private final UUID id;
