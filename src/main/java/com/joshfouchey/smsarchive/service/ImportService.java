@@ -351,6 +351,8 @@ public class ImportService {
         if (curMedia != null && !curMedia.isEmpty()) cur.setMedia(Map.of("parts", curMedia));
         cur.setParts(curParts);
         finalizeStreamingContact(cur, suggestedName);
+        // After contact is resolved relocate any parts saved under _nocontact
+        relocatePartsToContactDir(cur);
     }
 
     private boolean isDuplicateInRunOrDb(Message msg, Set<String> seenKeys) {
@@ -392,25 +394,41 @@ public class ImportService {
     private Optional<String> saveMediaPart(String base64, MessagePart part) {
         try {
             Message message = part.getMessage();
-            Map<String,Object> metadata = message.getMetadata();
-            if (metadata == null) { metadata = new LinkedHashMap<>(); message.setMetadata(metadata); }
-            String folder = (String) metadata.computeIfAbsent(IMPORT_FOLDER_KEY, k -> UUID.randomUUID().toString());
             // Determine user (threadLocal first, then message, then provider) for directory scoping
             User user = threadLocalImportUser.get();
             if (user == null) user = message.getUser();
             if (user == null) {
                 try { user = currentUserProvider.getCurrentUser(); } catch (Exception ignored) {}
             }
-            Path userRoot = getMediaRoot().resolve(userDirectoryName(user));
-            Path dir = userRoot.resolve(folder);
+            // Contact may not yet be resolved (during part parsing). Use contactId if present else temporary _nocontact folder.
+            String contactDirName = (message.getContact() != null && message.getContact().getId() != null)
+                    ? message.getContact().getId().toString()
+                    : "_nocontact";
+            Path baseRoot = getMediaRoot();
+            Path dir = baseRoot.resolve(contactDirName);
             Files.createDirectories(dir);
             String ext = guessExtension(part.getContentType(), part.getName());
             Path original = dir.resolve("part" + part.getSeq() + ext);
+            // Avoid accidental overwrite if same seq reused across messages before relocation (unlikely). If exists, append timestamp.
+            if (Files.exists(original)) {
+                original = dir.resolve("part" + part.getSeq() + "_" + System.currentTimeMillis() + ext);
+            }
             Files.write(original, Base64.getDecoder().decode(base64));
             String ctLower = Optional.ofNullable(part.getContentType()).map(String::toLowerCase).orElse("");
             if (SUPPORTED_THUMB_TYPES.contains(ctLower)) {
-                try { Thumbnails.of(original.toFile()).size(400, 400).outputFormat("jpg").outputQuality(0.80).toFile(dir.resolve("part" + part.getSeq() + "_thumb.jpg").toFile()); } catch (Exception e) { log.warn("Thumbnail failed: {}", original, e); }
-            } else if (UNSUPPORTED_IMAGE_TYPES.contains(ctLower)) { createUnsupportedThumbnail(dir, part.getSeq()); }
+                try {
+                    Path thumbPath = dir.resolve(original.getFileName().toString().replace(ext, "_thumb.jpg"));
+                    Thumbnails.of(original.toFile())
+                            .size(400, 400)
+                            .outputFormat("jpg")
+                            .outputQuality(0.80)
+                            .toFile(thumbPath.toFile());
+                } catch (Exception e) { log.warn("Thumbnail failed: {}", original, e); }
+            } else if (UNSUPPORTED_IMAGE_TYPES.contains(ctLower)) {
+                createUnsupportedThumbnail(dir, part.getSeq());
+            }
+            part.setFilePath(original.toString());
+            try { part.setSizeBytes(Files.size(original)); } catch (Exception ignored) {}
             return Optional.of(original.toString());
         } catch (Exception e) { log.error("Media save failed", e); return Optional.empty(); }
     }
@@ -524,4 +542,44 @@ public class ImportService {
         return CONTENT_TYPE_EXT_MAP.getOrDefault(lower, ".bin");
     }
     @VisibleForTesting String computeDuplicateKeyForTest(Message msg) { return buildDuplicateKey(msg); }
+
+    private void relocatePartsToContactDir(Message msg) {
+        if (msg.getContact() == null || msg.getContact().getId() == null || msg.getParts() == null) return;
+        Path baseRoot = getMediaRoot();
+        Path targetDir = baseRoot.resolve(msg.getContact().getId().toString());
+        try { Files.createDirectories(targetDir); } catch (Exception e) { log.error("Failed creating target media dir {}", targetDir, e); return; }
+        for (MessagePart part : msg.getParts()) {
+            String fp = part.getFilePath();
+            if (fp == null) continue;
+            Path current = Paths.get(fp).normalize();
+            Path parent = current.getParent();
+            if (parent == null) continue;
+            if (!"_nocontact".equals(parent.getFileName().toString())) continue; // only relocate temp
+            try {
+                Path newPath = targetDir.resolve(current.getFileName());
+                if (Files.exists(newPath)) {
+                    // Resolve collision by appending UUID
+                    String baseName = current.getFileName().toString();
+                    int dotIdx = baseName.lastIndexOf('.');
+                    String namePart = dotIdx > 0 ? baseName.substring(0, dotIdx) : baseName;
+                    String ext = dotIdx > 0 ? baseName.substring(dotIdx) : "";
+                    newPath = targetDir.resolve(namePart + "_" + UUID.randomUUID() + ext);
+                }
+                Files.move(current, newPath, StandardCopyOption.REPLACE_EXISTING);
+                part.setFilePath(newPath.toString());
+                // Move thumb if exists (supports previous naming part{seq}_thumb.jpg)
+                String thumbCandidate = "part" + part.getSeq() + "_thumb.jpg";
+                Path oldThumb = parent.resolve(thumbCandidate);
+                if (Files.exists(oldThumb)) {
+                    Path newThumb = targetDir.resolve(oldThumb.getFileName());
+                    if (Files.exists(newThumb)) {
+                        newThumb = targetDir.resolve("part" + part.getSeq() + "_thumb_" + UUID.randomUUID() + ".jpg");
+                    }
+                    try { Files.move(oldThumb, newThumb, StandardCopyOption.REPLACE_EXISTING); } catch (Exception ex) { log.warn("Failed moving thumbnail {}", oldThumb, ex); }
+                }
+            } catch (Exception ex) {
+                log.warn("Failed to relocate media part {}", current, ex);
+            }
+        }
+    }
 }
