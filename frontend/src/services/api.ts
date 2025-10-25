@@ -1,5 +1,16 @@
 import axios from 'axios';
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080";
+// Use the var you actually pass at build time (VITE_API_BASE).
+// Fallback only in dev to localhost; in prod require it.
+const API_BASE =
+    (import.meta.env.VITE_API_BASE ?? '').trim()
+    || (import.meta.env.DEV ? 'http://localhost:8080' : '');
+
+// Optional: throw if missing in production to avoid silent localhost usage.
+if (!API_BASE) {
+    throw new Error('VITE_API_BASE not defined');
+}
+
+export { API_BASE };
 
 /* ==============================
    Types / Interfaces

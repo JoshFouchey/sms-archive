@@ -75,6 +75,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      CSP_CONNECT_SRC: ${CSP_CONNECT_SRC}   # Space-separated list of allowed connect-src origins
     depends_on:
       app:
         condition: service_healthy
