@@ -90,7 +90,7 @@ public class ImportService {
     @Value("${smsarchive.import.batchSize:500}")
     private int streamBatchSize;
 
-    @Value("${smsarchive.media.root:media/messages}")
+    @Value("${smsarchive.media.root:./media/messages}")
     private String mediaRoot;
 
     private Path getMediaRoot() { return Paths.get(mediaRoot); }
