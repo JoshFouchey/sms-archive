@@ -93,7 +93,7 @@
       <div class="relative max-h-full max-w-full flex flex-col items-center select-none">
         <img
           v-if="currentImage"
-          :src="`/${normalizePath(currentImage.filePath)}`"
+          :src="getFullImageUrl(currentImage)"
           :alt="currentAlt"
           class="max-h-[80vh] max-w-[90vw] object-contain mb-4 shadow-lg"
           @load="imageLoaded = true"
@@ -296,15 +296,51 @@ function confirmAndDeleteCurrent() {
   }
 }
 
-function getThumbnailUrl(img: MessagePart) {
-  const normalized = normalizePath(img.filePath);
-  const thumb = normalized.replace(/(\.\w+)$/, "_thumb.jpg");
-  return `/${thumb}`;
+function extractRelativeMediaPath(fp: string): string | null {
+  if (!fp) return null;
+  const norm = normalizePath(fp);
+  // Look for '/media/messages/' segment or strip absolute prefix like '/app/media/messages/'
+  const markers = ['/media/messages/', '/app/media/messages/', 'media/messages/'];
+  for (const m of markers) {
+    const idx = norm.indexOf(m);
+    if (idx >= 0) {
+      // If marker already starts with /media/messages/ return from that marker
+      if (m === '/media/messages/') return norm.substring(idx + '/media/messages/'.length);
+      // Strip everything up to and including marker to get relative part segment(s)
+      return norm.substring(idx + m.length);
+    }
+  }
+  // If absolute path, attempt last two segments (contactId/filename)
+  const parts = norm.split('/').filter(Boolean);
+  if (parts.length >= 2) {
+    return parts.slice(-2).join('/');
+  }
+  return null;
 }
-
+function buildBackendMediaUrl(rel: string, thumb: boolean): string {
+  if (!rel) return '';
+  if (thumb) {
+    // replace extension with _thumb.jpg
+    const thumbName = rel.replace(/(\.[A-Za-z0-9]{1,6})$/, '_thumb.jpg');
+    return `/media/messages/${thumbName}`;
+  }
+  return `/media/messages/${rel}`;
+}
+function getThumbnailUrl(img: MessagePart) {
+  const rel = extractRelativeMediaPath(img.filePath);
+  if (!rel) return '';
+  return buildBackendMediaUrl(rel, true);
+}
+function getFullImageUrl(img: MessagePart) {
+  const rel = extractRelativeMediaPath(img.filePath);
+  if (!rel) return '';
+  return buildBackendMediaUrl(rel, false);
+}
 function onThumbError(ev: Event, img: MessagePart) {
   const target = ev.target as HTMLImageElement;
-  target.src = `/${normalizePath(img.filePath)}`;
+  const rel = extractRelativeMediaPath(img.filePath);
+  if (!rel) return;
+  target.src = buildBackendMediaUrl(rel, false);
 }
 
 function getAlt(img: MessagePart) {
