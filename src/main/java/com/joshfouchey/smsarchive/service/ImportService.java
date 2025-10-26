@@ -3,6 +3,7 @@ package com.joshfouchey.smsarchive.service;
 import com.joshfouchey.smsarchive.model.*;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import lombok.Getter;
 import net.coobird.thumbnailator.Thumbnails;
@@ -93,6 +94,12 @@ public class ImportService {
     private String mediaRoot;
 
     private Path getMediaRoot() { return Paths.get(mediaRoot); }
+
+    @PostConstruct
+    private void logMediaRootAtStartup() {
+        // Absolute path helps confirm volume mounts
+        log.info("Resolved media root: {}", Paths.get(mediaRoot).toAbsolutePath());
+    }
 
     // Added: derive a safe directory name for a user (prefer username, fallback to UUID)
     private String userDirectoryName(User user) {

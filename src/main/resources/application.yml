@@ -21,7 +21,7 @@ spring:
 # Media storage root (env override: SMSARCHIVE_MEDIA_ROOT)
 smsarchive:
   media:
-    root: ${SMSARCHIVE_MEDIA_ROOT:media/messages}
+    root: ${SMSARCHIVE_MEDIA_ROOT:./media/messages}
 
 logging:
   level:
