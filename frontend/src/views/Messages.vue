@@ -94,9 +94,9 @@
                 :class="img.isSingle ? 'w-48 h-48' : 'w-32 h-32'"
                 role="button"
                 tabindex="0"
-                @click="openImage(img.globalIndex, $event)"
-                @keydown.enter.prevent="openImage(img.globalIndex, $event)"
-                @keydown.space.prevent="openImage(img.globalIndex, $event)"
+                @click="openImage(img.globalIndex)"
+                @keydown.enter.prevent="openImage(img.globalIndex)"
+                @keydown.space.prevent="openImage(img.globalIndex)"
               >
                 <img
                   :src="img.thumbUrl"
