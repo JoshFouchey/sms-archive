@@ -6,7 +6,6 @@ import com.joshfouchey.smsarchive.repository.MessageRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import lombok.Getter;
-import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,15 +13,10 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.imageio.ImageIO;
 import javax.sql.DataSource;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamReader;
-import java.awt.Color;
-import java.awt.Graphics2D;
-import java.awt.Font;
-import java.awt.image.BufferedImage;
 import java.nio.file.*;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
@@ -33,6 +27,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 @Slf4j
 @Service
@@ -48,16 +44,9 @@ public class ImportService {
     private static final String TEXT_PLAIN = "text/plain";
     private static final String UNKNOWN_NORMALIZED = "__unknown__";
     private static final String APPLICATION_SMIL = "application/smil";
-    private static final String IMPORT_FOLDER_KEY = "importFolder";
     private static final String UNKNOWN_NUMBER_DISPLAY = "unknown";
 
-    // Media type sets & content-type mapping extracted to constants (avoid recreation each call)
-    private static final Set<String> SUPPORTED_THUMB_TYPES = Set.of(
-            "image/jpeg", "image/jpg", "image/png", "image/gif", "image/bmp"
-    );
-    private static final Set<String> UNSUPPORTED_IMAGE_TYPES = Set.of(
-            "image/heic", "image/heif"
-    );
+    // Content-type mapping for file extensions
     private static final Map<String,String> CONTENT_TYPE_EXT_MAP = Map.ofEntries(
             Map.entry("image/jpeg", ".jpg"),
             Map.entry("image/jpg", ".jpg"),
@@ -75,6 +64,7 @@ public class ImportService {
 
     private final MessageRepository messageRepo;
     private final ContactRepository contactRepo;
+    private final ThumbnailService thumbnailService;
     private TaskExecutor importTaskExecutor; // executor for async jobs (optional)
     private final CurrentUserProvider currentUserProvider;
     // ThreadLocal to hold the user for async import tasks (SecurityContext not propagated)
@@ -101,21 +91,12 @@ public class ImportService {
         log.info("Resolved media root: {}", Paths.get(mediaRoot).toAbsolutePath());
     }
 
-    // Added: derive a safe directory name for a user (prefer username, fallback to UUID)
-    private String userDirectoryName(User user) {
-        if (user == null) return "_nouser"; // should not normally happen
-        String username = user.getUsername();
-        if (StringUtils.isNotBlank(username)) {
-            String sanitized = username.toLowerCase().replaceAll("[^a-z0-9._-]", "_");
-            if (!sanitized.isBlank()) return sanitized;
-        }
-        return user.getId() == null ? "_nouser" : user.getId().toString();
-    }
-
-    public ImportService(MessageRepository messageRepo, ContactRepository contactRepo, CurrentUserProvider currentUserProvider) {
+    public ImportService(MessageRepository messageRepo, ContactRepository contactRepo,
+                         CurrentUserProvider currentUserProvider, ThumbnailService thumbnailService) {
         this.messageRepo = messageRepo;
         this.contactRepo = contactRepo;
         this.currentUserProvider = currentUserProvider;
+        this.thumbnailService = thumbnailService;
     }
 
     // Remove multi-arg constructors added earlier
@@ -127,10 +108,11 @@ public class ImportService {
 
     @Autowired
     public void setDataSource(DataSource ds) {
-        try {
-            String product = ds.getConnection().getMetaData().getDatabaseProductName();
+        try (Connection connection = ds.getConnection()) {
+            String product = connection.getMetaData().getDatabaseProductName();
             this.postgresDialect = product != null && product.toLowerCase().contains("postgres");
-        } catch (Exception e) {
+        } catch (SQLException e) {
+            log.warn("Failed to detect database dialect", e);
             this.postgresDialect = false;
         }
     }
@@ -189,9 +171,21 @@ public class ImportService {
     private XMLStreamReader createSecureXmlStreamReader(CountingInputStream cis) throws Exception {
         XMLInputFactory factory = XMLInputFactory.newFactory();
         factory.setProperty(XMLInputFactory.IS_COALESCING, Boolean.TRUE);
-        try { factory.setProperty("javax.xml.stream.isSupportingExternalEntities", Boolean.FALSE); } catch (Exception ignored) {}
-        try { factory.setProperty("javax.xml.stream.supportDTD", Boolean.FALSE); } catch (Exception ignored) {}
-        try { factory.setProperty("javax.xml.stream.isReplacingEntityReferences", Boolean.TRUE); } catch (Exception ignored) {}
+        try {
+            factory.setProperty("javax.xml.stream.isSupportingExternalEntities", Boolean.FALSE);
+        } catch (IllegalArgumentException e) {
+            // Ignored: Property not supported by the factory
+        }
+        try {
+            factory.setProperty("javax.xml.stream.supportDTD", Boolean.FALSE);
+        } catch (IllegalArgumentException e) {
+            // Ignored: Property not supported by the factory
+        }
+        try {
+            factory.setProperty("javax.xml.stream.isReplacingEntityReferences", Boolean.TRUE);
+        } catch (IllegalArgumentException e) {
+            // Ignored: Property not supported by the factory
+        }
         return factory.createXMLStreamReader(cis);
     }
 
@@ -306,7 +300,9 @@ public class ImportService {
                 }
             }
             case "addr" -> {
-                if (ctx.inMultipart && ctx.cur != null) accumulateAddressStreaming(r, ctx.cur);
+                if (ctx.inMultipart && ctx.cur != null) {
+                    accumulateAddressStreaming(r, ctx.cur);
+                }
             }
             default -> { /* no-op */ }
         }
@@ -347,6 +343,22 @@ public class ImportService {
             mediaMap.put("contentType", ct);
             mediaMap.put("name", Optional.ofNullable(part.getName()).orElse(""));
             mediaMap.put("filePath", part.getFilePath());
+
+            // Check if the file exists in the directory, if not, attempt to save it again
+            Path mediaPath = getMediaRoot().resolve(part.getFilePath());
+            if (part.getFilePath() != null && !Files.exists(mediaPath)) {
+                log.warn("File does not exist in directory, attempting to save again: {}", mediaPath);
+                boolean success = thumbnailService.createThumbnail(
+                    Path.of(part.getFilePath()),
+                    mediaPath,
+                    part.getContentType(),
+                    true
+                );
+                if (!success) {
+                    log.error("Failed to save the missing file: {}", mediaPath);
+                }
+            }
+
             curMedia.add(mediaMap);
         }
     }
@@ -405,7 +417,7 @@ public class ImportService {
             User user = threadLocalImportUser.get();
             if (user == null) user = message.getUser();
             if (user == null) {
-                try { user = currentUserProvider.getCurrentUser(); } catch (Exception ignored) {}
+                try { currentUserProvider.getCurrentUser(); } catch (Exception ignored) {}
             }
             // Contact may not yet be resolved (during part parsing). Use contactId if present else temporary _nocontact folder.
             String contactDirName = (message.getContact() != null && message.getContact().getId() != null)
@@ -421,25 +433,16 @@ public class ImportService {
                 original = dir.resolve("part" + part.getSeq() + "_" + System.currentTimeMillis() + ext);
             }
             Files.write(original, Base64.getDecoder().decode(base64));
-            String ctLower = Optional.ofNullable(part.getContentType()).map(String::toLowerCase).orElse("");
-            if (SUPPORTED_THUMB_TYPES.contains(ctLower)) {
-                try {
-                    Path thumbPath = dir.resolve(original.getFileName().toString().replace(ext, "_thumb.jpg"));
-                    Thumbnails.of(original.toFile())
-                            .size(400, 400)
-                            .outputFormat("jpg")
-                            .outputQuality(0.80)
-                            .toFile(thumbPath.toFile());
-                } catch (Exception e) { log.warn("Thumbnail failed: {}", original, e); }
-            } else if (UNSUPPORTED_IMAGE_TYPES.contains(ctLower)) {
-                createUnsupportedThumbnail(dir, part.getSeq());
-            }
+
+            // Delegate thumbnail creation to ThumbnailService
+            Path thumbPath = thumbnailService.deriveThumbnailPath(original, part.getSeq());
+            thumbnailService.createThumbnail(original, thumbPath, part.getContentType(), false);
+
             part.setFilePath(original.toString());
             try { part.setSizeBytes(Files.size(original)); } catch (Exception ignored) {}
             return Optional.of(original.toString());
         } catch (Exception e) { log.error("Media save failed", e); return Optional.empty(); }
     }
-    private void createUnsupportedThumbnail(Path dir, int seq) { try { int w = 400, h = 400; BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB); Graphics2D g = img.createGraphics(); g.setColor(Color.DARK_GRAY); g.fillRect(0,0,w,h); g.setColor(Color.WHITE); g.setFont(new Font("SansSerif", Font.BOLD, 32)); String text = "HEIC"; int tw = g.getFontMetrics().stringWidth(text); g.drawString(text, (w - tw)/2, h/2 - 10); g.setFont(new Font("SansSerif", Font.PLAIN, 20)); String sub = "Not Supported"; int sw = g.getFontMetrics().stringWidth(sub); g.drawString(sub, (w - sw)/2, h/2 + 25); g.dispose(); ImageIO.write(img, "jpg", dir.resolve("part" + seq + "_thumb.jpg").toFile()); } catch (Exception e) { log.warn("Failed to create unsupported thumbnail placeholder", e); } }
 
     public static class ImportProgress {
         private final UUID id;
@@ -536,7 +539,7 @@ public class ImportService {
     }
 
     @VisibleForTesting
-    String normalizeNumber(String number) { if (number == null || number.isBlank()) return UNKNOWN_NORMALIZED; return number.replaceAll("[^0-9]", ""); }
+    String normalizeNumber(String number) { if (number == null || number.isBlank()) return UNKNOWN_NORMALIZED; return number.replaceAll("\\D", ""); }
 
     @VisibleForTesting
     String guessExtension(String contentType, String name) {

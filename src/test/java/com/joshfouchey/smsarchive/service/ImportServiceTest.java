@@ -41,6 +41,7 @@ class ImportServiceTest {
         private MessageRepository messageRepository;
         private ContactRepository contactRepository;
         private CurrentUserProvider currentUserProvider;
+        private ThumbnailService thumbnailService;
 
         @BeforeEach
         void setup() {
@@ -54,7 +55,7 @@ class ImportServiceTest {
             testUser.setUsername("testuser");
             when(currentUserProvider.getCurrentUser()).thenReturn(testUser);
 
-            service = new ImportService(messageRepository, contactRepository, currentUserProvider);
+            service = new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService);
         }
 
         @Test
