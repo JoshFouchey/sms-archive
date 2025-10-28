@@ -30,7 +30,7 @@ public class MediaJobController {
      * @param async      If true, run asynchronously (default: true)
      * @return Job ID and initial status
      */
-    @PostMapping("/rebuild-thumbnails")
+    @PostMapping("/thumbnails/rebuild")
     public ResponseEntity<?> rebuildThumbnails(
             @RequestParam(required = false) Long contactId,
             @RequestParam(defaultValue = "false") boolean force,
@@ -79,4 +79,3 @@ public class MediaJobController {
         return ResponseEntity.ok(response);
     }
 }
-

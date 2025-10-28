@@ -27,6 +27,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 @Slf4j
 @Service
@@ -42,7 +44,6 @@ public class ImportService {
     private static final String TEXT_PLAIN = "text/plain";
     private static final String UNKNOWN_NORMALIZED = "__unknown__";
     private static final String APPLICATION_SMIL = "application/smil";
-    private static final String IMPORT_FOLDER_KEY = "importFolder";
     private static final String UNKNOWN_NUMBER_DISPLAY = "unknown";
 
     // Content-type mapping for file extensions
@@ -90,17 +91,6 @@ public class ImportService {
         log.info("Resolved media root: {}", Paths.get(mediaRoot).toAbsolutePath());
     }
 
-    // Added: derive a safe directory name for a user (prefer username, fallback to UUID)
-    private String userDirectoryName(User user) {
-        if (user == null) return "_nouser"; // should not normally happen
-        String username = user.getUsername();
-        if (StringUtils.isNotBlank(username)) {
-            String sanitized = username.toLowerCase().replaceAll("[^a-z0-9._-]", "_");
-            if (!sanitized.isBlank()) return sanitized;
-        }
-        return user.getId() == null ? "_nouser" : user.getId().toString();
-    }
-
     public ImportService(MessageRepository messageRepo, ContactRepository contactRepo,
                          CurrentUserProvider currentUserProvider, ThumbnailService thumbnailService) {
         this.messageRepo = messageRepo;
@@ -118,10 +108,11 @@ public class ImportService {
 
     @Autowired
     public void setDataSource(DataSource ds) {
-        try {
-            String product = ds.getConnection().getMetaData().getDatabaseProductName();
+        try (Connection connection = ds.getConnection()) {
+            String product = connection.getMetaData().getDatabaseProductName();
             this.postgresDialect = product != null && product.toLowerCase().contains("postgres");
-        } catch (Exception e) {
+        } catch (SQLException e) {
+            log.warn("Failed to detect database dialect", e);
             this.postgresDialect = false;
         }
     }
@@ -180,9 +171,21 @@ public class ImportService {
     private XMLStreamReader createSecureXmlStreamReader(CountingInputStream cis) throws Exception {
         XMLInputFactory factory = XMLInputFactory.newFactory();
         factory.setProperty(XMLInputFactory.IS_COALESCING, Boolean.TRUE);
-        try { factory.setProperty("javax.xml.stream.isSupportingExternalEntities", Boolean.FALSE); } catch (Exception ignored) {}
-        try { factory.setProperty("javax.xml.stream.supportDTD", Boolean.FALSE); } catch (Exception ignored) {}
-        try { factory.setProperty("javax.xml.stream.isReplacingEntityReferences", Boolean.TRUE); } catch (Exception ignored) {}
+        try {
+            factory.setProperty("javax.xml.stream.isSupportingExternalEntities", Boolean.FALSE);
+        } catch (IllegalArgumentException e) {
+            // Ignored: Property not supported by the factory
+        }
+        try {
+            factory.setProperty("javax.xml.stream.supportDTD", Boolean.FALSE);
+        } catch (IllegalArgumentException e) {
+            // Ignored: Property not supported by the factory
+        }
+        try {
+            factory.setProperty("javax.xml.stream.isReplacingEntityReferences", Boolean.TRUE);
+        } catch (IllegalArgumentException e) {
+            // Ignored: Property not supported by the factory
+        }
         return factory.createXMLStreamReader(cis);
     }
 
@@ -297,7 +300,9 @@ public class ImportService {
                 }
             }
             case "addr" -> {
-                if (ctx.inMultipart && ctx.cur != null) accumulateAddressStreaming(r, ctx.cur);
+                if (ctx.inMultipart && ctx.cur != null) {
+                    accumulateAddressStreaming(r, ctx.cur);
+                }
             }
             default -> { /* no-op */ }
         }
@@ -338,6 +343,22 @@ public class ImportService {
             mediaMap.put("contentType", ct);
             mediaMap.put("name", Optional.ofNullable(part.getName()).orElse(""));
             mediaMap.put("filePath", part.getFilePath());
+
+            // Check if the file exists in the directory, if not, attempt to save it again
+            Path mediaPath = getMediaRoot().resolve(part.getFilePath());
+            if (part.getFilePath() != null && !Files.exists(mediaPath)) {
+                log.warn("File does not exist in directory, attempting to save again: {}", mediaPath);
+                boolean success = thumbnailService.createThumbnail(
+                    Path.of(part.getFilePath()),
+                    mediaPath,
+                    part.getContentType(),
+                    true
+                );
+                if (!success) {
+                    log.error("Failed to save the missing file: {}", mediaPath);
+                }
+            }
+
             curMedia.add(mediaMap);
         }
     }
@@ -396,7 +417,7 @@ public class ImportService {
             User user = threadLocalImportUser.get();
             if (user == null) user = message.getUser();
             if (user == null) {
-                try { user = currentUserProvider.getCurrentUser(); } catch (Exception ignored) {}
+                try { currentUserProvider.getCurrentUser(); } catch (Exception ignored) {}
             }
             // Contact may not yet be resolved (during part parsing). Use contactId if present else temporary _nocontact folder.
             String contactDirName = (message.getContact() != null && message.getContact().getId() != null)
@@ -518,7 +539,7 @@ public class ImportService {
     }
 
     @VisibleForTesting
-    String normalizeNumber(String number) { if (number == null || number.isBlank()) return UNKNOWN_NORMALIZED; return number.replaceAll("[^0-9]", ""); }
+    String normalizeNumber(String number) { if (number == null || number.isBlank()) return UNKNOWN_NORMALIZED; return number.replaceAll("\\D", ""); }
 
     @VisibleForTesting
     String guessExtension(String contentType, String name) {
