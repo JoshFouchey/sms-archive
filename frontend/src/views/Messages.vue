@@ -88,11 +88,15 @@
             <!-- Image thumbnails -->
             <div v-if="msg.images && msg.images.length" class="flex flex-wrap gap-2">
               <div
-                v-for="(img, i) in msg.images"
-                :key="i"
+                v-for="img in msg.images"
+                :key="img.id"
                 class="relative group cursor-pointer overflow-hidden rounded-md bg-black/10 dark:bg-black/30"
                 :class="img.isSingle ? 'w-48 h-48' : 'w-32 h-32'"
-                @click="openImage(img.fullUrl)"
+                role="button"
+                tabindex="0"
+                @click="openImage(img.globalIndex)"
+                @keydown.enter.prevent="openImage(img.globalIndex)"
+                @keydown.space.prevent="openImage(img.globalIndex)"
               >
                 <img
                   :src="img.thumbUrl"
@@ -101,6 +105,10 @@
                   loading="lazy"
                   @error="onThumbError($event, img)"
                 />
+                <button
+                  @click.stop="deleteImage(img.id)"
+                  class="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition"
+                >✕</button>
                 <div v-if="img.error" class="absolute inset-0 flex items-center justify-center text-[10px] bg-black/40 text-white">Image</div>
               </div>
             </div>
@@ -111,34 +119,34 @@
           >{{ formatDateTime(msg.timestamp) }}</span>
         </div>
       </div>
+
+      <!-- Shared Image Viewer Component -->
+      <ImageViewer
+        v-if="viewerOpen"
+        :images="viewerImages"
+        :initialIndex="currentIndex ?? 0"
+        :allowDelete="true"
+        aria-label="Conversation image viewer"
+        @close="closeViewer"
+        @delete="deleteImage"
+        @indexChange="onIndexChange"
+      />
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue';
-import {
-  getAllContactSummaries,
-  getMessagesByContactId,
-  type ContactSummary as ApiContactSummary,
-  type Message as ApiMessage,
-  type PagedResponse
-} from '../services/api';
+import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue';
+import { getAllContactSummaries, getMessagesByContactId, type ContactSummary as ApiContactSummary, type Message as ApiMessage, type PagedResponse } from '../services/api';
+import ImageViewer from '@/components/ImageViewer.vue';
+import type { ViewerImage } from '@/components/ImageViewer.vue';
+import { useToast } from 'primevue/usetoast';
+import { deleteImageById } from '../services/api';
 
-interface UiImagePart {
-  fullUrl: string;
-  thumbUrl: string;
-  contentType: string;
-  isSingle: boolean; // helpful for sizing
-  error?: boolean;
-}
-interface UiMessage {
-  id: number;
-  body: string;
-  timestamp: string;
-  isMe: boolean;
-  images?: UiImagePart[];
-}
+interface UiImagePart { id: number; fullUrl: string; thumbUrl: string; contentType: string; isSingle: boolean; error?: boolean; globalIndex: number; }
+interface UiMessage { id: number; body: string; timestamp: string; isMe: boolean; images?: UiImagePart[]; }
+
+const toast = useToast();
 
 const contacts = ref<ApiContactSummary[]>([]);
 const contactsLoading = ref(true);
@@ -203,96 +211,164 @@ async function loadInitialMessages() {
   }
 }
 
+function normalizePath(p: string) { return (p || '').replace(/\\/g,'/'); }
+function extractRelativeMediaPath(fp: string): string | null {
+  if (!fp) return null;
+  const norm = normalizePath(fp);
+  const markers = ['/media/messages/', '/app/media/messages/', 'media/messages/'];
+  for (const m of markers) {
+    const idx = norm.indexOf(m);
+    if (idx >= 0) {
+      if (m === '/media/messages/') return norm.substring(idx + '/media/messages/'.length);
+      return norm.substring(idx + m.length);
+    }
+  }
+  const parts = norm.split('/').filter(Boolean);
+  if (parts.length >= 2) return parts.slice(-2).join('/');
+  return null;
+}
+function buildMediaUrl(rel: string, thumb: boolean): string {
+  if (!rel) return '';
+  if (thumb) return `/media/messages/${rel.replace(/(\.[A-Za-z0-9]{1,6})$/, '_thumb.jpg')}`;
+  return `/media/messages/${rel}`;
+}
+
 function toUiMessage(m: ApiMessage): UiMessage {
   const images: UiImagePart[] = [];
   if (Array.isArray(m.parts)) {
     const imageParts = m.parts.filter(p => p.contentType && p.contentType.startsWith('image'));
     const single = imageParts.length === 1;
     for (const p of imageParts) {
-      const normalized = normalizePath(p.filePath || '');
-      // Use relative path so Nginx or reverse proxy can route without hardcoded host
-      const fullUrl = `/${normalized}`;
-      const thumbUrl = fullUrl.replace(/(\.[A-Za-z0-9]+)$/,'_thumb.jpg');
-      images.push({ fullUrl, thumbUrl, contentType: p.contentType, isSingle: single });
+      const rel = extractRelativeMediaPath(p.filePath || '');
+      if (!rel) continue; // skip if cannot derive relative path
+      const fullUrl = buildMediaUrl(rel, false);
+      const thumbUrl = buildMediaUrl(rel, true);
+      images.push({ id: p.id, fullUrl, thumbUrl, contentType: p.contentType, isSingle: single, globalIndex: -1 });
     }
   }
   const body = (m.body && m.body.trim().length) ? m.body : (images.length ? '' : '[media]');
-  return {
-    id: m.id,
-    body,
-    timestamp: m.timestamp,
-    isMe: (m.sender?.toLowerCase?.() === 'me'),
-    images: images.length ? images : undefined
-  };
+  return { id: m.id, body, timestamp: m.timestamp, isMe: (m.sender?.toLowerCase?.() === 'me'), images: images.length ? images : undefined };
 }
 
+function formatDate(iso: string) { return iso ? new Date(iso).toLocaleDateString() : ''; }
+function formatDateTime(iso: string) { return iso ? new Date(iso).toLocaleString() : ''; }
+function handleScroll(e: Event) { const el = e.target as HTMLElement; if (el.scrollTop < 64) loadOlderMessages(); }
+function onThumbError(ev: Event, img: UiImagePart) { const el = ev.target as HTMLImageElement; if (el.src === img.fullUrl) { img.error = true; } else { el.src = img.fullUrl; } }
+function prevImage() { if (currentIndex.value == null || currentIndex.value <= 0) return; currentIndex.value--; }
+function nextImage() { if (currentIndex.value == null || currentIndex.value >= conversationImages.value.length - 1) return; currentIndex.value++; }
+function closeViewer() { viewerOpen.value = false; currentIndex.value = null; unlockBodyScroll(); }
+function onIndexChange(i: number) { currentIndex.value = i; }
+
+// Replace conversationImages computed with flattened list that assigns globalIndex
+const conversationImages = computed(() => {
+  let acc: UiImagePart[] = []; let idx = 0;
+  for (const m of messages.value) {
+    if (!m.images) continue;
+    for (const img of m.images) { img.globalIndex = idx++; acc.push(img); }
+  }
+  return acc;
+});
+const currentIndex = ref<number | null>(null);
+
+const currentImage = computed(() => currentIndex.value == null ? null : conversationImages.value[currentIndex.value]);
+const viewerImages = computed<ViewerImage[]>(() => conversationImages.value.map(img => ({ id: img.id, fullUrl: img.fullUrl, thumbUrl: img.thumbUrl, contentType: img.contentType })));
+
+function openImage(index: number) {
+  currentIndex.value = index;
+  viewerOpen.value = true;
+  lockBodyScroll();
+}
+
+function confirmAndDeleteCurrent() {
+  if (currentImage.value) deleteImage(currentImage.value.id);
+}
+
+function deleteImage(id: number) {
+  deleteImageById(id).then((ok) => {
+    if (!ok) { toast.add({ severity:'error', summary:'Delete Failed', detail:'Server error', life:3000 }); return; }
+    for (const m of messages.value) { if (m.images) m.images = m.images.filter(im => im.id !== id); }
+    messages.value = messages.value.map(m => ({ ...m }));
+    const imgs = conversationImages.value;
+    if (currentIndex.value != null) {
+      if (currentIndex.value >= imgs.length) currentIndex.value = imgs.length - 1;
+      if (!imgs.length) closeViewer();
+    }
+    toast.add({ severity:'success', summary:'Deleted', detail:'Image removed', life:2000 });
+  }).catch(e => toast.add({ severity:'error', summary:'Delete Failed', detail:e.message || 'Error', life:3000 }));
+}
+
+const viewerOpen = ref(false);
+
+// Body scroll lock helpers (reuse from Gallery semantics)
+let savedScrollY = 0;
+function lockBodyScroll() {
+  savedScrollY = window.scrollY;
+  document.body.style.position = 'fixed';
+  document.body.style.top = `-${savedScrollY}px`;
+  document.body.style.left = '0';
+  document.body.style.right = '0';
+  document.body.style.width = '100%';
+}
+function unlockBodyScroll() {
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.left = '';
+  document.body.style.right = '';
+  document.body.style.width = '';
+  window.scrollTo(0, savedScrollY);
+}
+
+// Keyboard navigation
+function handleKey(e: KeyboardEvent) {
+  if (!viewerOpen.value) return;
+  switch (e.key) {
+    case 'Escape':
+      closeViewer();
+      break;
+    case 'ArrowLeft':
+      prevImage();
+      break;
+    case 'ArrowRight':
+      nextImage();
+      break;
+    case 'Delete':
+    case 'Backspace':
+      if (currentImage.value) confirmAndDeleteCurrent();
+      break;
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKey);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKey);
+  unlockBodyScroll();
+});
+
+function scrollToBottom() { const el = messageContainer.value; if (el) el.scrollTop = el.scrollHeight; }
 async function loadOlderMessages() {
   if (!selectedContact.value) return;
   if (!hasMoreOlder.value) return;
   if (olderLoading.value) return;
   olderLoading.value = true;
   const container = messageContainer.value;
-  const prevScrollHeight = container ? container.scrollHeight : 0;
-  const prevScrollTop = container ? container.scrollTop : 0; // for safety (should be near 0)
+  const prevHeight = container ? container.scrollHeight : 0;
+  const prevTop = container ? container.scrollTop : 0;
   try {
     const paged: PagedResponse<ApiMessage> = await getMessagesByContactId(selectedContact.value.contactId, nextPage.value, pageSize, 'desc');
     const pageMessages = paged.content.slice().reverse().map(m => toUiMessage(m));
-    // Prepend older messages (they are earlier chronologically)
     messages.value = [...pageMessages, ...messages.value];
     hasMoreOlder.value = !paged.last;
     nextPage.value += 1;
     await nextTick();
-    // Preserve scroll position (so content doesn't jump)
-    if (container) {
-      const newScrollHeight = container.scrollHeight;
-      container.scrollTop = newScrollHeight - prevScrollHeight + prevScrollTop;
-    }
+    if (container) { const newHeight = container.scrollHeight; container.scrollTop = newHeight - prevHeight + prevTop; }
   } catch (e: any) {
-    // Show a transient error (reuse messagesError or separate?)
     messagesError.value = e?.message || 'Failed to load older messages';
-  } finally {
-    olderLoading.value = false;
-  }
-}
-
-function handleScroll(e: Event) {
-  const el = e.target as HTMLElement;
-  if (el.scrollTop < 64) { // threshold
-    loadOlderMessages();
-  }
-}
-
-function scrollToBottom() {
-  const el = messageContainer.value;
-  if (!el) return;
-  el.scrollTop = el.scrollHeight; // jump to bottom
-}
-
-function formatDate(iso: string) {
-  return iso ? new Date(iso).toLocaleString() : '';
-}
-function formatDateTime(iso: string) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  // Provide concise date-time; fallback to locale full string
-  return d.toLocaleString(undefined, {
-    year: 'numeric', month: 'short', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit'
-  });
-}
-function onThumbError(ev: Event, img: UiImagePart) {
-  const el = ev.target as HTMLImageElement;
-  // fallback to full image; if already full, mark error
-  if (el.src === img.fullUrl) {
-    img.error = true;
-  } else {
-    el.src = img.fullUrl;
-  }
-}
-function openImage(url: string) {
-  window.open(url, '_blank');
-}
-function normalizePath(p: string) {
-  return (p || '').replace(/\\/g,'/');
+  } finally { olderLoading.value = false; }
 }
 </script>
+
+<style>
+</style>

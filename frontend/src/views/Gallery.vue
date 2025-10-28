@@ -82,50 +82,17 @@
     <!-- Infinite scroll sentinel -->
     <div ref="sentinel" class="h-10"></div>
 
-    <!-- Full-size image overlay -->
-    <div
+    <!-- Full-size image overlay replaced by shared component -->
+    <ImageViewer
       v-if="viewerOpen"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-      @click.self="closeViewer"
-      @touchstart="onTouchStart"
-      @touchend="onTouchEnd"
-    >
-      <div class="relative max-h-full max-w-full flex flex-col items-center select-none">
-        <img
-          v-if="currentImage"
-          :src="`/${normalizePath(currentImage.filePath)}`"
-          :alt="currentAlt"
-          class="max-h-[80vh] max-w-[90vw] object-contain mb-4 shadow-lg"
-          @load="imageLoaded = true"
-          @touchstart.stop
-        />
-        <div v-if="!imageLoaded" class="text-white mb-4">Loading...</div>
-        <div class="flex flex-wrap gap-2 justify-center">
-          <Button label="Close" icon="pi pi-times" severity="secondary" @click="closeViewer" />
-          <Button
-            v-if="currentImage"
-            label="Delete"
-            icon="pi pi-trash"
-            severity="danger"
-            @click="confirmAndDeleteCurrent"
-          />
-          <Button
-            v-if="hasPrev"
-            icon="pi pi-arrow-left"
-            severity="secondary"
-            text
-            @click="prevImage"
-          />
-          <Button
-            v-if="hasNext"
-            icon="pi pi-arrow-right"
-            severity="secondary"
-            text
-            @click="nextImage"
-          />
-        </div>
-      </div>
-    </div>
+      :images="viewerImages"
+      :initialIndex="currentIndex ?? 0"
+      :allowDelete="true"
+      aria-label="Gallery image viewer"
+      @close="closeViewer"
+      @delete="deleteImage"
+      @indexChange="onIndexChange"
+    />
   </div>
 </template>
 
@@ -138,6 +105,8 @@ import ProgressSpinner from "primevue/progressspinner";
 import Toast from "primevue/toast";
 import { useToast } from "primevue/usetoast";
 import { getImages, deleteImageById, getDistinctContacts, type MessagePart, type Contact } from "../services/api";
+import ImageViewer from '@/components/ImageViewer.vue';
+import type { ViewerImage } from '@/components/ImageViewer.vue';
 
 const toast = useToast();
 
@@ -155,85 +124,26 @@ const size = 40; // batch size
 const loading = ref(false);
 const allLoaded = ref(false);
 
-// Viewer state
+// Viewer state (only open + index)
 const viewerOpen = ref(false);
 const currentIndex = ref<number | null>(null);
-const imageLoaded = ref(false);
 
-const sentinel = ref<HTMLElement | null>(null);
-const skeletonCount = 12; // initial skeleton placeholders
-
-// Scroll & focus preservation
-let savedScrollY = 0;
-let lastFocusedEl: HTMLElement | null = null;
-
-// Touch swipe state
-const touchStartX = ref<number | null>(null);
-function onTouchStart(e: TouchEvent) {
-  if (e.touches.length === 1) {
-    const t = e.touches.item(0);
-    if (t) {
-      touchStartX.value = t.clientX;
-      return;
-    }
-  }
-  // Fallback: reset if no single primary touch
-  touchStartX.value = null;
-}
-function onTouchEnd(e: TouchEvent) {
-  if (touchStartX.value == null) return;
-  if (!e.changedTouches.length) {
-    touchStartX.value = null;
-    return;
-  }
-  const t = e.changedTouches.item(0);
-  if (!t) {
-    touchStartX.value = null;
-    return;
-  }
-  const dx = t.clientX - touchStartX.value;
-  const threshold = 50;
-  if (Math.abs(dx) > threshold) {
-    if (dx > 0) prevImage(); else nextImage();
-  }
-  touchStartX.value = null;
-}
+// Build viewer image array
+const viewerImages = computed<ViewerImage[]>(() => images.value.map(i => ({ id: i.id, fullUrl: getFullImageUrl(i), thumbUrl: getThumbnailUrl(i), contentType: i.contentType })));
 
 function openImage(index: number, ev?: Event) {
   currentIndex.value = index;
   viewerOpen.value = true;
-  imageLoaded.value = false;
-  if (ev && ev.currentTarget instanceof HTMLElement) {
-    lastFocusedEl = ev.currentTarget;
-  }
+  if (ev && ev.currentTarget instanceof HTMLElement) lastFocusedEl = ev.currentTarget;
   lockBodyScroll();
 }
 function closeViewer() {
   viewerOpen.value = false;
   currentIndex.value = null;
   unlockBodyScroll();
-  if (lastFocusedEl) {
-    lastFocusedEl.focus();
-  }
+  if (lastFocusedEl) lastFocusedEl.focus();
 }
-function prevImage() {
-  if (currentIndex.value == null) return;
-  if (currentIndex.value > 0) {
-    currentIndex.value--;
-    imageLoaded.value = false;
-  }
-}
-function nextImage() {
-  if (currentIndex.value == null) return;
-  if (currentIndex.value < images.value.length - 1) {
-    currentIndex.value++;
-    imageLoaded.value = false;
-  }
-}
-const hasPrev = computed(() => currentIndex.value != null && currentIndex.value > 0);
-const hasNext = computed(() => currentIndex.value != null && currentIndex.value < images.value.length - 1);
-const currentImage = computed(() => currentIndex.value == null ? null : images.value[currentIndex.value]);
-const currentAlt = computed(() => currentImage.value ? currentImage.value.contentType.replace(/^image\//, "") : "");
+function onIndexChange(idx: number) { currentIndex.value = idx; }
 
 async function loadImages() {
   if (loading.value || allLoaded.value) return;
@@ -290,21 +200,51 @@ async function deleteImage(id: number) {
   }
 }
 
-function confirmAndDeleteCurrent() {
-  if (currentImage.value) {
-    deleteImage(currentImage.value.id);
+function extractRelativeMediaPath(fp: string): string | null {
+  if (!fp) return null;
+  const norm = normalizePath(fp);
+  // Look for '/media/messages/' segment or strip absolute prefix like '/app/media/messages/'
+  const markers = ['/media/messages/', '/app/media/messages/', 'media/messages/'];
+  for (const m of markers) {
+    const idx = norm.indexOf(m);
+    if (idx >= 0) {
+      // If marker already starts with /media/messages/ return from that marker
+      if (m === '/media/messages/') return norm.substring(idx + '/media/messages/'.length);
+      // Strip everything up to and including marker to get relative part segment(s)
+      return norm.substring(idx + m.length);
+    }
   }
+  // If absolute path, attempt last two segments (contactId/filename)
+  const parts = norm.split('/').filter(Boolean);
+  if (parts.length >= 2) {
+    return parts.slice(-2).join('/');
+  }
+  return null;
 }
-
+function buildBackendMediaUrl(rel: string, thumb: boolean): string {
+  if (!rel) return '';
+  if (thumb) {
+    // replace extension with _thumb.jpg
+    const thumbName = rel.replace(/(\.[A-Za-z0-9]{1,6})$/, '_thumb.jpg');
+    return `/media/messages/${thumbName}`;
+  }
+  return `/media/messages/${rel}`;
+}
 function getThumbnailUrl(img: MessagePart) {
-  const normalized = normalizePath(img.filePath);
-  const thumb = normalized.replace(/(\.\w+)$/, "_thumb.jpg");
-  return `/${thumb}`;
+  const rel = extractRelativeMediaPath(img.filePath);
+  if (!rel) return '';
+  return buildBackendMediaUrl(rel, true);
 }
-
+function getFullImageUrl(img: MessagePart) {
+  const rel = extractRelativeMediaPath(img.filePath);
+  if (!rel) return '';
+  return buildBackendMediaUrl(rel, false);
+}
 function onThumbError(ev: Event, img: MessagePart) {
   const target = ev.target as HTMLImageElement;
-  target.src = `/${normalizePath(img.filePath)}`;
+  const rel = extractRelativeMediaPath(img.filePath);
+  if (!rel) return;
+  target.src = buildBackendMediaUrl(rel, false);
 }
 
 function getAlt(img: MessagePart) {
@@ -315,6 +255,8 @@ function normalizePath(p: string) {
   return (p || "").split("\\").join("/");
 }
 
+let savedScrollY = 0;
+let lastFocusedEl: HTMLElement | null = null;
 function lockBodyScroll() {
   savedScrollY = window.scrollY;
   document.body.style.position = "fixed";
@@ -332,24 +274,9 @@ function unlockBodyScroll() {
   window.scrollTo(0, savedScrollY);
 }
 
-function handleKey(e: KeyboardEvent) {
-  if (!viewerOpen.value) return;
-  switch (e.key) {
-    case "Escape":
-      closeViewer();
-      break;
-    case "ArrowLeft":
-      prevImage();
-      break;
-    case "ArrowRight":
-      nextImage();
-      break;
-    case "Delete":
-    case "Backspace":
-      if (currentImage.value) confirmAndDeleteCurrent();
-      break;
-  }
-}
+// (Re-added after refactor) sentinel ref for intersection observer and skeleton count constant
+const sentinel = ref<HTMLElement | null>(null);
+const skeletonCount = 12;
 
 let io: IntersectionObserver | null = null;
 onMounted(async () => {
@@ -366,13 +293,11 @@ onMounted(async () => {
   }, { rootMargin: "200px" });
   if (sentinel.value) io.observe(sentinel.value);
   loadImages();
-  window.addEventListener("keydown", handleKey);
 });
 
 onUnmounted(() => {
   if (io && sentinel.value) io.unobserve(sentinel.value);
   io = null;
-  window.removeEventListener("keydown", handleKey);
   unlockBodyScroll();
 });
 </script>
