@@ -173,7 +173,7 @@ public class ThumbnailRebuildJobService {
             }
 
             // Derive thumbnail path
-            Path thumbPath = thumbnailService.deriveThumbnailPath(originalPath, part.getSeq());
+            Path thumbPath = thumbnailService.deriveStemThumbnail(originalPath);
 
             // Attempt to create thumbnail
             boolean created = thumbnailService.createThumbnail(

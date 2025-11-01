@@ -36,7 +36,7 @@ class MediaControllerTest {
     static class StubConfig {
         @Bean
         MediaService mediaService() {
-            return new MediaService(null, null, null, null, null) { // override methods; repositories not used
+            return new MediaService(null, null, null, null) { // override methods; repositories not used
                 @Override
                 public Page<MessagePart> getImages(Long contactId, int page, int size) {
                     if (contactId != null) {

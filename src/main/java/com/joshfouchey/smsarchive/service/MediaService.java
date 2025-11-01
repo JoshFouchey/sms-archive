@@ -21,15 +21,13 @@ public class MediaService {
     private final ContactRepository contactRepo;
     private final MessageRepository messageRepository;
     private final CurrentUserProvider currentUserProvider;
-    private final ThumbnailService thumbnailService; // Added for thumbnail path derivation
     private static final Logger log = LoggerFactory.getLogger(MediaService.class);
 
-    public MediaService(MessagePartRepository partRepo, ContactRepository contactRepo, MessageRepository messageRepository, CurrentUserProvider currentUserProvider, ThumbnailService thumbnailService) {
+    public MediaService(MessagePartRepository partRepo, ContactRepository contactRepo, MessageRepository messageRepository, CurrentUserProvider currentUserProvider) {
         this.partRepo = partRepo;
         this.contactRepo = contactRepo;
         this.messageRepository = messageRepository;
         this.currentUserProvider = currentUserProvider;
-        this.thumbnailService = thumbnailService;
     }
 
     // Uses repository methods only; throws if contact not found
@@ -50,56 +48,21 @@ public class MediaService {
         if (opt.isEmpty()) return false;
 
         MessagePart part = opt.get();
-        // Delete original file
         if (part.getFilePath() != null) {
             Path originalPath = Path.of(part.getFilePath());
-            try {
-                Files.deleteIfExists(originalPath);
-            } catch (IOException e) {
-                log.error("Failed deleting image file {}", part.getFilePath(), e);
-            }
-            // Attempt to delete associated thumbnail(s)
-            Integer seq = part.getSeq();
+            try { Files.deleteIfExists(originalPath); } catch (IOException e) { log.error("Failed deleting image file {}", part.getFilePath(), e); }
             Path parent = originalPath.getParent();
-            if (seq != null && parent != null) {
-                // Standard derived thumbnail path
-                try {
-                    Path derivedThumb = thumbnailService.deriveThumbnailPath(originalPath, seq);
-                    if (Files.exists(derivedThumb)) {
-                        try {
-                            Files.deleteIfExists(derivedThumb);
-                            log.debug("Deleted thumbnail {}", derivedThumb);
-                        } catch (IOException ex) {
-                            log.warn("Failed deleting thumbnail {}", derivedThumb, ex);
-                        }
-                    }
-                } catch (Exception ex) {
-                    // deriveThumbnailPath may throw if original invalid; ignore
-                }
-                // Delete any variant thumbnails (e.g., part{seq}_thumb_<UUID>.jpg)
-                String glob = "part" + seq + "_thumb*.jpg";
-                try (var stream = Files.newDirectoryStream(parent, glob)) {
-                    for (Path p : stream) {
-                        if (Files.isRegularFile(p)) {
-                            try {
-                                Files.deleteIfExists(p);
-                                log.debug("Deleted thumbnail variant {}", p);
-                            } catch (IOException ex) {
-                                log.warn("Failed deleting thumbnail variant {}", p, ex);
-                            }
-                        }
-                    }
-                } catch (IOException dirEx) {
-                    log.debug("No thumbnail variants found for seq {} in {}: {}", seq, parent, dirEx.getMessage());
+            if (parent != null) {
+                String fileName = originalPath.getFileName().toString();
+                int dotIdx = fileName.lastIndexOf('.');
+                String stem = dotIdx > 0 ? fileName.substring(0, dotIdx) : fileName;
+                Path thumb = parent.resolve(stem + "_thumb.jpg");
+                if (Files.exists(thumb)) {
+                    try { Files.deleteIfExists(thumb); log.debug("Deleted thumbnail {}", thumb); } catch (IOException ex) { log.warn("Failed deleting thumbnail {}", thumb, ex); }
                 }
             }
         }
-
-        // Delete the associated message if it exists
-        if (part.getMessage() != null) {
-            messageRepository.deleteById(part.getMessage().getId());
-        }
-
+        if (part.getMessage() != null) { messageRepository.deleteById(part.getMessage().getId()); }
         partRepo.delete(part);
         return true;
     }

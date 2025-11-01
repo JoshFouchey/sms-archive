@@ -141,17 +141,18 @@ public class ThumbnailService {
     }
 
     /**
-     * Derive the thumbnail path from an original file path and sequence number.
+     * Derive the thumbnail path from an original file path using the new naming convention.
      *
      * @param originalPath Path to the original file
-     * @param seq          Sequence number of the message part
      * @return Path where thumbnail should be stored
      */
-    public Path deriveThumbnailPath(Path originalPath, int seq) {
+    public Path deriveStemThumbnail(Path originalPath) {
         if (originalPath == null || originalPath.getParent() == null) {
             throw new IllegalArgumentException("Invalid original path");
         }
-        return originalPath.getParent().resolve("part" + seq + "_thumb.jpg");
+        String fileName = originalPath.getFileName().toString();
+        int dotIdx = fileName.lastIndexOf('.');
+        String stem = dotIdx > 0 ? fileName.substring(0, dotIdx) : fileName;
+        return originalPath.getParent().resolve(stem + "_thumb.jpg");
     }
 }
-

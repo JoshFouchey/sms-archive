@@ -342,12 +342,10 @@ public class ImportService {
 
         String ct = Optional.ofNullable(part.getContentType()).orElse("");
 
-        // Aggregate text parts
         if (part.getText() != null && ct.startsWith(TEXT_PLAIN)) {
             textAgg.append(part.getText()).append(' ');
         }
 
-        // Non-text & non-SMIL parts are treated as media
         if (!ct.equalsIgnoreCase(TEXT_PLAIN) && !ct.equalsIgnoreCase(APPLICATION_SMIL)) {
             Map<String,Object> mediaMap = new LinkedHashMap<>();
             mediaMap.put("seq", part.getSeq());
@@ -356,22 +354,19 @@ public class ImportService {
 
             String fp = part.getFilePath();
             if (fp == null) {
-                // Base64 invalid or absent; skip thumbnail work
-                log.warn("Media part seq={} skipped (no filePath, probably invalid/missing Base64)", part.getSeq());
+                log.warn("Media part seq={} skipped (no filePath, invalid/missing Base64)", part.getSeq());
                 mediaMap.put("filePath", null);
                 curMedia.add(mediaMap);
                 return;
             }
 
-            // Use stored path directly (already rooted); avoid duplicating media root
             Path mediaPath = Paths.get(fp).normalize();
             mediaMap.put("filePath", mediaPath.toString());
             curMedia.add(mediaMap);
 
-            // If file exists we can optionally (re)generate a thumbnail if missing
             if (Files.exists(mediaPath)) {
                 try {
-                    Path thumbPath = thumbnailService.deriveThumbnailPath(mediaPath, part.getSeq());
+                    Path thumbPath = thumbnailService.deriveStemThumbnail(mediaPath);
                     if (!Files.exists(thumbPath)) {
                         thumbnailService.createThumbnail(mediaPath, thumbPath, ct, true);
                     }
@@ -433,36 +428,31 @@ public class ImportService {
 
     private Optional<String> saveMediaPart(String base64, MessagePart part) {
         try {
-            // Validate Base64 input
             if (!isValidBase64(base64)) {
                 log.error("Invalid Base64 input: {}", base64);
                 return Optional.empty();
             }
-
             Message message = part.getMessage();
-            // Determine user (threadLocal first, then message, then provider) for directory scoping
             User user = threadLocalImportUser.get();
             if (user == null) user = message.getUser();
             if (user == null) {
-                try { currentUserProvider.getCurrentUser(); } catch (Exception ignored) {}
+                try { user = currentUserProvider.getCurrentUser(); } catch (Exception ignored) {}
             }
-            // Contact may not yet be resolved (during part parsing). Use contactId if present else temporary _nocontact folder.
             String contactDirName = (message.getContact() != null && message.getContact().getId() != null)
                     ? message.getContact().getId().toString()
                     : "_nocontact";
-            Path baseRoot = getMediaRoot();
-            Path dir = baseRoot.resolve(contactDirName);
+            Path dir = getMediaRoot().resolve(contactDirName);
             Files.createDirectories(dir);
+            byte[] dataBytes = Base64.getDecoder().decode(base64);
             String ext = guessExtension(part.getContentType(), part.getName());
-            Path original = dir.resolve("part" + part.getSeq() + ext);
-            // Avoid accidental overwrite if same seq reused across messages before relocation (unlikely). If exists, append timestamp.
-            if (Files.exists(original)) {
-                original = dir.resolve("part" + part.getSeq() + "_" + System.currentTimeMillis() + ext);
-            }
-            Files.write(original, Base64.getDecoder().decode(base64));
-
-            // Delegate thumbnail creation to ThumbnailService
-            Path thumbPath = thumbnailService.deriveThumbnailPath(original, part.getSeq());
+            Path original = MediaFileNamer.buildUniqueMediaPath(dir,
+                    message.getId(), part.getSeq(), message.getTimestamp(), dataBytes, ext);
+            Files.write(original, dataBytes);
+            // Thumbnail uses stem + _thumb + .jpg (forced jpg output by service) regardless of original ext
+            String stem = original.getFileName().toString();
+            int dotIdx = stem.lastIndexOf('.');
+            String stemNoExt = dotIdx > 0 ? stem.substring(0, dotIdx) : stem;
+            Path thumbPath = dir.resolve(stemNoExt + "_thumb.jpg");
             thumbnailService.createThumbnail(original, thumbPath, part.getContentType(), false);
 
             part.setFilePath(original.toString());
@@ -604,7 +594,6 @@ public class ImportService {
             try {
                 Path newPath = targetDir.resolve(current.getFileName());
                 if (Files.exists(newPath)) {
-                    // Resolve collision by appending UUID
                     String baseName = current.getFileName().toString();
                     int dotIdx = baseName.lastIndexOf('.');
                     String namePart = dotIdx > 0 ? baseName.substring(0, dotIdx) : baseName;
@@ -613,16 +602,20 @@ public class ImportService {
                 }
                 Files.move(current, newPath, StandardCopyOption.REPLACE_EXISTING);
                 part.setFilePath(newPath.toString());
-                // Move thumb if exists (supports previous naming part{seq}_thumb.jpg)
-                String thumbCandidate = "part" + part.getSeq() + "_thumb.jpg";
-                Path oldThumb = parent.resolve(thumbCandidate);
-                if (Files.exists(oldThumb)) {
-                    Path newThumb = targetDir.resolve(oldThumb.getFileName());
-                    if (Files.exists(newThumb)) {
-                        newThumb = targetDir.resolve("part" + part.getSeq() + "_thumb_" + UUID.randomUUID() + ".jpg");
+                // Move new-style thumbnail <stem>_thumb.jpg only
+                try {
+                    Path oldThumb = thumbnailService.deriveStemThumbnail(current);
+                    if (Files.exists(oldThumb)) {
+                        Path relocatedThumb = targetDir.resolve(oldThumb.getFileName());
+                        if (Files.exists(relocatedThumb)) {
+                            String baseName = oldThumb.getFileName().toString();
+                            int dotIdx = baseName.lastIndexOf('.');
+                            String stem = dotIdx > 0 ? baseName.substring(0, dotIdx) : baseName;
+                            relocatedThumb = targetDir.resolve(stem + "_" + UUID.randomUUID() + ".jpg");
+                        }
+                        try { Files.move(oldThumb, relocatedThumb, StandardCopyOption.REPLACE_EXISTING); } catch (Exception ex) { log.warn("Failed moving thumbnail {}", oldThumb, ex); }
                     }
-                    try { Files.move(oldThumb, newThumb, StandardCopyOption.REPLACE_EXISTING); } catch (Exception ex) { log.warn("Failed moving thumbnail {}", oldThumb, ex); }
-                }
+                } catch (Exception ignore) { }
             } catch (Exception ex) {
                 log.warn("Failed to relocate media part {}", current, ex);
             }

@@ -65,7 +65,7 @@ class ThumbnailServiceTest {
     @Test
     void testDeriveThumbnailPath_ValidInput() {
         Path original = tempDir.resolve("part0.jpg");
-        Path thumb = thumbnailService.deriveThumbnailPath(original, 0);
+        Path thumb = thumbnailService.deriveStemThumbnail(original);
 
         assertEquals("part0_thumb.jpg", thumb.getFileName().toString());
         assertEquals(tempDir, thumb.getParent());
@@ -74,7 +74,7 @@ class ThumbnailServiceTest {
     @Test
     void testDeriveThumbnailPath_InvalidInput() {
         assertThrows(IllegalArgumentException.class,
-            () -> thumbnailService.deriveThumbnailPath(null, 0));
+            () -> thumbnailService.deriveStemThumbnail(null));
     }
 
     // TODO: Implement remaining tests with actual image file generation

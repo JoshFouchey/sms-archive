@@ -1,7 +1,7 @@
 # Thumbnail Generation System
 
 ## Overview
-The thumbnail generation system has been refactored to support both import-time thumbnail creation and on-demand rebuilding of thumbnails for existing media.
+This system generates thumbnails for image media parts at import time and via on-demand rebuild jobs. Only the new stem-based naming convention is supported (`<original-stem>_thumb.jpg`). Legacy sequence-based names (`part{seq}_thumb.jpg`) have been removed.
 
 ## Architecture
 
@@ -17,7 +17,7 @@ Core service responsible for thumbnail generation logic:
 - **Methods:**
   - `createThumbnail(Path original, Path thumbDest, String contentType, boolean force)` - Main thumbnail creation
   - `createUnsupportedPlaceholder(Path thumbDest, String label)` - Generates placeholder for unsupported formats
-  - `deriveThumbnailPath(Path originalPath, int seq)` - Derives thumbnail path from original
+  - `deriveStemThumbnail(Path originalPath)` - Derives thumbnail path from original using stem-based naming
   - `isSupported(String contentType)` - Checks if format is supported
   - `isUnsupportedNeedsPlaceholder(String contentType)` - Checks if format needs placeholder
 
@@ -275,4 +275,3 @@ All dependencies already present in project:
 - `spring-boot-starter-web` - REST endpoints
 - `spring-boot-starter-data-jpa` - Repository queries
 - `lombok` - Code generation
-
