@@ -26,18 +26,25 @@ ENV APP_HOME=/app \
     DB_URL="jdbc:postgresql://db:5432/sms_archive" \
     DB_USER="sms_user" \
     DB_PASS="sms_pass" \
-    SPRING_PROFILES_ACTIVE=""
+    SPRING_PROFILES_ACTIVE="" \
+    SMSARCHIVE_MEDIA_ROOT="/app/media/messages"
 WORKDIR ${APP_HOME}
 
-# Install wget for healthcheck (as root before switching user)
-RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
+# Install wget + gosu (for privilege drop) before creating user
+RUN apt-get update && apt-get install -y wget gosu && rm -rf /var/lib/apt/lists/*
 
 # Copy the built jar
 COPY --from=build /workspace/build/libs/*SNAPSHOT.jar app.jar
 
-# Create a non-root user for security
-RUN useradd -r -u 1001 appuser && chown -R appuser:appuser ${APP_HOME}
-USER appuser
+# Create dedicated group/user with stable UID/GID 10110 (avoid collisions)
+RUN groupadd -r -g 10110 appgroup && \
+    useradd -r -u 10110 -g appgroup appuser && \
+    mkdir -p ${SMSARCHIVE_MEDIA_ROOT} && \
+    chown -R appuser:appgroup ${APP_HOME}
+
+# Copy entrypoint script (will fix media dir ownership then exec as appuser)
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod 0755 /usr/local/bin/docker-entrypoint.sh
 
 # Expose HTTP port
 EXPOSE 8080
@@ -46,4 +53,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=5 \
  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
 
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+# Run as root initially so entrypoint can adjust permissions, then gosu to appuser
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
