@@ -3,6 +3,7 @@ package com.joshfouchey.smsarchive.service;
 import com.joshfouchey.smsarchive.model.MessagePart;
 import com.joshfouchey.smsarchive.repository.MessagePartRepository;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
+import com.joshfouchey.smsarchive.repository.MessageRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Page;
@@ -18,12 +19,14 @@ import jakarta.persistence.EntityNotFoundException;
 public class MediaService {
     private final MessagePartRepository partRepo;
     private final ContactRepository contactRepo;
+    private final MessageRepository messageRepository;
     private final CurrentUserProvider currentUserProvider;
     private static final Logger log = LoggerFactory.getLogger(MediaService.class);
 
-    public MediaService(MessagePartRepository partRepo, ContactRepository contactRepo, CurrentUserProvider currentUserProvider) {
+    public MediaService(MessagePartRepository partRepo, ContactRepository contactRepo, MessageRepository messageRepository, CurrentUserProvider currentUserProvider) {
         this.partRepo = partRepo;
         this.contactRepo = contactRepo;
+        this.messageRepository = messageRepository;
         this.currentUserProvider = currentUserProvider;
     }
 
@@ -52,6 +55,12 @@ public class MediaService {
                 log.error("Failed deleting image file {}", part.getFilePath(), e);
             }
         }
+
+        // Delete the associated message if it exists
+        if (part.getMessage() != null) {
+            messageRepository.deleteById(part.getMessage().getId());
+        }
+
         partRepo.delete(part);
         return true;
     }

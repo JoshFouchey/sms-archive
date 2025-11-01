@@ -331,36 +331,56 @@ public class ImportService {
     // Re-added after refactor: placeholder hook for future metrics or state init
     private void startMultipart() { /* placeholder for future metrics */ }
 
-    private void handlePart(XMLStreamReader r, Message cur, List<MessagePart> curParts, List<Map<String,Object>> curMedia, StringBuilder textAgg) {
+    private void handlePart(XMLStreamReader r,
+                            Message cur,
+                            List<MessagePart> curParts,
+                            List<Map<String,Object>> curMedia,
+                            StringBuilder textAgg) {
+
         MessagePart part = buildPartStreaming(r, cur, curParts.size());
         curParts.add(part);
+
         String ct = Optional.ofNullable(part.getContentType()).orElse("");
+
+        // Aggregate text parts
         if (part.getText() != null && ct.startsWith(TEXT_PLAIN)) {
             textAgg.append(part.getText()).append(' ');
         }
+
+        // Non-text & non-SMIL parts are treated as media
         if (!ct.equalsIgnoreCase(TEXT_PLAIN) && !ct.equalsIgnoreCase(APPLICATION_SMIL)) {
             Map<String,Object> mediaMap = new LinkedHashMap<>();
             mediaMap.put("seq", part.getSeq());
             mediaMap.put("contentType", ct);
             mediaMap.put("name", Optional.ofNullable(part.getName()).orElse(""));
-            mediaMap.put("filePath", part.getFilePath());
 
-            // Check if the file exists in the directory, if not, attempt to save it again
-            Path mediaPath = getMediaRoot().resolve(part.getFilePath());
-            if (part.getFilePath() != null && !Files.exists(mediaPath)) {
-                log.warn("File does not exist in directory, attempting to save again: {}", mediaPath);
-                boolean success = thumbnailService.createThumbnail(
-                    Path.of(part.getFilePath()),
-                    mediaPath,
-                    part.getContentType(),
-                    true
-                );
-                if (!success) {
-                    log.error("Failed to save the missing file: {}", mediaPath);
-                }
+            String fp = part.getFilePath();
+            if (fp == null) {
+                // Base64 invalid or absent; skip thumbnail work
+                log.warn("Media part seq={} skipped (no filePath, probably invalid/missing Base64)", part.getSeq());
+                mediaMap.put("filePath", null);
+                curMedia.add(mediaMap);
+                return;
             }
 
+            // Use stored path directly (already rooted); avoid duplicating media root
+            Path mediaPath = Paths.get(fp).normalize();
+            mediaMap.put("filePath", mediaPath.toString());
             curMedia.add(mediaMap);
+
+            // If file exists we can optionally (re)generate a thumbnail if missing
+            if (Files.exists(mediaPath)) {
+                try {
+                    Path thumbPath = thumbnailService.deriveThumbnailPath(mediaPath, part.getSeq());
+                    if (!Files.exists(thumbPath)) {
+                        thumbnailService.createThumbnail(mediaPath, thumbPath, ct, true);
+                    }
+                } catch (Exception ex) {
+                    log.warn("Thumbnail generation failed for {}", mediaPath, ex);
+                }
+            } else {
+                log.warn("Media file not found on disk seq={} path={}", part.getSeq(), mediaPath);
+            }
         }
     }
 
@@ -413,6 +433,12 @@ public class ImportService {
 
     private Optional<String> saveMediaPart(String base64, MessagePart part) {
         try {
+            // Validate Base64 input
+            if (!isValidBase64(base64)) {
+                log.error("Invalid Base64 input: {}", base64);
+                return Optional.empty();
+            }
+
             Message message = part.getMessage();
             // Determine user (threadLocal first, then message, then provider) for directory scoping
             User user = threadLocalImportUser.get();
@@ -443,6 +469,15 @@ public class ImportService {
             try { part.setSizeBytes(Files.size(original)); } catch (Exception ignored) {}
             return Optional.of(original.toString());
         } catch (Exception e) { log.error("Media save failed", e); return Optional.empty(); }
+    }
+
+    private boolean isValidBase64(String base64) {
+        try {
+            Base64.getDecoder().decode(base64);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     public static class ImportProgress {

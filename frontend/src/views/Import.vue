@@ -16,10 +16,29 @@
       <div v-if="jobId" class="space-y-3">
         <div class="text-sm">Job ID: <code class="text-xs">{{ jobId }}</code></div>
         <div class="w-full bg-gray-200 dark:bg-gray-700 h-4 rounded overflow-hidden">
-          <div class="h-full bg-green-600 transition-all" :style="{ width: percentBytes + '%' }"></div>
+          <div
+            class="h-full transition-all"
+            :class="{
+              'bg-green-600': progress?.status === 'COMPLETED',
+              'bg-red-600': progress?.status === 'FAILED',
+              'bg-blue-600': progress?.status !== 'COMPLETED' && progress?.status !== 'FAILED'
+            }"
+            :style="{ width: percentBytes + '%' }"
+          ></div>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-          <div><span class="font-semibold">Status:</span> {{ progress?.status }}</div>
+          <div>
+            <span class="font-semibold">Status:</span>
+            <span
+              :class="{
+                'text-green-600': progress?.status === 'COMPLETED',
+                'text-red-600': progress?.status === 'FAILED',
+                'text-gray-800': progress?.status !== 'COMPLETED' && progress?.status !== 'FAILED'
+              }"
+            >
+              {{ progress?.status }}
+            </span>
+          </div>
           <div><span class="font-semibold">Bytes:</span> {{ formatBytes(progress?.bytesRead) }} / {{ formatBytes(progress?.totalBytes) }}</div>
           <div><span class="font-semibold">Imported:</span> {{ progress?.importedMessages }}</div>
           <div><span class="font-semibold">Processed:</span> {{ progress?.processedMessages }}</div>

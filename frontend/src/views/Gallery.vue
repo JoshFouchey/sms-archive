@@ -1,6 +1,7 @@
 <template>
   <div class="p-4 sm:p-6 max-w-7xl mx-auto">
     <Toast />
+    <ConfirmDialog />
     <h1 class="text-2xl font-bold mb-4 text-gray-800">Image Gallery</h1>
 
     <!-- Contact Filter Dropdown -->
@@ -52,11 +53,9 @@
         </div>
 
         <button
-            @click.stop="deleteImage(img.id)"
+            @click.stop="requestDelete(img.id)"
             class="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition"
-        >
-          ✕
-        </button>
+        >✕</button>
       </div>
       <!-- Inline spinner when loading more pages -->
       <div v-if="loading" class="col-span-full flex justify-center my-4">
@@ -90,7 +89,7 @@
       :allowDelete="true"
       aria-label="Gallery image viewer"
       @close="closeViewer"
-      @delete="deleteImage"
+      @delete="requestDelete"
       @indexChange="onIndexChange"
     />
   </div>
@@ -103,12 +102,15 @@ import Dropdown from "primevue/dropdown";
 import PrimeMessage from "primevue/message";
 import ProgressSpinner from "primevue/progressspinner";
 import Toast from "primevue/toast";
+import ConfirmDialog from 'primevue/confirmdialog';
 import { useToast } from "primevue/usetoast";
+import { useConfirm } from 'primevue/useconfirm';
 import { getImages, deleteImageById, getDistinctContacts, type MessagePart, type Contact } from "../services/api";
 import ImageViewer from '@/components/ImageViewer.vue';
 import type { ViewerImage } from '@/components/ImageViewer.vue';
 
 const toast = useToast();
+const confirm = useConfirm();
 
 // Removed text contact string; now using numeric ID
 const selectedContactId = ref<number | null>(null);
@@ -124,7 +126,7 @@ const size = 40; // batch size
 const loading = ref(false);
 const allLoaded = ref(false);
 
-// Viewer state (only open + index)
+// Viewer state
 const viewerOpen = ref(false);
 const currentIndex = ref<number | null>(null);
 
@@ -151,9 +153,6 @@ async function loadImages() {
   try {
     const newImages = await getImages(page.value, size, selectedContactId.value ?? undefined);
     if (!Array.isArray(newImages) || newImages.length === 0) {
-      if (page.value === 0) {
-        // no initial results toast (optional)
-      }
       allLoaded.value = true;
     } else {
       images.value.push(...newImages);
@@ -175,28 +174,42 @@ function reloadImages() {
   loadImages();
 }
 
-function onContactChange() {
-  reloadImages();
+function onContactChange() { reloadImages(); }
+
+// Request delete (either start soft-delete or confirm dialog if already pending)
+function requestDelete(id: number) {
+  confirm.require({
+    message: 'Delete this image? This action cannot be undone.',
+    header: 'Confirm Deletion',
+    icon: 'pi pi-exclamation-triangle',
+    acceptLabel: 'Delete',
+    rejectLabel: 'Cancel',
+    acceptClass: 'p-button-danger',
+    accept: () => performDeletion(id),
+    reject: () => {}
+  });
 }
 
-async function deleteImage(id: number) {
+async function performDeletion(id: number) {
   try {
     const ok = await deleteImageById(id);
     if (ok) {
-      images.value = images.value.filter((i) => i.id !== id);
-      toast.add({ severity: "success", summary: "Deleted", detail: "Image removed", life: 2500 });
-      if (currentIndex.value != null) {
-        if (currentIndex.value >= images.value.length) {
-          currentIndex.value = images.value.length - 1;
+      const oldLength = images.value.length;
+      images.value = images.value.filter(i => i.id !== id);
+      toast.add({ severity: 'success', summary: 'Deleted', detail: 'Image removed', life: 2500 });
+      if (viewerOpen.value) {
+        if (currentIndex.value != null) {
+          if (currentIndex.value >= images.value.length) currentIndex.value = images.value.length - 1;
+          if (images.value.length === 0) closeViewer();
+          else if (oldLength !== images.value.length) { /* ensure displayed image updates */ }
         }
-        if (images.value.length === 0) closeViewer();
       }
     } else {
-      toast.add({ severity: "error", summary: "Delete Failed", detail: "Server error", life: 4000 });
+      toast.add({ severity: 'error', summary: 'Delete Failed', detail: 'Server error', life: 4000 });
     }
   } catch (e) {
     console.error(e);
-    toast.add({ severity: "error", summary: "Delete Failed", detail: "Unexpected error", life: 4000 });
+    toast.add({ severity: 'error', summary: 'Delete Failed', detail: 'Unexpected error', life: 4000 });
   }
 }
 
