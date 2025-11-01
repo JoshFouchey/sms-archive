@@ -83,8 +83,9 @@ public class ImportService {
     @Value("${smsarchive.media.root:./media/messages}")
     private String mediaRoot;
 
-    private Path getMediaRoot() { return Paths.get(mediaRoot); }
-
+    Path getMediaRoot() {
+        return Paths.get(mediaRoot);
+    }
     @PostConstruct
     private void logMediaRootAtStartup() {
         // Absolute path helps confirm volume mounts

@@ -48,6 +48,7 @@ class ImportServiceTest {
             messageRepository = Mockito.mock(MessageRepository.class);
             contactRepository = Mockito.mock(ContactRepository.class);
             currentUserProvider = Mockito.mock(CurrentUserProvider.class);
+            thumbnailService = Mockito.mock(ThumbnailService.class);
 
             // Mock the current user
             com.joshfouchey.smsarchive.model.User testUser = new com.joshfouchey.smsarchive.model.User();
@@ -55,7 +56,8 @@ class ImportServiceTest {
             testUser.setUsername("testuser");
             when(currentUserProvider.getCurrentUser()).thenReturn(testUser);
 
-            service = new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService);
+            service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService));
+            doReturn(Path.of("test-media-root")).when(service).getMediaRoot(); // Mock media root
         }
 
         @Test
