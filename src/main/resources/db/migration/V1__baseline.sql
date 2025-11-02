@@ -22,17 +22,15 @@ CREATE TABLE contacts (
     updated_at        TIMESTAMP   DEFAULT now()
 );
 
--- 3. Conversations (group or 1:1 threads scoped per user)
+-- 3. Conversations (threads scoped per user; can have 2+ participants)
 CREATE TABLE conversations (
     id              BIGSERIAL PRIMARY KEY,
     user_id         UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type            VARCHAR(12)  NOT NULL,            -- ONE_TO_ONE | GROUP
-    name            TEXT,                             -- Group name or derived contact display
-    thread_key      TEXT,                             -- External group/thread identifier (RCS/MMS address)
+    name            TEXT,                             -- Conversation name or derived from participants
+    thread_key      TEXT,                             -- External thread/group identifier (RCS/MMS address)
     last_message_at TIMESTAMP,                        -- Denormalization for fast listing
     created_at      TIMESTAMP    DEFAULT now(),
-    updated_at      TIMESTAMP    DEFAULT now(),
-    CONSTRAINT chk_conversations_type CHECK (type IN ('ONE_TO_ONE','GROUP'))
+    updated_at      TIMESTAMP    DEFAULT now()
 );
 
 -- Join table linking conversations to contacts (participants)

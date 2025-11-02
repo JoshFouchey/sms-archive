@@ -24,14 +24,10 @@ public class Conversation {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Enumerated(EnumType.STRING)
-    @Column(length = 12, nullable = false)
-    private ConversationType type;
-
-    // For GROUP this is the group label; for ONE_TO_ONE may be cached display.
+    // Conversation name or derived from participants
     private String name;
 
-    // External thread/group key (e.g. RCS group address or MMS thread id); nullable for ONE_TO_ONE
+    // External thread/group key (e.g. RCS group address or MMS thread id)
     @Column(name = "thread_key", length = 255)
     private String threadKey;
 

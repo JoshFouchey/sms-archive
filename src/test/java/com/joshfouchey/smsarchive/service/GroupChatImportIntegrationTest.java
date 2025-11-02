@@ -1,7 +1,6 @@
 package com.joshfouchey.smsarchive.service;
 
 import com.joshfouchey.smsarchive.config.EnhancedPostgresTestContainer;
-import com.joshfouchey.smsarchive.model.ConversationType;
 import com.joshfouchey.smsarchive.repository.ConversationRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
 import com.joshfouchey.smsarchive.repository.MessagePartRepository;
@@ -68,11 +67,11 @@ public class GroupChatImportIntegrationTest extends EnhancedPostgresTestContaine
         long convoCount = allConversations.size();
         Assertions.assertThat(convoCount).as("At least one conversation should be created").isGreaterThanOrEqualTo(1);
 
-        // Verify group conversations exist
+        // Verify multi-participant conversations exist (group chats)
         var groupConvos = allConversations.stream()
-                .filter(c -> c.getType() == ConversationType.GROUP)
+                .filter(c -> c.getParticipants().size() > 1)
                 .toList();
-        Assertions.assertThat(groupConvos).as("Group conversations should be created for MMS messages").isNotEmpty();
+        Assertions.assertThat(groupConvos).as("Multi-participant conversations should be created for MMS messages").isNotEmpty();
 
         // Verify messages were linked to conversations
         var allMessages = messageRepository.findByTimestampBetween(java.time.Instant.EPOCH, java.time.Instant.now());

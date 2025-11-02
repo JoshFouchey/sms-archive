@@ -71,9 +71,9 @@ export interface ContactSummary {
 // New conversation-based types
 export interface ConversationSummary {
     id: number;
-    type: 'ONE_TO_ONE' | 'GROUP';
     name: string;
     participantNames: string[];
+    participantCount: number;
     lastMessageAt: string;
     lastMessagePreview: string;
     lastMessageHasImage: boolean;

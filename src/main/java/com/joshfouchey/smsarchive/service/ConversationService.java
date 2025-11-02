@@ -6,7 +6,6 @@ import com.joshfouchey.smsarchive.dto.PagedResponse;
 import com.joshfouchey.smsarchive.mapper.MessageMapper;
 import com.joshfouchey.smsarchive.model.Contact;
 import com.joshfouchey.smsarchive.model.Conversation;
-import com.joshfouchey.smsarchive.model.ConversationType;
 import com.joshfouchey.smsarchive.model.Message;
 import com.joshfouchey.smsarchive.model.User;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
@@ -112,9 +111,9 @@ public class ConversationService {
 
         return new ConversationSummaryDto(
                 conv.getId(),
-                conv.getType(),
                 conv.getName(),
                 participantNames,
+                conv.getParticipants().size(),
                 conv.getLastMessageAt(),
                 lastMessagePreview,
                 lastMessageHasImage,
@@ -149,16 +148,15 @@ public class ConversationService {
                     return contactRepository.save(c);
                 });
 
-        // Find existing one-to-one conversation
-        List<Conversation> existing = conversationRepository.findOneToOneByUserAndParticipant(user, normalizedNumber);
+        // Find existing conversation with single participant
+        List<Conversation> existing = conversationRepository.findByUserAndSingleParticipant(user, normalizedNumber);
         if (!existing.isEmpty()) {
             return existing.get(0);
         }
 
-        // Create new one-to-one conversation
+        // Create new conversation with single participant
         Conversation conv = new Conversation();
         conv.setUser(user);
-        conv.setType(ConversationType.ONE_TO_ONE);
         conv.setName(contact.getName() != null ? contact.getName() : contact.getNumber());
         conv.getParticipants().add(contact);
         return conversationRepository.save(conv);
@@ -166,9 +164,9 @@ public class ConversationService {
 
     @Transactional
     public Conversation findOrCreateGroupForUser(User user, String threadKey, Set<String> participantNumbers, String suggestedName) {
-        // Try to find existing group by thread key
+        // Try to find existing conversation by thread key
         if (threadKey != null && !threadKey.isBlank()) {
-            var existing = conversationRepository.findGroupByThreadKey(user, threadKey);
+            var existing = conversationRepository.findByThreadKey(user, threadKey);
             if (existing.isPresent()) {
                 return existing.get();
             }
@@ -188,10 +186,9 @@ public class ConversationService {
             contacts.add(contact);
         }
 
-        // Create new group conversation
+        // Create new conversation
         Conversation conv = new Conversation();
         conv.setUser(user);
-        conv.setType(ConversationType.GROUP);
         conv.setThreadKey(threadKey);
         conv.setName(suggestedName != null && !suggestedName.isBlank() ? suggestedName : "Group Chat");
         conv.setParticipants(contacts);

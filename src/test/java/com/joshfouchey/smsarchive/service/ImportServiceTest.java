@@ -64,7 +64,6 @@ class ImportServiceTest {
                 var convo = com.joshfouchey.smsarchive.model.Conversation.builder()
                         .id(1L)
                         .user(testUser)
-                        .type(com.joshfouchey.smsarchive.model.ConversationType.ONE_TO_ONE)
                         .name(norm)
                         .build();
                 return convo;
@@ -74,7 +73,6 @@ class ImportServiceTest {
                 var convo = com.joshfouchey.smsarchive.model.Conversation.builder()
                         .id(2L)
                         .user(testUser)
-                        .type(com.joshfouchey.smsarchive.model.ConversationType.GROUP)
                         .threadKey(threadKey)
                         .name(threadKey)
                         .build();

@@ -24,7 +24,7 @@
         <div class="flex justify-between items-center">
           <h3 :class="['font-medium truncate', selectedConversation?.id === conversation.id ? 'text-white' : 'text-gray-800 dark:text-gray-100']">
             {{ conversation.name }}
-            <span v-if="conversation.type === 'GROUP'" class="text-xs opacity-70 ml-1">({{ conversation.participantNames.length }})</span>
+            <span v-if="conversation.participantCount > 2" class="text-xs opacity-70 ml-1">({{ conversation.participantCount }})</span>
           </h3>
           <span
             v-if="conversation.lastMessageHasImage"
@@ -50,7 +50,7 @@
     <!-- Conversation panel -->
     <main class="flex-1 flex flex-col p-4 bg-white/70 dark:bg-slate-900/60 backdrop-blur">
       <h2 class="text-lg font-semibold mb-2 tracking-tight text-gray-700 dark:text-gray-200">
-        <span v-if="selectedConversation?.type === 'GROUP'">Group:</span>
+        <span v-if="selectedConversation?.participantCount && selectedConversation.participantCount > 2">Group:</span>
         <span v-else>Conversation with</span>
         <span class="accent-text">{{ selectedConversation?.name || '...' }}</span>
       </h2>
@@ -80,9 +80,9 @@
           class="mb-3 flex flex-col"
           :class="msg.isMe ? 'items-end' : 'items-start'"
         >
-          <!-- Sender name for group messages (only show for inbound messages) -->
+          <!-- Sender name for group messages (only show for inbound messages in multi-participant conversations) -->
           <div
-            v-if="!msg.isMe && selectedConversation?.type === 'GROUP' && msg.senderName"
+            v-if="!msg.isMe && selectedConversation?.participantCount && selectedConversation.participantCount > 2 && msg.senderName"
             class="text-xs text-gray-500 dark:text-gray-400 mb-1 ml-2"
           >
             {{ msg.senderName }}
