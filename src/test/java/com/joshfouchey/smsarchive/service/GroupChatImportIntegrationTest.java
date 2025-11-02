@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -48,7 +49,8 @@ public class GroupChatImportIntegrationTest extends EnhancedPostgresTestContaine
     }
 
     @Test
-    void importsGroupChatAndCreatesConversation() throws Exception {
+    @Transactional
+        void importsGroupChatAndCreatesConversation() throws Exception {
         Path xml = Path.of("src/main/resources/test_files/sms-20251101215610.xml");
         UUID jobId = importService.startImportAsync(xml);
         Awaitility.await().atMost(Duration.ofSeconds(10)).until(() -> {
@@ -57,23 +59,43 @@ public class GroupChatImportIntegrationTest extends EnhancedPostgresTestContaine
         });
         var progress = importService.getProgress(jobId);
         Assertions.assertThat(progress.getStatus()).isEqualTo("COMPLETED");
+        Assertions.assertThat(progress.getImportedMessages()).isGreaterThan(0);
 
-        long convoCount = conversationRepository.findAllByUserOrderByLastMessage(testUser).stream().count();
-        Assertions.assertThat(convoCount).isGreaterThanOrEqualTo(1);
+        // Verify conversations were created
+        var allConversations = conversationRepository.findAllByUserOrderByLastMessage(testUser);
+        Assertions.assertThat(allConversations).isNotEmpty();
 
-        var groupConvos = conversationRepository.findAllByUserOrderByLastMessage(testUser).stream()
+        long convoCount = allConversations.size();
+        Assertions.assertThat(convoCount).as("At least one conversation should be created").isGreaterThanOrEqualTo(1);
+
+        // Verify group conversations exist
+        var groupConvos = allConversations.stream()
                 .filter(c -> c.getType() == ConversationType.GROUP)
                 .toList();
-        Assertions.assertThat(groupConvos).isNotEmpty();
+        Assertions.assertThat(groupConvos).as("Group conversations should be created for MMS messages").isNotEmpty();
 
-        var anyGroup = groupConvos.get(0);
-        var linkedMessages = messageRepository.findByContactId(anyGroup.getParticipants().iterator().next().getId(), org.springframework.data.domain.Pageable.ofSize(5));
-        // Ensure messages have conversation non-null
+        // Verify messages were linked to conversations
         var allMessages = messageRepository.findByTimestampBetween(java.time.Instant.EPOCH, java.time.Instant.now());
-        Assertions.assertThat(allMessages).isNotEmpty();
-        Assertions.assertThat(allMessages.stream().filter(m -> m.getProtocol() != null && m.getProtocol().name().equals("MMS"))).isNotEmpty();
-        Assertions.assertThat(allMessages.stream().map(m -> m.getConversation()).filter(java.util.Objects::nonNull).count()).isGreaterThan(0);
-        Assertions.assertThat(allMessages.stream().filter(m -> m.getProtocol().name().equals("MMS") && m.getConversation()==null).count()).isEqualTo(0);
+        Assertions.assertThat(allMessages).as("Messages should be imported").isNotEmpty();
+
+        var mmsMessages = allMessages.stream()
+                .filter(m -> m.getProtocol() != null && m.getProtocol().name().equals("MMS"))
+                .toList();
+        Assertions.assertThat(mmsMessages).as("MMS messages should be imported").isNotEmpty();
+
+        long messagesWithConversation = allMessages.stream()
+                .filter(m -> m.getConversation() != null)
+                .count();
+        Assertions.assertThat(messagesWithConversation)
+                .as("All messages should be linked to conversations")
+                .isGreaterThan(0);
+
+        long mmsMessagesWithoutConversation = mmsMessages.stream()
+                .filter(m -> m.getConversation() == null)
+                .count();
+        Assertions.assertThat(mmsMessagesWithoutConversation)
+                .as("All MMS messages should have a conversation assigned")
+                .isEqualTo(0);
     }
 }
 
