@@ -11,9 +11,10 @@ public record MessageDto(
         Long id,
         MessageProtocol protocol,
         MessageDirection direction,
-        String sender,
-        String recipient,
-        String contactName,
+        Long senderContactId,              // null = current user (for OUTBOUND)
+        String senderContactName,          // null = current user (for OUTBOUND)
+        String senderContactNumber,        // null = current user (for OUTBOUND)
+        String contactName,                // Primary contact (conversation counterparty)
         String contactNumber,
         String contactNormalizedNumber,
         Instant timestamp,

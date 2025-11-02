@@ -48,8 +48,7 @@ CREATE TABLE messages (
     user_id      UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     protocol     VARCHAR(10)  NOT NULL,              -- SMS|MMS|RCS
     direction    VARCHAR(10)  NOT NULL,              -- INBOUND|OUTBOUND
-    sender       TEXT,
-    recipient    TEXT,
+    sender_contact_id BIGINT  REFERENCES contacts(id) ON DELETE SET NULL,  -- Who sent (null = current user for OUTBOUND)
     contact_id   BIGINT       NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
     conversation_id BIGINT    REFERENCES conversations(id) ON DELETE SET NULL,
     timestamp    TIMESTAMP    NOT NULL,
@@ -93,15 +92,14 @@ CREATE TRIGGER trg_users_updated_at    BEFORE UPDATE ON users    FOR EACH ROW EX
 CREATE TRIGGER trg_conversations_updated_at BEFORE UPDATE ON conversations FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- 8. Indexes (messages)
-CREATE INDEX idx_messages_timestamp    ON messages ("timestamp");
-CREATE INDEX idx_messages_contact      ON messages (contact_id);
-CREATE INDEX idx_messages_sender       ON messages (sender);
-CREATE INDEX idx_messages_recipient    ON messages (recipient);
-CREATE INDEX idx_messages_direction    ON messages (direction);
-CREATE INDEX idx_messages_protocol     ON messages (protocol);
-CREATE INDEX idx_messages_user         ON messages (user_id);
-CREATE INDEX idx_messages_conversation ON messages (conversation_id);
-CREATE INDEX idx_messages_body_fts     ON messages USING gin (to_tsvector('english', coalesce(body,'')));
+CREATE INDEX idx_messages_timestamp       ON messages ("timestamp");
+CREATE INDEX idx_messages_contact         ON messages (contact_id);
+CREATE INDEX idx_messages_sender_contact  ON messages (sender_contact_id);
+CREATE INDEX idx_messages_direction       ON messages (direction);
+CREATE INDEX idx_messages_protocol        ON messages (protocol);
+CREATE INDEX idx_messages_user            ON messages (user_id);
+CREATE INDEX idx_messages_conversation    ON messages (conversation_id);
+CREATE INDEX idx_messages_body_fts        ON messages USING gin (to_tsvector('english', coalesce(body,'')));
 
 -- Duplicate prevention + probing
 CREATE INDEX IF NOT EXISTS ix_messages_dedupe_prefix

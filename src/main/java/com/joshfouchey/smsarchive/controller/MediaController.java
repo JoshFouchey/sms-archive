@@ -31,8 +31,6 @@ public class MediaController {
                     .map(p -> new MessagePartDto(
                             p.getId(),
                             p.getMessage().getId(),
-                            p.getMessage().getSender(),
-                            p.getMessage().getRecipient(),
                             p.getMessage().getTimestamp(),
                             normalizePath(p.getFilePath()),
                             p.getContentType()

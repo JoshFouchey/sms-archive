@@ -16,8 +16,6 @@ import java.util.List;
 import java.util.UUID;
 
 public interface MessageRepository extends JpaRepository<Message, Long> {
-    List<Message> findBySenderContainingIgnoreCase(String sender);
-    List<Message> findByRecipientContainingIgnoreCase(String recipient);
 
     @Query("select m from Message m where lower(m.body) like lower(concat('%', :text, '%'))")
     List<Message> searchByText(@Param("text") String text);
@@ -78,11 +76,6 @@ ORDER BY day_ts
     @Query("select m from Message m where m.user = :user and m.timestamp between :start and :end")
     List<Message> findByTimestampBetweenUser(@Param("start") Instant start, @Param("end") Instant end, @Param("user") com.joshfouchey.smsarchive.model.User user);
 
-    @Query("select m from Message m where m.user = :user and lower(m.sender) like lower(concat('%', :sender, '%'))")
-    List<Message> findBySenderLikeUser(@Param("sender") String sender, @Param("user") com.joshfouchey.smsarchive.model.User user);
-
-    @Query("select m from Message m where m.user = :user and lower(m.recipient) like lower(concat('%', :recipient, '%'))")
-    List<Message> findByRecipientLikeUser(@Param("recipient") String recipient, @Param("user") com.joshfouchey.smsarchive.model.User user);
 
     @Query("select (count(m) > 0) from Message m where m.contact = :contact and m.timestamp = :ts and m.msgBox = :msgBox and m.protocol = :protocol and lower(coalesce(m.body,'')) = lower(coalesce(:body,''))")
     boolean existsDuplicate(@Param("contact") Contact contact,

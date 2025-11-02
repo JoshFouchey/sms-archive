@@ -86,8 +86,10 @@ class MediaServiceTest extends EnhancedPostgresTestContainer {
         Message m = new Message();
         m.setProtocol(protocol);
         m.setDirection(dir);
-        m.setSender(sender);
-        m.setRecipient(recipient);
+        // Set senderContact: for INBOUND, sender is the contact; for OUTBOUND, sender is null (current user)
+        if (dir == MessageDirection.INBOUND) {
+            m.setSenderContact(contact);
+        }
         m.setContact(contact);
         m.setUser(testUser);
         m.setTimestamp(ts);

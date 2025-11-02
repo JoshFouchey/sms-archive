@@ -23,17 +23,6 @@ public class SearchController {
         this.currentUserProvider = currentUserProvider;
     }
 
-    // Search by sender (was "address")
-    @GetMapping("/sender")
-    public List<Message> bySender(@RequestParam String sender) {
-        return repo.findBySenderLikeUser(sender, currentUserProvider.getCurrentUser());
-    }
-
-    // Search by recipient (new field we mapped in Message.java)
-    @GetMapping("/recipient")
-    public List<Message> byRecipient(@RequestParam String recipient) {
-        return repo.findByRecipientLikeUser(recipient, currentUserProvider.getCurrentUser());
-    }
 
     // Search by body text
     @GetMapping("/text")

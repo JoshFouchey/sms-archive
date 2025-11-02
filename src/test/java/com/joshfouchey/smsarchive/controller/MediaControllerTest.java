@@ -46,8 +46,6 @@ class MediaControllerTest {
                     msg1.setId(10L);
                     msg1.setProtocol(MessageProtocol.SMS);
                     msg1.setDirection(MessageDirection.INBOUND);
-                    msg1.setSender("+15551234567");
-                    msg1.setRecipient("me");
                     msg1.setTimestamp(Instant.now());
                     MessagePart part1 = new MessagePart();
                     part1.setId(100L);
@@ -59,8 +57,6 @@ class MediaControllerTest {
                     msg2.setId(11L);
                     msg2.setProtocol(MessageProtocol.MMS);
                     msg2.setDirection(MessageDirection.OUTBOUND);
-                    msg2.setSender("me");
-                    msg2.setRecipient("+15557654321");
                     msg2.setTimestamp(Instant.now());
                     MessagePart part2 = new MessagePart();
                     part2.setId(101L);

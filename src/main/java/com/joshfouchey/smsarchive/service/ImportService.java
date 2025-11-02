@@ -356,9 +356,14 @@ public class ImportService {
 
     // Conversation assignment helpers
     private void assignConversationForSms(Message msg, String suggestedName) {
-        String address = msg.getDirection() == MessageDirection.INBOUND ? msg.getSender() : msg.getRecipient();
-        String normalized = normalizeNumber(address);
-        if (address == null || normalized.equals(UNKNOWN_NORMALIZED)) {
+        // For SMS, the contact field contains the counterparty
+        Contact counterparty = msg.getContact();
+        if (counterparty == null || counterparty.getNormalizedNumber() == null) {
+            log.debug("Skipping conversation assignment - no contact set");
+            return;
+        }
+        String normalized = counterparty.getNormalizedNumber();
+        if (normalized.equals(UNKNOWN_NORMALIZED)) {
             log.debug("Skipping conversation assignment - cannot resolve address");
             return; // skip if cannot resolve
         }
@@ -490,23 +495,100 @@ public class ImportService {
 
     private void flushStreamingIfNeeded(List<Message> batch, ImportProgress progress) { if (batch.size() >= streamBatchSize) flushStreamingBatch(batch, progress); }
     private void flushStreamingBatch(List<Message> batch, ImportProgress progress) { if (batch.isEmpty()) return; try { messageRepo.saveAll(batch); batch.clear(); } catch (Exception e) { log.error("Batch persist failed size={}", batch.size(), e); progress.setStatus("FAILED"); progress.setError("Persistence error: " + e.getMessage()); } }
-    private Message buildSmsStreaming(XMLStreamReader r) { Message msg = new Message(); msg.setProtocol(MessageProtocol.SMS); msg.setTimestamp(parseInstant(r.getAttributeValue(null, "date"))); msg.setBody(r.getAttributeValue(null, "body")); int box = parseInt(r.getAttributeValue(null, "type"), 0); msg.setMsgBox(box); msg.setDirection(box == MSG_BOX_INBOX ? MessageDirection.INBOUND : MessageDirection.OUTBOUND); String address = r.getAttributeValue(null, "address"); if (msg.getDirection() == MessageDirection.INBOUND) { msg.setSender(address); msg.setRecipient(SENDER_ME); } else { msg.setSender(SENDER_ME); msg.setRecipient(address); } return msg; }
-    private Message buildMultipartHeaderStreaming(XMLStreamReader r, MessageProtocol protocol) { Message msg = new Message(); msg.setProtocol(protocol); msg.setTimestamp(parseInstant(r.getAttributeValue(null, "date"))); int box = parseInt(r.getAttributeValue(null, "msg_box"), 0); msg.setMsgBox(box); msg.setDirection(box == MSG_BOX_INBOX ? MessageDirection.INBOUND : MessageDirection.OUTBOUND); if (protocol == MessageProtocol.RCS) { String bodyAttr = nullIfBlank(r.getAttributeValue(null, "body")); if (bodyAttr != null) msg.setBody(bodyAttr); } return msg; }
-    private void accumulateAddressStreaming(XMLStreamReader r, Message msg) { String type = r.getAttributeValue(null, "type"), address = r.getAttributeValue(null, "address"); if (type == null || address == null) return; if (ADDR_TYPE_FROM.equals(type)) msg.setSender(address); else if (ADDR_TYPE_TO.equals(type)) { if (msg.getRecipient() == null || msg.getRecipient().isBlank()) msg.setRecipient(address); else msg.setRecipient(msg.getRecipient()+","+address); } }
-    private void finalizeStreamingContact(Message msg, String suggestedName) {
-        if (msg.getMsgBox() != null) {
-            if (msg.getMsgBox() == MSG_BOX_SENT) msg.setSender(SENDER_ME);
-            else if (msg.getMsgBox() == MSG_BOX_INBOX) msg.setRecipient(SENDER_ME);
+    private Message buildSmsStreaming(XMLStreamReader r) {
+        Message msg = new Message();
+        msg.setProtocol(MessageProtocol.SMS);
+        msg.setTimestamp(parseInstant(r.getAttributeValue(null, "date")));
+        msg.setBody(r.getAttributeValue(null, "body"));
+        int box = parseInt(r.getAttributeValue(null, "type"), 0);
+        msg.setMsgBox(box);
+        msg.setDirection(box == MSG_BOX_INBOX ? MessageDirection.INBOUND : MessageDirection.OUTBOUND);
+        // Store address in metadata temporarily to be resolved in finalizeStreamingContact
+        String address = r.getAttributeValue(null, "address");
+        if (address != null) {
+            msg.setMetadata(new HashMap<>(Map.of("_tempAddress", address)));
         }
-        String counterparty = pickCounterparty(msg);
+        return msg;
+    }
+    private Message buildMultipartHeaderStreaming(XMLStreamReader r, MessageProtocol protocol) { Message msg = new Message(); msg.setProtocol(protocol); msg.setTimestamp(parseInstant(r.getAttributeValue(null, "date"))); int box = parseInt(r.getAttributeValue(null, "msg_box"), 0); msg.setMsgBox(box); msg.setDirection(box == MSG_BOX_INBOX ? MessageDirection.INBOUND : MessageDirection.OUTBOUND); if (protocol == MessageProtocol.RCS) { String bodyAttr = nullIfBlank(r.getAttributeValue(null, "body")); if (bodyAttr != null) msg.setBody(bodyAttr); } return msg; }
+    private void accumulateAddressStreaming(XMLStreamReader r, Message msg) {
+        String type = r.getAttributeValue(null, "type"), address = r.getAttributeValue(null, "address");
+        if (type == null || address == null) return;
+
+        // Store addresses in metadata temporarily
+        Map<String, Object> meta = msg.getMetadata();
+        if (meta == null) {
+            meta = new HashMap<>();
+            msg.setMetadata(meta);
+        }
+
+        if (ADDR_TYPE_FROM.equals(type)) {
+            meta.put("_tempSender", address);
+        } else if (ADDR_TYPE_TO.equals(type)) {
+            String existing = (String) meta.get("_tempRecipient");
+            if (existing == null || existing.isBlank()) {
+                meta.put("_tempRecipient", address);
+            } else {
+                meta.put("_tempRecipient", existing + "," + address);
+            }
+        }
+    }
+    private void finalizeStreamingContact(Message msg, String suggestedName) {
+        // Get temporary addresses from metadata
+        Map<String, Object> meta = msg.getMetadata();
+        String tempSender = meta != null ? (String) meta.get("_tempSender") : null;
+        String tempRecipient = meta != null ? (String) meta.get("_tempRecipient") : null;
+        String tempAddress = meta != null ? (String) meta.get("_tempAddress") : null;
+
+        // Determine counterparty based on direction
+        String counterparty;
+        String senderAddress;
+
+        if (msg.getDirection() == MessageDirection.INBOUND) {
+            // Inbound: sender is the counterparty, recipient is current user
+            counterparty = tempSender != null ? tempSender : tempAddress;
+            senderAddress = counterparty;
+        } else {
+            // Outbound: recipient is the counterparty, sender is current user
+            counterparty = tempRecipient != null ? tempRecipient : tempAddress;
+            // For outbound, parse comma-separated recipients and take first non-"me"
+            if (counterparty != null) {
+                counterparty = Arrays.stream(counterparty.split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.equalsIgnoreCase(SENDER_ME) && !s.isBlank())
+                        .findFirst()
+                        .orElse(counterparty);
+            }
+            senderAddress = null; // Current user sent it, so senderContact will be null
+        }
+
         // Prefer ThreadLocal user (async import) fallback to provider
         User user = threadLocalImportUser.get();
         if (user == null) {
             user = currentUserProvider.getCurrentUser();
         }
         msg.setUser(user);
+
+        // Resolve the primary contact (the counterparty)
         Contact contact = resolveContact(user, counterparty, suggestedName);
         msg.setContact(contact);
+
+        // Set senderContact for inbound messages (null for outbound = current user)
+        if (msg.getDirection() == MessageDirection.INBOUND && senderAddress != null) {
+            msg.setSenderContact(contact); // For 1:1, sender is the contact
+        } else {
+            msg.setSenderContact(null); // Outbound or no sender = current user
+        }
+
+        // Clean up temporary metadata
+        if (meta != null) {
+            meta.remove("_tempSender");
+            meta.remove("_tempRecipient");
+            meta.remove("_tempAddress");
+            if (meta.isEmpty()) {
+                msg.setMetadata(null);
+            }
+        }
     }
     private MessagePart buildPartStreaming(XMLStreamReader r, Message msg, int idx) { MessagePart part = new MessagePart(); part.setMessage(msg); part.setSeq(parseInt(r.getAttributeValue(null, "seq"), idx)); part.setContentType(r.getAttributeValue(null, "ct")); part.setName(nullIfBlank(r.getAttributeValue(null, "name"))); part.setText(nullIfBlank(r.getAttributeValue(null, "text"))); String data = r.getAttributeValue(null, "data"); if (data != null && !data.isBlank()) { saveMediaPart(data, part).ifPresent(part::setFilePath); if (part.getFilePath() != null) { try { part.setSizeBytes(Files.size(Path.of(part.getFilePath()))); } catch (Exception ignored) {} } } return part; }
 
@@ -619,17 +701,6 @@ public class ImportService {
         }
     }
 
-    private String pickCounterparty(Message msg) {
-        if (msg.getDirection() == MessageDirection.INBOUND) {
-            return msg.getSender();
-        }
-        if (msg.getRecipient() == null) return null;
-        return Arrays.stream(msg.getRecipient().split(","))
-                .map(String::trim)
-                .filter(s -> !s.equalsIgnoreCase(SENDER_ME) && !s.isBlank())
-                .findFirst()
-                .orElse(null);
-    }
 
     private Contact resolveContact(com.joshfouchey.smsarchive.model.User user, String number, String suggestedName) {
         String normalized = normalizeNumber(number);

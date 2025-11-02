@@ -14,6 +14,7 @@ public final class MessageMapper {
 
     public static MessageDto toDto(Message msg) {
         Contact c = msg.getContact();
+        Contact sender = msg.getSenderContact();
         List<MessagePartDto> parts = msg.getParts() == null ? List.of() : msg.getParts().stream()
                 .map(p -> toPartDto(msg, p))
                 .toList();
@@ -21,8 +22,9 @@ public final class MessageMapper {
                 msg.getId(),
                 msg.getProtocol(),
                 msg.getDirection(),
-                msg.getSender(),
-                msg.getRecipient(),
+                sender != null ? sender.getId() : null,
+                sender != null ? sender.getName() : null,
+                sender != null ? sender.getNumber() : null,
                 c != null ? c.getName() : null,
                 c != null ? c.getNumber() : null,
                 c != null ? c.getNormalizedNumber() : null,
@@ -39,13 +41,11 @@ public final class MessageMapper {
         );
     }
 
-    // Map a part including contextual fields from its parent message (sender/recipient/timestamp)
+    // Map a part including contextual fields from its parent message (timestamp)
     private static MessagePartDto toPartDto(Message parent, MessagePart part) {
         return new MessagePartDto(
                 part.getId(),
                 parent.getId(),
-                parent.getSender(),
-                parent.getRecipient(),
                 parent.getTimestamp(),
                 normalizePath(part.getFilePath()),
                 part.getContentType()

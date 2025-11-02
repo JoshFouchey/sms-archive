@@ -57,10 +57,9 @@ class UserIsolationTest extends EnhancedPostgresTestContainer {
         Message m = new Message();
         m.setUser(userA);
         m.setContact(contactA);
+        m.setSenderContact(contactA); // INBOUND: sender is the contact
         m.setProtocol(MessageProtocol.SMS);
         m.setDirection(MessageDirection.INBOUND);
-        m.setSender("+15551234567");
-        m.setRecipient("me");
         m.setTimestamp(Instant.now());
         m.setBody("Hello A");
         messageRepo.save(m);

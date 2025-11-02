@@ -16,8 +16,7 @@ import java.util.Map;
         indexes = {
                 @Index(name = "ix_messages_timestamp", columnList = "timestamp"),
                 @Index(name = "ix_messages_contact", columnList = "contact_id"),
-                @Index(name = "ix_messages_sender", columnList = "sender"),
-                @Index(name = "ix_messages_recipient", columnList = "recipient"),
+                @Index(name = "ix_messages_sender_contact", columnList = "sender_contact_id"),
                 @Index(name = "ix_messages_user", columnList = "user_id"),
                 // Composite prefix index used by duplicate check BEFORE body comparison
                 @Index(name = "ix_messages_dedupe_prefix", columnList = "contact_id,timestamp,msg_box,protocol"),
@@ -39,9 +38,10 @@ public class Message {
     @Column(length = 10, nullable = false)
     private MessageDirection direction; // INBOUND / OUTBOUND (derived at import)
 
-    // Original roles (retain for auditing / multi-recipient)
-    private String sender;
-    private String recipient;           // comma-separated list if multiple
+    // Who sent this message (null = current user sent it for OUTBOUND messages)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sender_contact_id")
+    private Contact senderContact;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "contact_id")
