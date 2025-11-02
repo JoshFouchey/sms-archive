@@ -20,7 +20,8 @@ import java.util.Map;
                 @Index(name = "ix_messages_recipient", columnList = "recipient"),
                 @Index(name = "ix_messages_user", columnList = "user_id"),
                 // Composite prefix index used by duplicate check BEFORE body comparison
-                @Index(name = "ix_messages_dedupe_prefix", columnList = "contact_id,timestamp,msg_box,protocol")
+                @Index(name = "ix_messages_dedupe_prefix", columnList = "contact_id,timestamp,msg_box,protocol"),
+                @Index(name = "idx_messages_conversation", columnList = "conversation_id")
         })
 @Getter
 @Setter
@@ -49,6 +50,10 @@ public class Message {
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "conversation_id")
+    private Conversation conversation; // nullable for legacy single-contact messages
 
     @Column(nullable = false)
     private Instant timestamp;

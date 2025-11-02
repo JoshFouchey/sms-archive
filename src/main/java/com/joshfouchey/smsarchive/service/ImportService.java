@@ -557,11 +557,27 @@ public class ImportService {
             c.setUser(user);
             c.setNumber(number == null ? UNKNOWN_NUMBER_DISPLAY : number);
             c.setNormalizedNumber(normalized);
-            c.setName(suggestedName);
+            // Only set name if it's meaningful, otherwise use the number
+            String sanitizedName = sanitizeContactName(suggestedName);
+            c.setName(sanitizedName != null ? sanitizedName : c.getNumber());
             return contactRepo.save(c);
         });
         contactCache.put(cacheKey, contact);
         return contact;
+    }
+
+    private String sanitizeContactName(String name) {
+        if (name == null || name.isBlank()) {
+            return null;
+        }
+        String trimmed = name.trim();
+        // Check for common "unknown" patterns
+        if (trimmed.equalsIgnoreCase("unknown") ||
+            trimmed.equalsIgnoreCase("(unknown)") ||
+            trimmed.matches("^\\(.*unknown.*\\)$")) {
+            return null;
+        }
+        return trimmed;
     }
 
     @VisibleForTesting
@@ -622,3 +638,4 @@ public class ImportService {
         }
     }
 }
+

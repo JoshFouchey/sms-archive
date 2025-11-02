@@ -61,6 +61,36 @@ class ImportServiceTest {
         }
 
         @Test
+        @DisplayName("sanitizeContactName filters out null, blank, and unknown patterns")
+        void testSanitizeContactName() {
+            // Use reflection to access the private method for testing
+            try {
+                var method = ImportService.class.getDeclaredMethod("sanitizeContactName", String.class);
+                method.setAccessible(true);
+
+                // Null and blank cases
+                assertNull(method.invoke(service, (String) null));
+                assertNull(method.invoke(service, ""));
+                assertNull(method.invoke(service, "   "));
+
+                // Unknown patterns
+                assertNull(method.invoke(service, "unknown"));
+                assertNull(method.invoke(service, "Unknown"));
+                assertNull(method.invoke(service, "UNKNOWN"));
+                assertNull(method.invoke(service, "(unknown)"));
+                assertNull(method.invoke(service, "(Unknown)"));
+                assertNull(method.invoke(service, "  unknown  "));
+
+                // Valid names should be returned trimmed
+                assertEquals("John Doe", method.invoke(service, "John Doe"));
+                assertEquals("Jane Smith", method.invoke(service, "  Jane Smith  "));
+                assertEquals("Bob", method.invoke(service, "Bob"));
+            } catch (Exception e) {
+                fail("Failed to test sanitizeContactName: " + e.getMessage());
+            }
+        }
+
+        @Test
         @DisplayName("normalizeNumber strips non-digits and US country code")
         void testNormalizeNumber() {
             assertEquals("15551234567", service.normalizeNumber("+1 (555) 123-4567"));
