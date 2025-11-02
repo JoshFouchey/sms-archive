@@ -10,7 +10,9 @@ import java.util.Set;
 @Entity
 @Table(name = "conversations", indexes = {
         @Index(name = "idx_conversations_user", columnList = "user_id"),
-        @Index(name = "idx_conversations_last_message", columnList = "last_message_at")
+        @Index(name = "idx_conversations_last_message", columnList = "last_message_at"),
+        // New index to quickly resolve group conversations by external thread key
+        @Index(name = "idx_conversations_user_threadkey", columnList = "user_id,thread_key")
 })
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Conversation {
@@ -29,6 +31,10 @@ public class Conversation {
     // For GROUP this is the group label; for ONE_TO_ONE may be cached display.
     private String name;
 
+    // External thread/group key (e.g. RCS group address or MMS thread id); nullable for ONE_TO_ONE
+    @Column(name = "thread_key", length = 255)
+    private String threadKey;
+
     @Column(name = "last_message_at")
     private Instant lastMessageAt;
 
@@ -38,7 +44,7 @@ public class Conversation {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
-    @ManyToMany
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(name = "conversation_contacts",
             joinColumns = @JoinColumn(name = "conversation_id"),
             inverseJoinColumns = @JoinColumn(name = "contact_id"))

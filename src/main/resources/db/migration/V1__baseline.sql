@@ -28,6 +28,7 @@ CREATE TABLE conversations (
     user_id         UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     type            VARCHAR(12)  NOT NULL,            -- ONE_TO_ONE | GROUP
     name            TEXT,                             -- Group name or derived contact display
+    thread_key      TEXT,                             -- External group/thread identifier (RCS/MMS address)
     last_message_at TIMESTAMP,                        -- Denormalization for fast listing
     created_at      TIMESTAMP    DEFAULT now(),
     updated_at      TIMESTAMP    DEFAULT now(),
@@ -120,6 +121,7 @@ CREATE INDEX idx_message_parts_ct      ON message_parts (ct);
 -- 11. Indexes (conversations & participants)
 CREATE INDEX idx_conversations_user          ON conversations (user_id);
 CREATE INDEX idx_conversations_last_message  ON conversations (last_message_at);
+CREATE INDEX idx_conversations_user_threadkey ON conversations (user_id, thread_key);
 CREATE INDEX idx_conversation_contacts_conv  ON conversation_contacts (conversation_id);
 CREATE INDEX idx_conversation_contacts_cont  ON conversation_contacts (contact_id);
 

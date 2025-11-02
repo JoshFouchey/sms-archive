@@ -65,6 +65,7 @@ public class ImportService {
     private final MessageRepository messageRepo;
     private final ContactRepository contactRepo;
     private final ThumbnailService thumbnailService;
+    private final ConversationService conversationService; // new dependency
     private TaskExecutor importTaskExecutor; // executor for async jobs (optional)
     private final CurrentUserProvider currentUserProvider;
     // ThreadLocal to hold the user for async import tasks (SecurityContext not propagated)
@@ -93,11 +94,13 @@ public class ImportService {
     }
 
     public ImportService(MessageRepository messageRepo, ContactRepository contactRepo,
-                         CurrentUserProvider currentUserProvider, ThumbnailService thumbnailService) {
+                         CurrentUserProvider currentUserProvider, ThumbnailService thumbnailService,
+                         ConversationService conversationService) {
         this.messageRepo = messageRepo;
         this.contactRepo = contactRepo;
         this.currentUserProvider = currentUserProvider;
         this.thumbnailService = thumbnailService;
+        this.conversationService = conversationService;
     }
 
     // Remove multi-arg constructors added earlier
@@ -198,13 +201,17 @@ public class ImportService {
         StringBuilder textAgg;
         String suggestedName;
         boolean inMultipart;
-        ElementContext(Message c, List<MessagePart> parts, List<Map<String,Object>> media, StringBuilder agg, String name, boolean multi) {
+        Set<String> participantNumbers; // normalized participants for multipart/group
+        String threadKey; // external address for group threads
+        ElementContext(Message c, List<MessagePart> parts, List<Map<String,Object>> media, StringBuilder agg, String name, boolean multi, Set<String> participants, String thread) {
             this.cur = c;
             this.curParts = parts;
             this.curMedia = media;
             this.textAgg = agg;
             this.suggestedName = name;
             this.inMultipart = multi;
+            this.participantNumbers = participants;
+            this.threadKey = thread;
         }
     }
 
@@ -236,10 +243,12 @@ public class ImportService {
             StringBuilder textAgg = null;
             String suggestedName = null;
             boolean inMultipart = false;
+            Set<String> participantNumbers = null;
+            String threadKey = null;
             while (r.hasNext()) {
                 int evt = r.next();
                 if (evt == XMLStreamConstants.START_ELEMENT) {
-                    ElementContext ctx = new ElementContext(cur, curParts, curMedia, textAgg, suggestedName, inMultipart);
+                    ElementContext ctx = new ElementContext(cur, curParts, curMedia, textAgg, suggestedName, inMultipart, participantNumbers, threadKey);
                     ctx = handleStartElement(r, ctx, progress, seenKeys, batch);
                     cur = ctx.cur;
                     curParts = ctx.curParts;
@@ -247,8 +256,10 @@ public class ImportService {
                     textAgg = ctx.textAgg;
                     suggestedName = ctx.suggestedName;
                     inMultipart = ctx.inMultipart;
+                    participantNumbers = ctx.participantNumbers;
+                    threadKey = ctx.threadKey;
                 } else if (evt == XMLStreamConstants.END_ELEMENT) {
-                    ElementContext ctx = new ElementContext(cur, curParts, curMedia, textAgg, suggestedName, inMultipart);
+                    ElementContext ctx = new ElementContext(cur, curParts, curMedia, textAgg, suggestedName, inMultipart, participantNumbers, threadKey);
                     ctx = handleEndElement(r, ctx, progress, seenKeys, batch);
                     cur = ctx.cur;
                     curParts = ctx.curParts;
@@ -256,6 +267,8 @@ public class ImportService {
                     textAgg = ctx.textAgg;
                     suggestedName = ctx.suggestedName;
                     inMultipart = ctx.inMultipart;
+                    participantNumbers = ctx.participantNumbers;
+                    threadKey = ctx.threadKey;
                 }
                 progress.setBytesRead(cis.getByteCount());
             }
@@ -283,17 +296,20 @@ public class ImportService {
             case "sms" -> {
                 ctx.suggestedName = nullIfBlank(attr(r, "contact_name"));
                 ctx.cur = buildSmsStreaming(r);
+                assignConversationForSms(ctx.cur, ctx.suggestedName); // new
                 handleSms(ctx.cur, ctx.suggestedName, progress, seenKeys, batch);
                 ctx.cur = null; ctx.suggestedName = null;
             }
             case "mms", "rcs" -> {
                 ctx.suggestedName = nullIfBlank(attr(r, "contact_name"));
                 ctx.cur = buildMultipartHeaderStreaming(r, local.equals("mms") ? MessageProtocol.MMS : MessageProtocol.RCS);
+                ctx.threadKey = nullIfBlank(attr(r, "address")); // external thread key/address
                 startMultipart();
                 ctx.curParts = new ArrayList<>();
                 ctx.curMedia = new ArrayList<>();
                 ctx.textAgg = new StringBuilder();
                 ctx.inMultipart = true;
+                ctx.participantNumbers = new LinkedHashSet<>();
             }
             case "part" -> {
                 if (ctx.inMultipart && ctx.cur != null) {
@@ -303,6 +319,12 @@ public class ImportService {
             case "addr" -> {
                 if (ctx.inMultipart && ctx.cur != null) {
                     accumulateAddressStreaming(r, ctx.cur);
+                    String addrVal = attr(r, "address");
+                    if (addrVal != null && !addrVal.isBlank() && !addrVal.equalsIgnoreCase(SENDER_ME)) {
+                        if (ctx.participantNumbers == null) ctx.participantNumbers = new LinkedHashSet<>();
+                        String norm = normalizeNumber(addrVal);
+                        if (!UNKNOWN_NORMALIZED.equals(norm)) ctx.participantNumbers.add(norm);
+                    }
                 }
             }
             default -> { /* no-op */ }
@@ -318,18 +340,80 @@ public class ImportService {
         String local = r.getLocalName();
         if (ctx.inMultipart && ctx.cur != null && (local.equals("mms") || local.equals("rcs"))) {
             finalizeMultipart(ctx.cur, ctx.suggestedName, ctx.curParts, ctx.curMedia, ctx.textAgg);
+            assignConversationForMultipart(ctx.cur, ctx.threadKey, ctx.participantNumbers, ctx.suggestedName); // new
             boolean dup = isDuplicateInRunOrDb(ctx.cur, seenKeys);
             if (dup) { progress.incDuplicateMessages(); }
             else { batch.add(ctx.cur); progress.incImportedMessages(); }
             progress.incProcessedMessages();
             flushStreamingIfNeeded(batch, progress);
-            ctx.cur = null; ctx.curParts = null; ctx.curMedia = null; ctx.textAgg = null; ctx.inMultipart = false; ctx.suggestedName = null;
+            ctx.cur = null; ctx.curParts = null; ctx.curMedia = null; ctx.textAgg = null; ctx.inMultipart = false; ctx.suggestedName = null; ctx.participantNumbers = null; ctx.threadKey = null;
         }
         return ctx;
     }
 
     // Re-added after refactor: placeholder hook for future metrics or state init
     private void startMultipart() { /* placeholder for future metrics */ }
+
+    // Conversation assignment helpers
+    private void assignConversationForSms(Message msg, String suggestedName) {
+        String address = msg.getDirection() == MessageDirection.INBOUND ? msg.getSender() : msg.getRecipient();
+        String normalized = normalizeNumber(address);
+        if (address == null || normalized.equals(UNKNOWN_NORMALIZED)) {
+            log.debug("Skipping conversation assignment - cannot resolve address");
+            return; // skip if cannot resolve
+        }
+        User user = threadLocalImportUser.get();
+        if (user == null) user = currentUserProvider.getCurrentUser();
+        Conversation convo = conversationService.findOrCreateOneToOneForUser(user, normalized, suggestedName);
+        if (convo == null || convo.getId() == null) {
+            log.error("Failed to create/find conversation for normalized number: {}", normalized);
+            return;
+        }
+        // Update lastMessageAt and save conversation - this ensures the conversation is persisted with the update
+        if (convo.getLastMessageAt() == null || msg.getTimestamp().isAfter(convo.getLastMessageAt())) {
+            convo.setLastMessageAt(msg.getTimestamp());
+            convo = conversationService.save(convo);
+        }
+        msg.setConversation(convo);
+        log.debug("Assigned message to conversation ID: {}", convo.getId());
+    }
+
+    private void assignConversationForMultipart(Message msg, String threadKey, Set<String> participantNumbers, String suggestedName) {
+        if (participantNumbers == null || participantNumbers.isEmpty()) {
+            log.debug("Skipping conversation assignment - no participant numbers");
+            return; // cannot assign
+        }
+        if ((threadKey == null || threadKey.isBlank()) && participantNumbers.size() > 1) {
+            threadKey = buildSyntheticThreadKey(participantNumbers);
+        }
+        User user = threadLocalImportUser.get();
+        if (user == null) user = currentUserProvider.getCurrentUser();
+        Conversation convo;
+        if (participantNumbers.size() == 1) {
+            convo = conversationService.findOrCreateOneToOneForUser(user, participantNumbers.iterator().next(), suggestedName);
+        } else {
+            convo = conversationService.findOrCreateGroupForUser(user, threadKey, participantNumbers, suggestedName);
+        }
+        if (convo == null || convo.getId() == null) {
+            log.error("Failed to create/find conversation for participants: {}", participantNumbers);
+            return;
+        }
+        // Update lastMessageAt and save conversation - this ensures the conversation is persisted with the update
+        if (convo.getLastMessageAt() == null || msg.getTimestamp().isAfter(convo.getLastMessageAt())) {
+            convo.setLastMessageAt(msg.getTimestamp());
+            convo = conversationService.save(convo);
+        }
+        msg.setConversation(convo);
+        log.debug("Assigned multipart message to conversation ID: {}", convo.getId());
+    }
+
+    private String buildSyntheticThreadKey(Set<String> participantNumbers) {
+        // Deterministic synthetic key to group same participant sets.
+        // Prefix to avoid collision with real provider addresses.
+        var sorted = new java.util.ArrayList<>(participantNumbers);
+        java.util.Collections.sort(sorted);
+        return "GROUP:" + String.join(";", sorted);
+    }
 
     private void handlePart(XMLStreamReader r,
                             Message cur,
@@ -638,4 +722,9 @@ public class ImportService {
         }
     }
 }
+
+
+
+
+
 

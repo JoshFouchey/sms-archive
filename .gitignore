@@ -67,3 +67,4 @@ frontend/.eslintcache
 *.swp
 *.swo
 /docker-compose.yml
+/src/main/resources/test_files/

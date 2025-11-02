@@ -42,6 +42,7 @@ class ImportServiceTest {
         private ContactRepository contactRepository;
         private CurrentUserProvider currentUserProvider;
         private ThumbnailService thumbnailService;
+        private ConversationService conversationService; // new mock
 
         @BeforeEach
         void setup() {
@@ -49,6 +50,7 @@ class ImportServiceTest {
             contactRepository = Mockito.mock(ContactRepository.class);
             currentUserProvider = Mockito.mock(CurrentUserProvider.class);
             thumbnailService = Mockito.mock(ThumbnailService.class);
+            conversationService = Mockito.mock(ConversationService.class);
 
             // Mock the current user
             com.joshfouchey.smsarchive.model.User testUser = new com.joshfouchey.smsarchive.model.User();
@@ -56,7 +58,30 @@ class ImportServiceTest {
             testUser.setUsername("testuser");
             when(currentUserProvider.getCurrentUser()).thenReturn(testUser);
 
-            service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService));
+            // Basic one-to-one conversation stub
+            when(conversationService.findOrCreateOneToOne(anyString(), any())).thenAnswer(inv -> {
+                String norm = inv.getArgument(0);
+                var convo = com.joshfouchey.smsarchive.model.Conversation.builder()
+                        .id(1L)
+                        .user(testUser)
+                        .type(com.joshfouchey.smsarchive.model.ConversationType.ONE_TO_ONE)
+                        .name(norm)
+                        .build();
+                return convo;
+            });
+            when(conversationService.findOrCreateGroup(anyString(), anySet(), any())).thenAnswer(inv -> {
+                String threadKey = inv.getArgument(0);
+                var convo = com.joshfouchey.smsarchive.model.Conversation.builder()
+                        .id(2L)
+                        .user(testUser)
+                        .type(com.joshfouchey.smsarchive.model.ConversationType.GROUP)
+                        .threadKey(threadKey)
+                        .name(threadKey)
+                        .build();
+                return convo;
+            });
+
+            service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService));
             doReturn(Path.of("test-media-root")).when(service).getMediaRoot(); // Mock media root
         }
 
@@ -160,7 +185,7 @@ class ImportServiceTest {
         @DisplayName("streaming import (mock) processes all messages and tracks progress")
         void streamingImportProcessesAllMessagesAndTracksProgress() throws Exception {
             // Mock repos behavior similar to former StreamingImportServiceTest
-            when(contactRepository.findByNormalizedNumber(anyString())).thenReturn(java.util.Optional.empty());
+            when(contactRepository.findByUserAndNormalizedNumber(any(), anyString())).thenReturn(java.util.Optional.empty());
             when(contactRepository.save(any(Contact.class))).thenAnswer(inv -> {
                 Contact c = inv.getArgument(0);
                 if (c.getId() == null) c.setId(1L);
