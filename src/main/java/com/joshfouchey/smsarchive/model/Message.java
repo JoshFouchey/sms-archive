@@ -19,8 +19,8 @@ import java.util.Map;
                 @Index(name = "ix_messages_sender", columnList = "sender"),
                 @Index(name = "ix_messages_recipient", columnList = "recipient"),
                 @Index(name = "ix_messages_user", columnList = "user_id"),
-                // Composite prefix index used by duplicate check BEFORE body comparison
-                @Index(name = "ix_messages_dedupe_prefix", columnList = "contact_id,timestamp,msg_box,protocol")
+                // Updated prefix index now conversation-based (created via migration V6)
+                @Index(name = "ix_messages_conversation", columnList = "conversation_id")
         })
 @Getter
 @Setter
@@ -42,9 +42,15 @@ public class Message {
     private String sender;
     private String recipient;           // comma-separated list if multiple
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    // Legacy single-contact pointer (nullable once groups supported)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "contact_id")
     private Contact contact;
+
+    // New conversation reference (NOT NULL at DB level after migration)
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "conversation_id")
+    private Conversation conversation;
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
@@ -56,20 +62,17 @@ public class Message {
     @Column(columnDefinition = "text")
     private String body;
 
-    // Optional original box code if you still want it (remove if not needed)
-    private Integer msgBox;             // nullable; omit usage if redundant
+    // Optional original box code
+    private Integer msgBox;             // nullable; imported for duplicate logic & direction
 
-    // JSON attachments summary (thumbnails, part refs, etc.)
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> media;
 
-    // Arbitrary metadata: statuses, reactions, import raw fields, subject, group id
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> metadata;
 
-    // Delivery/read tracking (promote if you need fast querying)
     private Instant deliveredAt;
     private Instant readAt;
 

@@ -9,6 +9,7 @@ import java.util.Map;
 
 public record MessageDto(
         Long id,
+        Long conversationId,
         MessageProtocol protocol,
         MessageDirection direction,
         String sender,

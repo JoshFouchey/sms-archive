@@ -8,6 +8,8 @@ import com.joshfouchey.smsarchive.model.MessageProtocol;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessagePartRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
+import com.joshfouchey.smsarchive.repository.ConversationRepository;
+import com.joshfouchey.smsarchive.repository.ConversationMessageRepository;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.*;
 import org.mockito.Mockito;
@@ -42,6 +44,8 @@ class ImportServiceTest {
         private ContactRepository contactRepository;
         private CurrentUserProvider currentUserProvider;
         private ThumbnailService thumbnailService;
+        private ConversationRepository conversationRepository;
+        private ConversationMessageRepository conversationMessageRepository;
 
         @BeforeEach
         void setup() {
@@ -49,6 +53,8 @@ class ImportServiceTest {
             contactRepository = Mockito.mock(ContactRepository.class);
             currentUserProvider = Mockito.mock(CurrentUserProvider.class);
             thumbnailService = Mockito.mock(ThumbnailService.class);
+            conversationRepository = Mockito.mock(ConversationRepository.class);
+            conversationMessageRepository = Mockito.mock(ConversationMessageRepository.class);
 
             // Mock the current user
             com.joshfouchey.smsarchive.model.User testUser = new com.joshfouchey.smsarchive.model.User();
@@ -56,7 +62,7 @@ class ImportServiceTest {
             testUser.setUsername("testuser");
             when(currentUserProvider.getCurrentUser()).thenReturn(testUser);
 
-            service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService));
+            service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationRepository, conversationMessageRepository));
             doReturn(Path.of("test-media-root")).when(service).getMediaRoot(); // Mock media root
         }
 
@@ -137,6 +143,8 @@ class ImportServiceTest {
                 return c;
             });
             when(messageRepository.existsDuplicate(any(), any(), anyInt(), any(), any())).thenReturn(false);
+            when(conversationRepository.findByUserAndExternalThreadId(any(), any())).thenReturn(java.util.Optional.empty());
+            when(conversationMessageRepository.existsConversationDuplicate(anyLong(), any(), anyInt(), any(), any())).thenReturn(false);
             // Capture saved messages count
             final java.util.concurrent.atomic.AtomicInteger saved = new java.util.concurrent.atomic.AtomicInteger();
             doAnswer(inv -> {
@@ -144,6 +152,11 @@ class ImportServiceTest {
                 saved.addAndGet(batch.size());
                 return null;
             }).when(messageRepository).saveAll(anyList());
+            when(conversationRepository.save(any())).thenAnswer(inv -> {
+                com.joshfouchey.smsarchive.model.Conversation c = inv.getArgument(0);
+                if (c.getId() == null) c.setId(100L); // arbitrary test id
+                return c;
+            });
 
             Path xml = Path.of("src/test/resources/test-streaming-large.xml");
             assertThat(xml).exists();
@@ -176,6 +189,7 @@ class ImportServiceTest {
         @Autowired MessagePartRepository messagePartRepository;
         @Autowired ContactRepository contactRepository;
         @Autowired com.joshfouchey.smsarchive.repository.UserRepository userRepository;
+        @Autowired ConversationRepository conversationRepository;
 
         private com.joshfouchey.smsarchive.model.User testUser;
 
@@ -346,6 +360,47 @@ class ImportServiceTest {
             assertThat(progress.getStatus()).isEqualTo("COMPLETED");
             assertThat(progress.getImportedMessages()).isEqualTo(5);
             assertThat(messageRepository.count() - before).isEqualTo(5);
+        }
+
+        @Test
+        @org.springframework.transaction.annotation.Transactional
+        void groupMmsWithParticipantType130CreatesSingleGroupConversation() throws Exception {
+            String xml = """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <messages exported_at="2025-01-01T00:00:00Z">
+                      <mms date="1700000000000" msg_box="1" contact_name="(Unknown)" address="group@rcs.google.com">
+                        <parts><part seq="0" ct="text/plain" text="Hello group"/></parts>
+                        <addrs>
+                          <addr type="137" address="+15551230001"/>
+                          <addr type="130" address="+15551230002"/>
+                          <addr type="151" address="me"/>
+                        </addrs>
+                      </mms>
+                      <mms date="1700000005000" msg_box="1" contact_name="(Unknown)" address="group@rcs.google.com">
+                        <parts><part seq="0" ct="text/plain" text="Second message"/></parts>
+                        <addrs>
+                          <addr type="137" address="+15551230001"/>
+                          <addr type="130" address="+15551230002"/>
+                          <addr type="151" address="me"/>
+                        </addrs>
+                      </mms>
+                    </messages>
+                    """;
+            File f = Files.createTempFile("group-130-test", ".xml").toFile();
+            try (FileWriter fw = new FileWriter(f)) { fw.write(xml); }
+            UUID job = importService.startImportAsync(f.toPath());
+            ImportService.ImportProgress progress = awaitCompletion(job);
+            assertThat(progress.getStatus()).isEqualTo("COMPLETED");
+            assertThat(progress.getImportedMessages()).isEqualTo(2);
+            var allMessages = messageRepository.findAll();
+            assertThat(allMessages).hasSize(2);
+            var convoIds = allMessages.stream().map(m -> m.getConversation().getId()).distinct().toList();
+            assertThat(convoIds).hasSize(1); // single conversation
+            // Fetch fully initialized conversation with participants to avoid lazy init issues
+            String extId = allMessages.get(0).getConversation().getExternalThreadId();
+            var convo = conversationRepository.findWithParticipantsByUserAndExternalThreadId(testUser, extId).orElseThrow();
+            assertThat(convo.getType()).isEqualTo("GROUP");
+            assertThat(convo.getParticipants()).hasSize(3); // 2 contacts + self
         }
     }
 }

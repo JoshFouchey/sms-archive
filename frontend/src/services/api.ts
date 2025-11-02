@@ -93,6 +93,16 @@ export interface Contact {
     normalizedNumber: string;
 }
 
+export interface ConversationSummary {
+    id: number;
+    type: string; // SINGLE or GROUP
+    displayName: string;
+    participantCount: number;
+    lastTimestamp: string;
+    lastPreviewText: string;
+    hasImage: boolean;
+}
+
 /* ==============================
    Contacts
 ============================== */
@@ -207,3 +217,23 @@ export async function searchBySender(sender: string): Promise<Message[]> { const
 export async function searchByRecipient(recipient: string): Promise<Message[]> { const res = await axios.get(`${API_BASE}/search/recipient`, { params: { recipient }}); return res.data; }
 export async function searchByText(text: string): Promise<Message[]> { const res = await axios.get(`${API_BASE}/search/text`, { params: { text }}); return res.data; }
 export async function searchByDateRange(start: string, end: string): Promise<Message[]> { const res = await axios.get(`${API_BASE}/search/dates`, { params: { start, end }}); return res.data; }
+
+/* ==============================
+   Conversations
+============================== */
+
+export async function getAllConversationSummaries(): Promise<ConversationSummary[]> {
+    const res = await axios.get(`${API_BASE}/api/messages/conversations`);
+    return res.data;
+}
+
+export async function getMessagesByConversationId(
+    conversationId: number,
+    page: number = 0,
+    size: number = 50,
+    sort: 'asc' | 'desc' = 'desc'
+): Promise<PagedResponse<Message>> {
+    const params = { page, size, sort };
+    const res = await axios.get(`${API_BASE}/api/messages/conversation/${conversationId}`, { params });
+    return res.data;
+}

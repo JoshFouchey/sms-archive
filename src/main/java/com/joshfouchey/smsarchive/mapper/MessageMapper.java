@@ -9,7 +9,6 @@ import com.joshfouchey.smsarchive.model.MessagePart;
 import java.util.List;
 
 public final class MessageMapper {
-
     private MessageMapper() {}
 
     public static MessageDto toDto(Message msg) {
@@ -19,6 +18,7 @@ public final class MessageMapper {
                 .toList();
         return new MessageDto(
                 msg.getId(),
+                msg.getConversation() != null ? msg.getConversation().getId() : null,
                 msg.getProtocol(),
                 msg.getDirection(),
                 msg.getSender(),
@@ -39,7 +39,6 @@ public final class MessageMapper {
         );
     }
 
-    // Map a part including contextual fields from its parent message (sender/recipient/timestamp)
     private static MessagePartDto toPartDto(Message parent, MessagePart part) {
         return new MessagePartDto(
                 part.getId(),
@@ -53,7 +52,7 @@ public final class MessageMapper {
     }
 
     private static String normalizePath(String raw) {
-        if (raw == null || raw.isBlank()) return raw; // keep null/blank
+        if (raw == null || raw.isBlank()) return raw;
         return raw.replace("\\", "/");
     }
 }

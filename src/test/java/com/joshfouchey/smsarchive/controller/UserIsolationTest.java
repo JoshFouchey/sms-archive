@@ -2,14 +2,8 @@ package com.joshfouchey.smsarchive.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.joshfouchey.smsarchive.config.EnhancedPostgresTestContainer;
-import com.joshfouchey.smsarchive.model.Message;
-import com.joshfouchey.smsarchive.model.Contact;
-import com.joshfouchey.smsarchive.model.MessageDirection;
-import com.joshfouchey.smsarchive.model.MessageProtocol;
-import com.joshfouchey.smsarchive.repository.MessageRepository;
-import com.joshfouchey.smsarchive.repository.ContactRepository;
-import com.joshfouchey.smsarchive.repository.UserRepository;
-import com.joshfouchey.smsarchive.model.User;
+import com.joshfouchey.smsarchive.model.*;
+import com.joshfouchey.smsarchive.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +27,7 @@ class UserIsolationTest extends EnhancedPostgresTestContainer {
     @Autowired UserRepository userRepo;
     @Autowired ContactRepository contactRepo;
     @Autowired MessageRepository messageRepo;
+    @Autowired ConversationRepository conversationRepo;
 
     String tokenA;
     String tokenB;
@@ -54,9 +49,16 @@ class UserIsolationTest extends EnhancedPostgresTestContainer {
         contactA.setNumber("+15551234567");
         contactA.setNormalizedNumber("15551234567");
         contactRepo.save(contactA);
+        Conversation convo = new Conversation();
+        convo.setUser(userA);
+        convo.setType("SINGLE");
+        convo.setDisplayName(contactA.getNumber());
+        convo.setExternalThreadId("SINGLE|TEST|" + contactA.getNormalizedNumber());
+        convo = conversationRepo.save(convo);
         Message m = new Message();
         m.setUser(userA);
         m.setContact(contactA);
+        m.setConversation(convo);
         m.setProtocol(MessageProtocol.SMS);
         m.setDirection(MessageDirection.INBOUND);
         m.setSender("+15551234567");
@@ -73,6 +75,6 @@ class UserIsolationTest extends EnhancedPostgresTestContainer {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$").isEmpty());
-        assertThat(messageRepo.findAll()).hasSize(1); // only A's message in DB
+        assertThat(messageRepo.findAll()).hasSize(1);
     }
 }

@@ -3,6 +3,8 @@ package com.joshfouchey.smsarchive.service;
 import com.joshfouchey.smsarchive.model.*;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
+import com.joshfouchey.smsarchive.repository.ConversationRepository;
+import com.joshfouchey.smsarchive.repository.ConversationMessageRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import lombok.Getter;
@@ -12,6 +14,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
 import javax.xml.stream.XMLInputFactory;
@@ -23,12 +27,15 @@ import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.io.input.CountingInputStream;
-import java.util.concurrent.atomic.AtomicLong;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Base64;
+import java.util.concurrent.atomic.AtomicLong;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 @Slf4j
 @Service
@@ -39,6 +46,7 @@ public class ImportService {
     private static final String SENDER_ME = "me";
     private static final String ADDR_TYPE_FROM = "137";
     private static final String ADDR_TYPE_TO = "151";
+    private static final String ADDR_TYPE_PARTICIPANT = "130"; // newly handled group participant type
     private static final int MSG_BOX_INBOX = 1;
     private static final int MSG_BOX_SENT = 2;
     private static final String TEXT_PLAIN = "text/plain";
@@ -64,6 +72,8 @@ public class ImportService {
 
     private final MessageRepository messageRepo;
     private final ContactRepository contactRepo;
+    private final ConversationRepository conversationRepo;
+    private final ConversationMessageRepository conversationMessageRepo;
     private final ThumbnailService thumbnailService;
     private TaskExecutor importTaskExecutor; // executor for async jobs (optional)
     private final CurrentUserProvider currentUserProvider;
@@ -83,6 +93,11 @@ public class ImportService {
     @Value("${smsarchive.media.root:./media/messages}")
     private String mediaRoot;
 
+    private TransactionTemplate txTemplate; // initialized via setTxManager
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
     Path getMediaRoot() {
         return Paths.get(mediaRoot);
     }
@@ -93,11 +108,15 @@ public class ImportService {
     }
 
     public ImportService(MessageRepository messageRepo, ContactRepository contactRepo,
-                         CurrentUserProvider currentUserProvider, ThumbnailService thumbnailService) {
+                         CurrentUserProvider currentUserProvider, ThumbnailService thumbnailService,
+                         ConversationRepository conversationRepository,
+                         ConversationMessageRepository conversationMessageRepository) {
         this.messageRepo = messageRepo;
         this.contactRepo = contactRepo;
         this.currentUserProvider = currentUserProvider;
         this.thumbnailService = thumbnailService;
+        this.conversationRepo = conversationRepository;
+        this.conversationMessageRepo = conversationMessageRepository;
     }
 
     // Remove multi-arg constructors added earlier
@@ -116,6 +135,11 @@ public class ImportService {
             log.warn("Failed to detect database dialect", e);
             this.postgresDialect = false;
         }
+    }
+
+    @Autowired
+    public void setTxManager(PlatformTransactionManager txManager) {
+        this.txTemplate = new TransactionTemplate(txManager);
     }
 
     @VisibleForTesting
@@ -147,21 +171,26 @@ public class ImportService {
         User importUser = currentUserProvider.getCurrentUser();
         Runnable task = () -> {
             threadLocalImportUser.set(importUser);
-            try { runStreamingImportAsync(jobId, xmlPath); }
-            finally { threadLocalImportUser.remove(); }
+            try {
+                if (txTemplate != null) {
+                    txTemplate.executeWithoutResult(status -> runStreamingImportAsync(jobId, xmlPath));
+                } else {
+                    runStreamingImportAsync(jobId, xmlPath);
+                }
+            } catch (Exception ex) {
+                log.error("Import failed job={} path={}", jobId, xmlPath, ex);
+                ImportProgress p = progressMap.get(jobId);
+                if (p != null) {
+                    p.setStatus("FAILED");
+                    p.setError(ex.getMessage());
+                    p.setFinishedAt(Instant.now());
+                }
+            } finally {
+                threadLocalImportUser.remove();
+            }
         };
-        if (importInline) {
-            task.run();
-            return jobId;
-        }
-        if (importTaskExecutor != null) {
-            importTaskExecutor.execute(task);
-        } else {
-            // Fallback: create a dedicated thread
-            Thread t = new Thread(task, "import-worker-fallback-" + jobId);
-            t.setDaemon(true);
-            t.start();
-        }
+        if (importInline) { task.run(); return jobId; }
+        if (importTaskExecutor != null) importTaskExecutor.execute(task); else { Thread t = new Thread(task, "import-worker-fallback-"+jobId); t.setDaemon(true); t.start(); }
         return jobId;
     }
     public ImportProgress getProgress(UUID id) { return progressMap.get(id); }
@@ -261,7 +290,6 @@ public class ImportService {
             }
             flushStreamingBatch(batch, progress);
             r.close();
-            progress.setDuplicateMessages((int) progress.getDuplicateMessages());
             progress.setStatus("COMPLETED");
             progress.setFinishedAt(Instant.now());
             log.info("Streaming import {} completed: imported={}, duplicates={}", jobId, progress.getImportedMessages(), progress.getDuplicateMessages());
@@ -379,8 +407,41 @@ public class ImportService {
         }
     }
 
+    private MessagePart buildPartStreaming(XMLStreamReader r, Message msg, int index) {
+        MessagePart part = new MessagePart();
+        part.setMessage(msg);
+        String seqAttr = attr(r, "seq");
+        int seq = NumberUtils.toInt(StringUtils.trimToEmpty(seqAttr), index);
+        part.setSeq(seq);
+        String ct = attr(r, "ct");
+        part.setContentType(ct);
+        String name = nullIfBlank(attr(r, "name"));
+        if (name == null) name = nullIfBlank(attr(r, "cl"));
+        part.setName(name);
+        String text = nullIfBlank(attr(r, "text"));
+        part.setText(text);
+        String data = attr(r, "data");
+        if (StringUtils.isNotBlank(data) && StringUtils.isNotBlank(ct) && !ct.equalsIgnoreCase(TEXT_PLAIN) && !ct.equalsIgnoreCase(APPLICATION_SMIL)) {
+            try {
+                byte[] bytes = Base64.getDecoder().decode(data);
+                Path baseRoot = getMediaRoot();
+                Path nocontactDir = baseRoot.resolve("_nocontact");
+                Files.createDirectories(nocontactDir);
+                String ext = guessExtension(ct, name);
+                String fileBase = System.currentTimeMillis()+"_"+UUID.randomUUID();
+                Path out = nocontactDir.resolve(fileBase + ext);
+                Files.write(out, bytes);
+                part.setFilePath(out.toString());
+                part.setSizeBytes((long) bytes.length);
+            } catch (Exception ex) {
+                log.warn("Failed decoding/storing media part seq={} ct={} err={}", seq, ct, ex.getMessage());
+            }
+        }
+        return part;
+    }
+
     private void finalizeMultipart(Message cur, String suggestedName, List<MessagePart> curParts, List<Map<String,Object>> curMedia, StringBuilder textAgg) {
-        if (StringUtils.isBlank(cur.getBody()) && textAgg != null && !textAgg.isEmpty()) {
+        if (StringUtils.isBlank(cur.getBody()) && textAgg != null && !curMedia.isEmpty()) {
             cur.setBody(textAgg.toString().trim());
         }
         if (curMedia != null && !curMedia.isEmpty()) cur.setMedia(Map.of("parts", curMedia));
@@ -399,169 +460,282 @@ public class ImportService {
     }
     private String buildDuplicateKey(Message msg) {
         String bodyNorm = msg.getBody() == null ? "" : msg.getBody().trim();
-        Long contactId = msg.getContact() == null ? null : msg.getContact().getId();
-        String contactStr = (contactId == null) ? "null" : contactId.toString();
-        return contactStr + "|" + msg.getTimestamp() + "|" + msg.getMsgBox() + "|" + msg.getProtocol() + "|" + bodyNorm;
+        Long conversationId = msg.getConversation() == null ? null : msg.getConversation().getId();
+        String convoStr = (conversationId == null) ? "null" : conversationId.toString();
+        return convoStr + "|" + msg.getTimestamp() + "|" + msg.getMsgBox() + "|" + msg.getProtocol() + "|" + bodyNorm;
     }
 
     private void flushStreamingIfNeeded(List<Message> batch, ImportProgress progress) { if (batch.size() >= streamBatchSize) flushStreamingBatch(batch, progress); }
     private void flushStreamingBatch(List<Message> batch, ImportProgress progress) { if (batch.isEmpty()) return; try { messageRepo.saveAll(batch); batch.clear(); } catch (Exception e) { log.error("Batch persist failed size={}", batch.size(), e); progress.setStatus("FAILED"); progress.setError("Persistence error: " + e.getMessage()); } }
-    private Message buildSmsStreaming(XMLStreamReader r) { Message msg = new Message(); msg.setProtocol(MessageProtocol.SMS); msg.setTimestamp(parseInstant(r.getAttributeValue(null, "date"))); msg.setBody(r.getAttributeValue(null, "body")); int box = parseInt(r.getAttributeValue(null, "type"), 0); msg.setMsgBox(box); msg.setDirection(box == MSG_BOX_INBOX ? MessageDirection.INBOUND : MessageDirection.OUTBOUND); String address = r.getAttributeValue(null, "address"); if (msg.getDirection() == MessageDirection.INBOUND) { msg.setSender(address); msg.setRecipient(SENDER_ME); } else { msg.setSender(SENDER_ME); msg.setRecipient(address); } return msg; }
-    private Message buildMultipartHeaderStreaming(XMLStreamReader r, MessageProtocol protocol) { Message msg = new Message(); msg.setProtocol(protocol); msg.setTimestamp(parseInstant(r.getAttributeValue(null, "date"))); int box = parseInt(r.getAttributeValue(null, "msg_box"), 0); msg.setMsgBox(box); msg.setDirection(box == MSG_BOX_INBOX ? MessageDirection.INBOUND : MessageDirection.OUTBOUND); if (protocol == MessageProtocol.RCS) { String bodyAttr = nullIfBlank(r.getAttributeValue(null, "body")); if (bodyAttr != null) msg.setBody(bodyAttr); } return msg; }
-    private void accumulateAddressStreaming(XMLStreamReader r, Message msg) { String type = r.getAttributeValue(null, "type"), address = r.getAttributeValue(null, "address"); if (type == null || address == null) return; if (ADDR_TYPE_FROM.equals(type)) msg.setSender(address); else if (ADDR_TYPE_TO.equals(type)) { if (msg.getRecipient() == null || msg.getRecipient().isBlank()) msg.setRecipient(address); else msg.setRecipient(msg.getRecipient()+","+address); } }
+    private Message buildSmsStreaming(XMLStreamReader r) {
+        Message msg = new Message();
+        msg.setProtocol(MessageProtocol.SMS);
+        msg.setTimestamp(parseInstant(r.getAttributeValue(null, "date")));
+        msg.setBody(r.getAttributeValue(null, "body"));
+        int box = parseInt(r.getAttributeValue(null, "type"), 0);
+        msg.setMsgBox(box);
+        msg.setDirection(box == MSG_BOX_INBOX ? MessageDirection.INBOUND : MessageDirection.OUTBOUND);
+        String address = r.getAttributeValue(null, "address");
+        if (msg.getDirection() == MessageDirection.INBOUND) {
+            msg.setSender(address);
+            msg.setRecipient(SENDER_ME);
+        } else {
+            msg.setSender(SENDER_ME);
+            msg.setRecipient(address);
+        }
+        return msg;
+    }
+    private Message buildMultipartHeaderStreaming(XMLStreamReader r, MessageProtocol protocol) {
+        Message msg = new Message();
+        msg.setProtocol(protocol);
+        msg.setTimestamp(parseInstant(r.getAttributeValue(null, "date")));
+        int box = parseInt(r.getAttributeValue(null, "msg_box"), 0);
+        msg.setMsgBox(box);
+        msg.setDirection(box == MSG_BOX_INBOX ? MessageDirection.INBOUND : MessageDirection.OUTBOUND);
+        if (protocol == MessageProtocol.RCS) {
+            String bodyAttr = nullIfBlank(r.getAttributeValue(null, "body"));
+            if (bodyAttr != null) msg.setBody(bodyAttr);
+        }
+        // Capture raw conversation/thread address (RCS group id or MMS thread identifier) if present
+        String rawAddr = nullIfBlank(r.getAttributeValue(null, "address"));
+        if (rawAddr != null) {
+            // Stash in metadata to avoid entity change; will be pulled when resolving conversation
+            Map<String,Object> meta = new LinkedHashMap<>();
+            meta.put("rawThreadAddress", rawAddr);
+            msg.setMetadata(meta);
+        }
+        return msg;
+    }
+    private void accumulateAddressStreaming(XMLStreamReader r, Message msg) {
+        String type = r.getAttributeValue(null, "type");
+        String address = r.getAttributeValue(null, "address");
+        if (type == null || address == null) return;
+        if (ADDR_TYPE_FROM.equals(type)) {
+            msg.setSender(address);
+        } else if (ADDR_TYPE_TO.equals(type) || ADDR_TYPE_PARTICIPANT.equals(type)) {
+            if (msg.getRecipient() == null || msg.getRecipient().isBlank()) {
+                msg.setRecipient(address);
+            } else {
+                msg.setRecipient(msg.getRecipient() + "," + address);
+            }
+        }
+    }
     private void finalizeStreamingContact(Message msg, String suggestedName) {
+        // Capture participants BEFORE normalizing direction so we don't collapse group recipients
+        String rawSender = msg.getSender();
+        String rawRecipient = msg.getRecipient();
+        Set<String> others = new LinkedHashSet<>();
+        if (rawSender != null && !rawSender.equalsIgnoreCase(SENDER_ME)) others.add(rawSender);
+        if (rawRecipient != null) {
+            Arrays.stream(rawRecipient.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isBlank() && !s.equalsIgnoreCase(SENDER_ME))
+                    .forEach(others::add);
+        }
+        boolean isGroup = others.size() > 1;
+        // Direction rewrite without destroying group participant list
         if (msg.getMsgBox() != null) {
-            if (msg.getMsgBox() == MSG_BOX_SENT) msg.setSender(SENDER_ME);
-            else if (msg.getMsgBox() == MSG_BOX_INBOX) msg.setRecipient(SENDER_ME);
+            if (msg.getMsgBox() == MSG_BOX_SENT) {
+                msg.setSender(SENDER_ME);
+            } else if (msg.getMsgBox() == MSG_BOX_INBOX && !isGroup) {
+                // Only collapse single inbound recipient to 'me'
+                msg.setRecipient(SENDER_ME);
+            }
         }
-        String counterparty = pickCounterparty(msg);
-        // Prefer ThreadLocal user (async import) fallback to provider
         User user = threadLocalImportUser.get();
-        if (user == null) {
-            user = currentUserProvider.getCurrentUser();
-        }
+        if (user == null) user = currentUserProvider.getCurrentUser();
         msg.setUser(user);
-        Contact contact = resolveContact(user, counterparty, suggestedName);
-        msg.setContact(contact);
-    }
-    private MessagePart buildPartStreaming(XMLStreamReader r, Message msg, int idx) { MessagePart part = new MessagePart(); part.setMessage(msg); part.setSeq(parseInt(r.getAttributeValue(null, "seq"), idx)); part.setContentType(r.getAttributeValue(null, "ct")); part.setName(nullIfBlank(r.getAttributeValue(null, "name"))); part.setText(nullIfBlank(r.getAttributeValue(null, "text"))); String data = r.getAttributeValue(null, "data"); if (data != null && !data.isBlank()) { saveMediaPart(data, part).ifPresent(part::setFilePath); if (part.getFilePath() != null) { try { part.setSizeBytes(Files.size(Path.of(part.getFilePath()))); } catch (Exception ignored) {} } } return part; }
-
-    private Optional<String> saveMediaPart(String base64, MessagePart part) {
-        try {
-            if (!isValidBase64(base64)) {
-                log.error("Invalid Base64 input: {}", base64);
-                return Optional.empty();
-            }
-            Message message = part.getMessage();
-            User user = threadLocalImportUser.get();
-            if (user == null) user = message.getUser();
-            if (user == null) {
-                try { user = currentUserProvider.getCurrentUser(); } catch (Exception ignored) {}
-            }
-            String contactDirName = (message.getContact() != null && message.getContact().getId() != null)
-                    ? message.getContact().getId().toString()
-                    : "_nocontact";
-            Path dir = getMediaRoot().resolve(contactDirName);
-            Files.createDirectories(dir);
-            byte[] dataBytes = Base64.getDecoder().decode(base64);
-            String ext = guessExtension(part.getContentType(), part.getName());
-            Path original = MediaFileNamer.buildUniqueMediaPath(dir,
-                    message.getId(), part.getSeq(), message.getTimestamp(), dataBytes, ext);
-            Files.write(original, dataBytes);
-            // Thumbnail uses stem + _thumb + .jpg (forced jpg output by service) regardless of original ext
-            String stem = original.getFileName().toString();
-            int dotIdx = stem.lastIndexOf('.');
-            String stemNoExt = dotIdx > 0 ? stem.substring(0, dotIdx) : stem;
-            Path thumbPath = dir.resolve(stemNoExt + "_thumb.jpg");
-            thumbnailService.createThumbnail(original, thumbPath, part.getContentType(), false);
-
-            part.setFilePath(original.toString());
-            try { part.setSizeBytes(Files.size(original)); } catch (Exception ignored) {}
-            return Optional.of(original.toString());
-        } catch (Exception e) { log.error("Media save failed", e); return Optional.empty(); }
-    }
-
-    private boolean isValidBase64(String base64) {
-        try {
-            Base64.getDecoder().decode(base64);
-            return true;
-        } catch (IllegalArgumentException e) {
-            return false;
+        List<Contact> resolvedContacts = new ArrayList<>();
+        for (String num : others) {
+            resolvedContacts.add(resolveContact(user, num, suggestedName));
         }
+        if (!isGroup && !resolvedContacts.isEmpty()) {
+            msg.setContact(resolvedContacts.get(0));
+        } else {
+            msg.setContact(null);
+        }
+        String rawThreadAddress = null;
+        if (msg.getMetadata() != null && msg.getMetadata().get("rawThreadAddress") instanceof String rt) rawThreadAddress = rt;
+        Conversation convo = resolveConversation(user, msg.getProtocol(), resolvedContacts, !isGroup, rawThreadAddress);
+        msg.setConversation(convo);
     }
-
-    public static class ImportProgress {
-        private final UUID id;
-        private final long totalBytes;
-        private final AtomicLong bytesRead = new AtomicLong(0);
-        private final AtomicLong processedMessages = new AtomicLong(0);
-        private final AtomicLong importedMessages = new AtomicLong(0);
-        private final AtomicLong duplicateMessagesAtomic = new AtomicLong(0);
-        private volatile int duplicateMessages;
-        private volatile String status = "PENDING";
-        private volatile String error;
-        private volatile Instant startedAt;
-        private volatile Instant finishedAt;
-
-        public ImportProgress(UUID id, long totalBytes) { this.id=id; this.totalBytes=totalBytes; }
-
-        public long getBytesRead(){return bytesRead.get();}
-        public long getProcessedMessages(){return processedMessages.get();}
-        public long getImportedMessages(){return importedMessages.get();}
-        public long getDuplicateMessages(){return duplicateMessagesAtomic.get();}
-        public double getPercentBytes(){return totalBytes==0?0.0:Math.min(100.0,(getBytesRead()*100.0)/totalBytes);}
-        public UUID getId(){return id;}
-        public long getTotalBytes(){return totalBytes;}
-        public int getDuplicateMessagesFinal(){return duplicateMessages;}
-        public String getStatus(){return status;}
-        public String getError(){return error;}
-        public Instant getStartedAt(){return startedAt;}
-        public Instant getFinishedAt(){return finishedAt;}
-
-        void setStatus(String s){status=s;}
-        void setError(String e){error=e;}
-        void setStartedAt(Instant t){startedAt=t;}
-        void setFinishedAt(Instant t){finishedAt=t;}
-        void setBytesRead(long v){bytesRead.set(v);}
-        void incProcessedMessages(){processedMessages.incrementAndGet();}
-        void incImportedMessages(){importedMessages.incrementAndGet();}
-        void incDuplicateMessages(){duplicateMessagesAtomic.incrementAndGet();}
-        void setDuplicateMessages(int v){duplicateMessages=v;}
+    private Contact resolveContact(User user, String rawNumber, String suggestedName) {
+        String rn = (rawNumber == null || rawNumber.isBlank()) ? UNKNOWN_NUMBER_DISPLAY : rawNumber;
+        String normalized = normalizeNumber(rn);
+        String key = user.getId() + "|" + normalized;
+        Contact cached = contactCache.get(key);
+        if (cached != null) {
+            ensureContactName(cached); // retrofit rule for cached
+            // Reattach if detached
+            if (entityManager != null && cached.getId() != null && !entityManager.contains(cached)) {
+                try {
+                    cached = entityManager.getReference(Contact.class, cached.getId());
+                    contactCache.put(key, cached);
+                } catch (Exception e) {
+                    log.warn("Failed reattaching cached contact id={} err={}", cached.getId(), e.getMessage());
+                }
+            }
+            return cached;
+        }
+        final String finalNumber = rn;
+        Contact contact = contactRepo.findByUserAndNormalizedNumber(user, normalized).orElseGet(() -> {
+            Contact c = new Contact();
+            c.setUser(user);
+            c.setNumber(finalNumber);
+            c.setNormalizedNumber(normalized);
+            c.setName(suggestedName);
+            ensureContactName(c); // apply before first save
+            return contactRepo.save(c);
+        });
+        boolean changed = ensureContactName(contact); // upgrade legacy blank/(Unknown)
+        if (changed) {
+            try { contact = contactRepo.save(contact); } catch (Exception e) { log.warn("Failed updating contact name id={} err={}", contact.getId(), e.getMessage()); }
+        }
+        contactCache.put(key, contact);
+        return contact;
     }
-    // ===== End Streaming Import =====
+    private boolean ensureContactName(Contact c) {
+        if (c == null) return false;
+        String name = c.getName();
+        if (name == null) {
+            c.setName(c.getNumber());
+            return true;
+        }
+        String trimmed = name.trim();
+        if (trimmed.isEmpty() || trimmed.equalsIgnoreCase("unknown") || trimmed.equalsIgnoreCase("(unknown)")) {
+            c.setName(c.getNumber());
+            return true;
+        }
+        return false;
+    }
+    private Contact resolveSelfContact(User user) {
+        final String normalized = "__self__";
+        String key = user.getId() + "|" + normalized;
+        Contact cached = contactCache.get(key);
+        if (cached != null) {
+            if (entityManager != null && cached.getId() != null && !entityManager.contains(cached)) {
+                try {
+                    cached = entityManager.getReference(Contact.class, cached.getId());
+                    contactCache.put(key, cached);
+                } catch (Exception e) {
+                    log.warn("Failed reattaching self contact id={} err={}", cached.getId(), e.getMessage());
+                }
+            }
+            return cached;
+        }
+        Contact contact = contactRepo.findByUserAndNormalizedNumber(user, normalized).orElseGet(() -> {
+            Contact c = new Contact();
+            c.setUser(user);
+            c.setNumber(SENDER_ME);
+            c.setNormalizedNumber(normalized);
+            c.setName("Me");
+            return contactRepo.save(c);
+        });
+        contactCache.put(key, contact);
+        return contact;
+    }
+    private Conversation resolveConversation(User user, MessageProtocol protocol, List<Contact> participants, boolean single, String rawThreadAddress) {
+        String key;
+        if (single && !participants.isEmpty()) {
+            key = "SINGLE|" + protocol + "|" + participants.get(0).getNormalizedNumber();
+        } else if (rawThreadAddress != null && !rawThreadAddress.isBlank() && !looksLikePlainPhone(rawThreadAddress)) {
+            key = "GROUP|" + protocol + "|RAW|" + rawThreadAddress.trim();
+        } else {
+            List<String> nums = participants.stream().map(Contact::getNormalizedNumber).sorted().toList();
+            key = "GROUP|" + protocol + "|" + String.join("|", nums);
+        }
+        if (txTemplate != null) {
+            return txTemplate.execute(status -> internalResolveConversation(user, protocol, participants, single, rawThreadAddress, key));
+        }
+        return internalResolveConversation(user, protocol, participants, single, rawThreadAddress, key);
+    }
+    private Conversation internalResolveConversation(User user, MessageProtocol protocol, List<Contact> participants, boolean single, String rawThreadAddress, String key) {
+        Conversation convo = conversationRepo.findWithParticipantsByUserAndExternalThreadId(user, key)
+                .orElseGet(() -> {
+                    Conversation c = new Conversation();
+                    c.setUser(user);
+                    c.setType(single ? "SINGLE" : "GROUP");
+                    c.setExternalThreadId(key);
+                    if (single && !participants.isEmpty()) {
+                        Contact pc = participants.get(0);
+                        c.setDisplayName(pc.getName() != null ? pc.getName() : pc.getNumber());
+                    } else {
+                        String display;
+                        if (rawThreadAddress != null && !rawThreadAddress.isBlank() && !looksLikePlainPhone(rawThreadAddress)) {
+                            display = rawThreadAddress.length() > 24 ? rawThreadAddress.substring(0, 24) + "…" : rawThreadAddress;
+                        } else {
+                            display = participants.stream()
+                                    .map(ct -> ct.getName() != null ? ct.getName() : ct.getNumber())
+                                    .limit(3)
+                                    .reduce((a, b) -> a + ", " + b)
+                                    .orElse("Group(" + participants.size() + ")");
+                            if (participants.size() > 3) display += ", +" + (participants.size() - 3);
+                        }
+                        c.setDisplayName(display);
+                    }
+                    Conversation saved = conversationRepo.save(c);
+                    if (saved == null) saved = c;
+                    for (Contact ct : participants) addParticipantIfAbsent(saved, ct, false);
+                    if (!single) addParticipantIfAbsent(saved, resolveSelfContact(user), true);
+                    if (saved.getParticipants() != null) saved.getParticipants().size();
+                    return saved;
+                });
+        boolean updated = false;
+        for (Contact ct : participants) updated |= addParticipantIfAbsent(convo, ct, false);
+        if (!single) updated |= addParticipantIfAbsent(convo, resolveSelfContact(user), true);
+        if (updated) {
+            convo = conversationRepo.save(convo);
+            if (convo.getParticipants() != null) convo.getParticipants().size();
+        }
+        return convo;
+    }
 
     private boolean isDuplicate(Message msg) {
         try {
             String normalizedBody = msg.getBody() == null ? null : msg.getBody().trim();
-            if (postgresDialect && msg.getContact() != null && msg.getContact().getId() != null) {
-                return messageRepo.existsDuplicateHash(
-                        msg.getContact().getId(),
+            if (postgresDialect && msg.getConversation() != null && msg.getConversation().getId() != null) {
+                return conversationMessageRepo.existsConversationDuplicate(
+                        msg.getConversation().getId(),
                         msg.getTimestamp(),
                         msg.getMsgBox(),
                         msg.getProtocol(),
                         normalizedBody
                 );
             }
-            return messageRepo.existsDuplicate(
-                    msg.getContact(),
+            return conversationMessageRepo.existsConversationDuplicate(
+                    msg.getConversation().getId(),
                     msg.getTimestamp(),
                     msg.getMsgBox(),
                     msg.getProtocol(),
                     normalizedBody
             );
         } catch (Exception e) {
-            log.warn("Duplicate check failed, proceeding to insert message: {}", e.getMessage());
+            log.warn("Duplicate check failed (conversation), proceeding: {}", e.getMessage());
             return false;
         }
     }
 
-    private String pickCounterparty(Message msg) {
-        if (msg.getDirection() == MessageDirection.INBOUND) {
-            return msg.getSender();
-        }
-        if (msg.getRecipient() == null) return null;
-        return Arrays.stream(msg.getRecipient().split(","))
-                .map(String::trim)
-                .filter(s -> !s.equalsIgnoreCase(SENDER_ME) && !s.isBlank())
-                .findFirst()
-                .orElse(null);
+    // Helper: determine if address string is just a plain phone number (digits / +digits)
+    private boolean looksLikePlainPhone(String addr) {
+        if (addr == null) return false;
+        String trimmed = addr.trim();
+        String digits = trimmed.startsWith("+") ? trimmed.substring(1) : trimmed;
+        return digits.matches("[0-9]{5,}");
     }
 
-    private Contact resolveContact(com.joshfouchey.smsarchive.model.User user, String number, String suggestedName) {
-        String normalized = normalizeNumber(number);
-        String cacheKey = user.getId()+"|"+normalized;
-        Contact cached = contactCache.get(cacheKey);
-        if (cached != null) return cached;
-        Contact contact = contactRepo.findByUserAndNormalizedNumber(user, normalized).orElseGet(() -> {
-            Contact c = new Contact();
-            c.setUser(user);
-            c.setNumber(number == null ? UNKNOWN_NUMBER_DISPLAY : number);
-            c.setNormalizedNumber(normalized);
-            c.setName(suggestedName);
-            return contactRepo.save(c);
-        });
-        contactCache.put(cacheKey, contact);
-        return contact;
+    private boolean addParticipantIfAbsent(Conversation convo, Contact ct, boolean selfFlag) {
+        if (convo.getParticipants() == null) convo.setParticipants(new ArrayList<>());
+        Long targetId = ct.getId(); boolean exists = false;
+        for (ConversationParticipant p : convo.getParticipants()) {
+            if (p.getContact() != null && Objects.equals(p.getContact().getId(), targetId))
+            { exists = true; break; } }
+        if (exists) return false;
+        if (entityManager != null && ct.getId() != null && !entityManager.contains(ct)) {
+            try { ct = entityManager.getReference(Contact.class, ct.getId()); }
+            catch (Exception e) { log.warn("Failed to reattach contact id={} err={}", ct.getId(), e.getMessage()); } }
+        ConversationParticipant cp = new ConversationParticipant(); cp.setConversation(convo);
+        cp.setContact(ct); cp.setSelf(selfFlag); ConversationParticipant.Id id = new ConversationParticipant.Id(); id.setConversationId(convo.getId());
+        id.setContactId(ct.getId()); cp.setId(id); convo.getParticipants().add(cp); return true;
     }
 
     @VisibleForTesting
@@ -577,7 +751,14 @@ public class ImportService {
         String lower = contentType.toLowerCase();
         return CONTENT_TYPE_EXT_MAP.getOrDefault(lower, ".bin");
     }
-    @VisibleForTesting String computeDuplicateKeyForTest(Message msg) { return buildDuplicateKey(msg); }
+    @VisibleForTesting String computeDuplicateKeyForTest(Message msg) {
+        // Backward compatibility: if conversation not set yet, fall back to contact id prefix
+        if (msg.getConversation() == null && msg.getContact() != null && msg.getContact().getId() != null) {
+            String bodyNorm = msg.getBody() == null ? "" : msg.getBody().trim();
+            return msg.getContact().getId() + "|" + msg.getTimestamp() + "|" + msg.getMsgBox() + "|" + msg.getProtocol() + "|" + bodyNorm;
+        }
+        return buildDuplicateKey(msg);
+    }
 
     private void relocatePartsToContactDir(Message msg) {
         if (msg.getContact() == null || msg.getContact().getId() == null || msg.getParts() == null) return;
@@ -602,23 +783,68 @@ public class ImportService {
                 }
                 Files.move(current, newPath, StandardCopyOption.REPLACE_EXISTING);
                 part.setFilePath(newPath.toString());
-                // Move new-style thumbnail <stem>_thumb.jpg only
                 try {
                     Path oldThumb = thumbnailService.deriveStemThumbnail(current);
                     if (Files.exists(oldThumb)) {
                         Path relocatedThumb = targetDir.resolve(oldThumb.getFileName());
                         if (Files.exists(relocatedThumb)) {
-                            String baseName = oldThumb.getFileName().toString();
-                            int dotIdx = baseName.lastIndexOf('.');
-                            String stem = dotIdx > 0 ? baseName.substring(0, dotIdx) : baseName;
-                            relocatedThumb = targetDir.resolve(stem + "_" + UUID.randomUUID() + ".jpg");
+                            Path unique = targetDir.resolve(UUID.randomUUID() + "_" + oldThumb.getFileName().toString());
+                            Files.move(oldThumb, unique, StandardCopyOption.REPLACE_EXISTING);
+                        } else {
+                            Files.move(oldThumb, relocatedThumb, StandardCopyOption.REPLACE_EXISTING);
                         }
-                        try { Files.move(oldThumb, relocatedThumb, StandardCopyOption.REPLACE_EXISTING); } catch (Exception ex) { log.warn("Failed moving thumbnail {}", oldThumb, ex); }
                     }
-                } catch (Exception ignore) { }
-            } catch (Exception ex) {
-                log.warn("Failed to relocate media part {}", current, ex);
+                } catch (Exception thumbEx) {
+                    log.warn("Thumbnail relocation failed for {}: {}", current, thumbEx.getMessage());
+                }
+            } catch (Exception moveEx) {
+                log.warn("Media relocation failed for {}: {}", current, moveEx.getMessage());
             }
         }
     }
+
+    @Getter
+    public static class ImportProgress {
+        private final UUID jobId;
+        private final long totalBytes;
+        private final AtomicLong bytesRead = new AtomicLong();
+        private final AtomicLong importedMessages = new AtomicLong();
+        private final AtomicLong duplicateMessages = new AtomicLong();
+        private final AtomicLong processedMessages = new AtomicLong();
+        private volatile String status = "PENDING";
+        private volatile String error;
+        private Instant startedAt;
+        private Instant finishedAt;
+        public ImportProgress(UUID jobId, long totalBytes) { this.jobId = jobId; this.totalBytes = totalBytes; }
+        public void setStatus(String status) { this.status = status; }
+        public void setError(String error) { this.error = error; }
+        public void setBytesRead(long val) { this.bytesRead.set(val); }
+        public void incImportedMessages() { this.importedMessages.incrementAndGet(); }
+        public void incDuplicateMessages() { this.duplicateMessages.incrementAndGet(); }
+        public void incProcessedMessages() { this.processedMessages.incrementAndGet(); }
+        public long getBytesRead() { return bytesRead.get(); }
+        public long getImportedMessages() { return importedMessages.get(); }
+        public long getDuplicateMessages() { return duplicateMessages.get(); }
+        public long getProcessedMessages() { return processedMessages.get(); }
+        public void setStartedAt(Instant startedAt) { this.startedAt = startedAt; }
+        public void setFinishedAt(Instant finishedAt) { this.finishedAt = finishedAt; }
+        public int getDuplicateMessagesFinal() { return (int) duplicateMessages.get(); }
+    }
+
+    // Conversation creation logic overview:
+    // - For single <sms> messages: address attribute is the counterparty phone number. We build a SINGLE key
+    //   as "SINGLE|<protocol>|<normalizedNumber>". Suggested contact_name becomes Contact.name.
+    // - For multipart <mms>/<rcs>: we parse <addr> elements (types 137 sender, 151 recipients). All non-'me'
+    //   numbers become participants. If only one counterparty => SINGLE as above. If multiple => GROUP.
+    // - For GROUP MMS/RCS we prefer a stable raw thread identifier from the top-level 'address' attribute when it
+    //   looks like an RCS group id (non plain phone). Key pattern: "GROUP|<protocol>|RAW|<rawThreadId>".
+    // - Otherwise we deterministically sort normalized participant numbers and build key:
+    //   "GROUP|<protocol>|<num1>|<num2>|..." to ensure new messages with same set map to same conversation.
+    // - Contacts are distinct per (user, normalizedNumber) via unique index; each Contact can participate in many conversations.
+    // - On every message import we ensure any newly seen participants are appended to existing conversation.
+    // - Display name rules:
+    //     SINGLE: contact.name or contact.number
+    //     GROUP with raw thread id: truncated raw id (max 24 chars + ellipsis)
+    //     GROUP without raw id: first up to 3 participant display names, then "+N" for extras.
+    // - Duplicate detection uses conversation id + timestamp + msgBox + protocol + normalized body.
 }
