@@ -1,80 +1,102 @@
--- Baseline schema with contacts normalization and full message/part fields
+-- Consolidated baseline schema (originally V1-V5)
+-- Includes users, contacts, messages, message_parts, all indexes, triggers, and user scoping.
+-- This merged baseline replaces prior incremental migrations V2-V5.
 
--- 1. Contacts
+-- 1. Users (authentication scope)
+CREATE TABLE users (
+    id UUID PRIMARY KEY,
+    username      VARCHAR(40)  NOT NULL UNIQUE,
+    password_hash VARCHAR(100) NOT NULL,
+    created_at    TIMESTAMP    DEFAULT now(),
+    updated_at    TIMESTAMP    DEFAULT now()
+);
+
+-- 2. Contacts (scoped per user)
 CREATE TABLE contacts (
-                          id                BIGSERIAL PRIMARY KEY,
-                          number            TEXT        NOT NULL,
-                          normalized_number TEXT        NOT NULL,
-                          name              TEXT,
-                          created_at        TIMESTAMP   DEFAULT now(),
-                          updated_at        TIMESTAMP   DEFAULT now()
+    id                BIGSERIAL PRIMARY KEY,
+    user_id           UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    number            TEXT        NOT NULL,
+    normalized_number TEXT        NOT NULL,
+    name              TEXT,
+    created_at        TIMESTAMP   DEFAULT now(),
+    updated_at        TIMESTAMP   DEFAULT now()
 );
-CREATE UNIQUE INDEX ux_contacts_normalized ON contacts (normalized_number);
 
--- 2. Messages
+-- 3. Messages (scoped per user, linked to contacts)
 CREATE TABLE messages (
-                          id           BIGSERIAL PRIMARY KEY,
-                          protocol     VARCHAR(10)  NOT NULL,              -- SMS|MMS|RCS
-                          direction    VARCHAR(10)  NOT NULL,              -- INBOUND|OUTBOUND
-                          sender       TEXT,
-                          recipient    TEXT,
-                          contact_id   BIGINT       NOT NULL REFERENCES contacts(id),
-                          timestamp    TIMESTAMP    NOT NULL,
-                          body         TEXT,
-                          msg_box      INTEGER,
-                          delivered_at TIMESTAMP,
-                          read_at      TIMESTAMP,
-                          media        JSONB,
-                          metadata     JSONB,
-                          created_at   TIMESTAMP    DEFAULT now(),
-                          updated_at   TIMESTAMP    DEFAULT now()
+    id           BIGSERIAL PRIMARY KEY,
+    user_id      UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    protocol     VARCHAR(10)  NOT NULL,              -- SMS|MMS|RCS
+    direction    VARCHAR(10)  NOT NULL,              -- INBOUND|OUTBOUND
+    sender       TEXT,
+    recipient    TEXT,
+    contact_id   BIGINT       NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+    timestamp    TIMESTAMP    NOT NULL,
+    body         TEXT,
+    msg_box      INTEGER,
+    delivered_at TIMESTAMP,
+    read_at      TIMESTAMP,
+    media        JSONB,
+    metadata     JSONB,
+    created_at   TIMESTAMP    DEFAULT now(),
+    updated_at   TIMESTAMP    DEFAULT now(),
+    CONSTRAINT chk_messages_protocol  CHECK (protocol IN ('SMS','MMS','RCS')),
+    CONSTRAINT chk_messages_direction CHECK (direction IN ('INBOUND','OUTBOUND'))
 );
 
--- 3. Message parts (MMS/RCS components, attachments)
+-- 4. Message parts (attachments/components)
 CREATE TABLE message_parts (
-                               id          BIGSERIAL PRIMARY KEY,
-                               message_id  BIGINT      NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
-                               seq         INTEGER,
-                               ct          VARCHAR(100),
-                               name        TEXT,
-                               text        TEXT,
-                               file_path   TEXT,
-                               size_bytes  BIGINT
+    id          BIGSERIAL PRIMARY KEY,
+    message_id  BIGINT      NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    seq         INTEGER,
+    ct          VARCHAR(100),
+    name        TEXT,
+    text        TEXT,
+    file_path   TEXT,
+    size_bytes  BIGINT
 );
 
--- 4. Indexes (messages)
-CREATE INDEX idx_messages_timestamp  ON messages (timestamp);
+-- 5. Updated_at trigger function (generic for all tables needing audit)
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS trigger AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 6. Triggers
+CREATE TRIGGER trg_messages_updated_at BEFORE UPDATE ON messages FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_contacts_updated_at BEFORE UPDATE ON contacts FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_users_updated_at    BEFORE UPDATE ON users    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- 7. Indexes (messages)
+CREATE INDEX idx_messages_timestamp  ON messages ("timestamp");
 CREATE INDEX idx_messages_contact    ON messages (contact_id);
 CREATE INDEX idx_messages_sender     ON messages (sender);
 CREATE INDEX idx_messages_recipient  ON messages (recipient);
 CREATE INDEX idx_messages_direction  ON messages (direction);
 CREATE INDEX idx_messages_protocol   ON messages (protocol);
+CREATE INDEX idx_messages_user       ON messages (user_id);
+CREATE INDEX idx_messages_body_fts   ON messages USING gin (to_tsvector('english', coalesce(body,'')));
 
--- Full-text (optional)
-CREATE INDEX idx_messages_body_fts ON messages USING gin (to_tsvector('english', coalesce(body,'')));
+-- Duplicate prevention + probing
+CREATE INDEX IF NOT EXISTS ix_messages_dedupe_prefix
+    ON messages (user_id, contact_id, "timestamp", msg_box, protocol);
 
--- 5. Indexes (message_parts)
+CREATE UNIQUE INDEX IF NOT EXISTS ux_messages_dedupe
+    ON messages (user_id, contact_id, "timestamp", msg_box, protocol, md5(lower(coalesce(body,''))));
+
+-- 8. Indexes (contacts)
+CREATE UNIQUE INDEX ux_contacts_user_normalized ON contacts (user_id, normalized_number);
+CREATE INDEX idx_contacts_user ON contacts (user_id);
+
+-- 9. Indexes (message_parts)
 CREATE INDEX idx_message_parts_message ON message_parts (message_id);
 CREATE INDEX idx_message_parts_ct      ON message_parts (ct);
 
--- 6. Audit triggers for updated_at
-CREATE OR REPLACE FUNCTION set_updated_at()
-RETURNS trigger AS $$
-BEGIN
-    NEW.updated_at = now();
-RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- 10. Bootstrap default user (password: 'password')
+INSERT INTO users (id, username, password_hash)
+VALUES ('00000000-0000-0000-0000-000000000000', 'default', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5s8dOa5Hf36fY4LEGy6Y6q5H0wE4.');
 
-CREATE TRIGGER trg_messages_updated_at
-    BEFORE UPDATE ON messages
-    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TRIGGER trg_contacts_updated_at
-    BEFORE UPDATE ON contacts
-    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
--- 7. Enum-like checks
-ALTER TABLE messages
-    ADD CONSTRAINT chk_messages_protocol CHECK (protocol IN ('SMS','MMS','RCS')),
-    ADD CONSTRAINT chk_messages_direction CHECK (direction IN ('INBOUND','OUTBOUND'));
+-- End of consolidated baseline
