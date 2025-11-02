@@ -30,7 +30,10 @@ export interface Message {
     id: number;
     protocol: string;
     direction: string;
-    sender: string;
+    senderContactId?: number | null;
+    senderContactName?: string | null;
+    senderContactNumber?: string | null;
+    sender?: string; // legacy field for backward compat
     recipient?: string;
     contactName?: string;
     contactNumber?: string;
@@ -49,7 +52,7 @@ export interface Message {
 
 export interface MessagePart {
     id: number;
-    messageId?: number;      // (Server may not expose; keep optional.)
+    messageId?: number;
     sender?: string;
     recipient?: string;
     timestamp?: number | string;
@@ -63,6 +66,29 @@ export interface ContactSummary {
     lastMessageTimestamp: string;
     lastMessagePreview: string;
     hasImage: boolean;
+}
+
+// New conversation-based types
+export interface ConversationSummary {
+    id: number;
+    type: 'ONE_TO_ONE' | 'GROUP';
+    name: string;
+    participantNames: string[];
+    lastMessageAt: string;
+    lastMessagePreview: string;
+    lastMessageHasImage: boolean;
+    unreadCount: number;
+}
+
+export interface GalleryImage {
+    id: number;
+    messageId: number;
+    filePath: string;
+    contentType: string;
+    timestamp: string;
+    contactId?: number;
+    contactName?: string;
+    contactNumber?: string;
 }
 
 // Analytics DTOs
@@ -133,11 +159,39 @@ export async function getAnalyticsDashboard(params?: {
 }
 
 /* ==============================
-   Messages
+   Conversations
 ============================== */
 
 /**
- * Fetch paginated messages for a contact by ID
+ * Get all conversations (replaces contact summaries for new UI)
+ * Backend endpoint: GET /api/conversations
+ */
+export async function getAllConversations(): Promise<ConversationSummary[]> {
+    const res = await axios.get(`${API_BASE}/api/conversations`);
+    return res.data;
+}
+
+/**
+ * Fetch paginated messages for a conversation by ID
+ * Backend endpoint: GET /api/conversations/{conversationId}/messages?page=&size=&sort=(asc|desc)
+ */
+export async function getConversationMessages(
+    conversationId: number,
+    page: number = 0,
+    size: number = 50,
+    sort: "asc" | "desc" = "desc"
+): Promise<PagedResponse<Message>> {
+    const params = { page, size, sort };
+    const res = await axios.get(`${API_BASE}/api/conversations/${conversationId}/messages`, { params });
+    return res.data;
+}
+
+/* ==============================
+   Messages (Legacy - deprecated)
+============================== */
+
+/**
+ * Fetch paginated messages for a contact by ID (DEPRECATED - use getConversationMessages)
  * Backend endpoint: GET /api/messages/contact/{contactId}?page=&size=&sort=(asc|desc)
  */
 export async function getMessagesByContactId(
@@ -159,8 +213,9 @@ export async function getImages(
     page: number = 0,
     size: number = 50,
     contactId?: number
-): Promise<MessagePart[]> {
-    const params: any = { page, size }; if (contactId != null) params.contactId = contactId;
+): Promise<PagedResponse<GalleryImage>> {
+    const params: any = { page, size };
+    if (contactId != null) params.contactId = contactId;
     const res = await axios.get(`${API_BASE}/api/media/images`, { params });
     return res.data;
 }

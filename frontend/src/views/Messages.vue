@@ -6,30 +6,31 @@
         Contacts
       </h2>
 
-      <div v-if="contactsLoading" class="text-sm text-gray-500 dark:text-gray-400">Loading contacts...</div>
+      <div v-if="contactsLoading" class="text-sm text-gray-500 dark:text-gray-400">Loading conversations...</div>
       <div v-else-if="contactsError" class="text-sm text-red-600 dark:text-red-400">{{ contactsError }}</div>
-      <div v-else-if="!contacts.length" class="text-sm text-gray-500 dark:text-gray-400">No contacts.</div>
+      <div v-else-if="!conversations.length" class="text-sm text-gray-500 dark:text-gray-400">No conversations.</div>
 
       <div
-        v-for="contact in contacts"
-        :key="contact.contactName"
-        @click="selectContact(contact)"
+        v-for="conversation in conversations"
+        :key="conversation.id"
+        @click="selectConversation(conversation)"
         :class="[
           'group mb-3 p-3 rounded-lg border cursor-pointer transition-colors duration-150 flex flex-col gap-1',
-          selectedContact?.contactName === contact.contactName
+          selectedConversation?.id === conversation.id
             ? 'accent-bg accent-border text-white shadow-sm'
             : 'bg-white/90 dark:bg-slate-800/80 border-gray-200 dark:border-slate-700 hover:accent-muted-bg dark:hover:bg-slate-700/70'
         ]"
       >
         <div class="flex justify-between items-center">
-          <h3 :class="['font-medium truncate', selectedContact?.contactName === contact.contactName ? 'text-white' : 'text-gray-800 dark:text-gray-100']">
-            {{ contact.contactName }}
+          <h3 :class="['font-medium truncate', selectedConversation?.id === conversation.id ? 'text-white' : 'text-gray-800 dark:text-gray-100']">
+            {{ conversation.name }}
+            <span v-if="conversation.type === 'GROUP'" class="text-xs opacity-70 ml-1">({{ conversation.participantNames.length }})</span>
           </h3>
           <span
-            v-if="contact.hasImage"
+            v-if="conversation.lastMessageHasImage"
             :class="[
               'text-sm',
-              selectedContact?.contactName === contact.contactName
+              selectedConversation?.id === conversation.id
                 ? 'accent-soft-text'
                 : 'text-gray-400 dark:text-gray-500 group-hover:accent-text'
             ]"
@@ -37,29 +38,30 @@
         </div>
         <p
           class="text-xs truncate"
-          :class="selectedContact?.contactName === contact.contactName ? 'accent-soft-text' : 'text-gray-600 dark:text-gray-400'"
-        >{{ contact.lastMessagePreview }}</p>
+          :class="selectedConversation?.id === conversation.id ? 'accent-soft-text' : 'text-gray-600 dark:text-gray-400'"
+        >{{ conversation.lastMessagePreview }}</p>
         <p
           class="text-[10px] uppercase tracking-wide"
-          :class="selectedContact?.contactName === contact.contactName ? 'accent-subtle-text' : 'text-gray-400 dark:text-gray-500'"
-        >{{ formatDate(contact.lastMessageTimestamp) }}</p>
+          :class="selectedConversation?.id === conversation.id ? 'accent-subtle-text' : 'text-gray-400 dark:text-gray-500'"
+        >{{ formatDate(conversation.lastMessageAt) }}</p>
       </div>
     </aside>
 
     <!-- Conversation panel -->
     <main class="flex-1 flex flex-col p-4 bg-white/70 dark:bg-slate-900/60 backdrop-blur">
       <h2 class="text-lg font-semibold mb-2 tracking-tight text-gray-700 dark:text-gray-200">
-        Conversation with
-        <span class="accent-text">{{ selectedContact?.contactName || '...' }}</span>
+        <span v-if="selectedConversation?.type === 'GROUP'">Group:</span>
+        <span v-else>Conversation with</span>
+        <span class="accent-text">{{ selectedConversation?.name || '...' }}</span>
       </h2>
 
       <!-- Status messages (outside scroll container) -->
-      <div v-if="!selectedContact && !messagesLoading" class="mt-4 text-sm text-gray-500 dark:text-gray-500 italic">
-        Select a contact to view conversation.
+      <div v-if="!selectedConversation && !messagesLoading" class="mt-4 text-sm text-gray-500 dark:text-gray-500 italic">
+        Select a conversation to view messages.
       </div>
 
       <!-- Scrollable messages container -->
-      <div v-if="selectedContact" ref="messageContainer" class="flex-1 overflow-y-auto mt-2 pr-1" @scroll="handleScroll">
+      <div v-if="selectedConversation" ref="messageContainer" class="flex-1 overflow-y-auto mt-2 pr-1" @scroll="handleScroll">
         <!-- Older loader / end marker at top -->
         <div class="flex justify-center my-2">
           <span v-if="olderLoading" class="text-[11px] text-gray-400 dark:text-gray-500">Loading older messages...</span>
@@ -78,6 +80,13 @@
           class="mb-3 flex flex-col"
           :class="msg.isMe ? 'items-end' : 'items-start'"
         >
+          <!-- Sender name for group messages (only show for inbound messages) -->
+          <div
+            v-if="!msg.isMe && selectedConversation?.type === 'GROUP' && msg.senderName"
+            class="text-xs text-gray-500 dark:text-gray-400 mb-1 ml-2"
+          >
+            {{ msg.senderName }}
+          </div>
           <div
             :class="[
               'max-w-[78%] rounded-lg px-3 py-2 shadow-sm text-sm leading-snug space-y-2',
@@ -137,22 +146,22 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue';
-import { getAllContactSummaries, getMessagesByContactId, type ContactSummary as ApiContactSummary, type Message as ApiMessage, type PagedResponse } from '../services/api';
+import { getAllConversations, getConversationMessages, type ConversationSummary, type Message as ApiMessage, type PagedResponse } from '../services/api';
 import ImageViewer from '@/components/ImageViewer.vue';
 import type { ViewerImage } from '@/components/ImageViewer.vue';
 import { useToast } from 'primevue/usetoast';
 import { deleteImageById } from '../services/api';
 
 interface UiImagePart { id: number; fullUrl: string; thumbUrl: string; contentType: string; isSingle: boolean; error?: boolean; globalIndex: number; }
-interface UiMessage { id: number; body: string; timestamp: string; isMe: boolean; images?: UiImagePart[]; }
+interface UiMessage { id: number; body: string; timestamp: string; isMe: boolean; senderName?: string; images?: UiImagePart[]; }
 
 const toast = useToast();
 
-const contacts = ref<ApiContactSummary[]>([]);
+const conversations = ref<ConversationSummary[]>([]);
 const contactsLoading = ref(true);
 const contactsError = ref('');
 
-const selectedContact = ref<ApiContactSummary | null>(null);
+const selectedConversation = ref<ConversationSummary | null>(null);
 
 const messages = ref<UiMessage[]>([]);
 const messagesLoading = ref(false); // initial load
@@ -169,17 +178,17 @@ const messageContainer = ref<HTMLDivElement | null>(null);
 
 onMounted(async () => {
   try {
-    contacts.value = await getAllContactSummaries();
+    conversations.value = await getAllConversations();
   } catch (e: any) {
-    contactsError.value = e?.message || 'Failed to load contacts';
+    contactsError.value = e?.message || 'Failed to load conversations';
   } finally {
     contactsLoading.value = false;
   }
 });
 
-async function selectContact(contact: ApiContactSummary) {
-  if (selectedContact.value?.contactId === contact.contactId) return;
-  selectedContact.value = contact;
+async function selectConversation(conversation: ConversationSummary) {
+  if (selectedConversation.value?.id === conversation.id) return;
+  selectedConversation.value = conversation;
   // Reset state
   messages.value = [];
   messagesError.value = '';
@@ -191,9 +200,9 @@ async function selectContact(contact: ApiContactSummary) {
 }
 
 async function loadInitialMessages() {
-  if (!selectedContact.value) return;
+  if (!selectedConversation.value) return;
   try {
-    const paged: PagedResponse<ApiMessage> = await getMessagesByContactId(selectedContact.value.contactId, 0, pageSize, 'desc');
+    const paged: PagedResponse<ApiMessage> = await getConversationMessages(selectedConversation.value.id, 0, pageSize, 'desc');
     // We want ascending internally so newest at bottom.
     const pageMessages = paged.content
       .slice() // shallow copy
@@ -247,7 +256,10 @@ function toUiMessage(m: ApiMessage): UiMessage {
     }
   }
   const body = (m.body && m.body.trim().length) ? m.body : (images.length ? '' : '[media]');
-  return { id: m.id, body, timestamp: m.timestamp, isMe: (m.sender?.toLowerCase?.() === 'me'), images: images.length ? images : undefined };
+  // Check if message is from current user (OUTBOUND or no senderContactId means it's from us)
+  const isMe = m.direction === 'OUTBOUND' || !m.senderContactId;
+  const senderName = m.senderContactName || m.senderContactNumber || undefined;
+  return { id: m.id, body, timestamp: m.timestamp, isMe, senderName, images: images.length ? images : undefined };
 }
 
 function formatDate(iso: string) { return iso ? new Date(iso).toLocaleDateString() : ''; }
@@ -349,7 +361,7 @@ onUnmounted(() => {
 
 function scrollToBottom() { const el = messageContainer.value; if (el) el.scrollTop = el.scrollHeight; }
 async function loadOlderMessages() {
-  if (!selectedContact.value) return;
+  if (!selectedConversation.value) return;
   if (!hasMoreOlder.value) return;
   if (olderLoading.value) return;
   olderLoading.value = true;
@@ -357,7 +369,7 @@ async function loadOlderMessages() {
   const prevHeight = container ? container.scrollHeight : 0;
   const prevTop = container ? container.scrollTop : 0;
   try {
-    const paged: PagedResponse<ApiMessage> = await getMessagesByContactId(selectedContact.value.contactId, nextPage.value, pageSize, 'desc');
+    const paged: PagedResponse<ApiMessage> = await getConversationMessages(selectedConversation.value.id, nextPage.value, pageSize, 'desc');
     const pageMessages = paged.content.slice().reverse().map(m => toUiMessage(m));
     messages.value = [...pageMessages, ...messages.value];
     hasMoreOlder.value = !paged.last;
