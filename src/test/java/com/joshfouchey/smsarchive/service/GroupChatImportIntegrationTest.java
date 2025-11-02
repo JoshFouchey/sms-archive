@@ -50,8 +50,8 @@ public class GroupChatImportIntegrationTest extends EnhancedPostgresTestContaine
 
     @Test
     @Transactional
-        void importsGroupChatAndCreatesConversation() throws Exception {
-        Path xml = Path.of("src/main/resources/test_files/sms-20251101215610.xml");
+    void importsGroupChatAndCreatesConversation() throws Exception {
+        Path xml = Path.of("src/test/resources/test-group-chat.xml");
         UUID jobId = importService.startImportAsync(xml);
         Awaitility.await().atMost(Duration.ofSeconds(10)).until(() -> {
             var p = importService.getProgress(jobId);

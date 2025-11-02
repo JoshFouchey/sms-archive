@@ -1,0 +1,222 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<!--Test file for group chat import integration testing-->
+<smses count="12" backup_set="test-group-chat-001" backup_date="1730548800000" type="full">
+
+  <!-- Group Chat: Neighborhood BBQ Planning -->
+  <mms date="1730200000000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1"
+       address="group.chat.neighbors@rcs.test.com" sub_cs="106" resp_st="null" retr_st="null" d_tm="null"
+       text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null"
+       creator="com.test.messaging" date_sent="1730200000" read="1" m_size="0" rpt_a="null" ct_cls="135"
+       pri="null" sub_id="1" tr_id="test-thread-neighbors-001" resp_txt="null" ct_l="null" m_cls="null"
+       d_rpt="null" v="null" _id="1001" m_type="132" readable_date="Oct 29, 2024 10:00:00 AM"
+       contact_name="Neighborhood Group">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null"
+            ctt_s="null" ctt_t="null" text="Hey everyone! Planning a BBQ this Saturday at 5pm. Who's in?" sub_id="1" />
+    </parts>
+    <addrs>
+      <addr address="+15551234567" type="130" charset="106" />
+      <addr address="+15552345678" type="130" charset="106" />
+      <addr address="+15553456789" type="130" charset="106" />
+      <addr address="+15554567890" type="130" charset="106" />
+      <addr address="+15555678901" type="130" charset="106" />
+      <addr address="+15551234567" type="137" charset="106" />
+      <addr address="+15559999999" type="151" charset="106" />
+    </addrs>
+  </mms>
+
+  <mms date="1730201200000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1"
+       address="group.chat.neighbors@rcs.test.com" sub_cs="106" resp_st="null" retr_st="null" d_tm="null"
+       text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null"
+       creator="com.test.messaging" date_sent="1730201200" read="1" m_size="0" rpt_a="null" ct_cls="135"
+       pri="null" sub_id="1" tr_id="test-thread-neighbors-001" resp_txt="null" ct_l="null" m_cls="null"
+       d_rpt="null" v="null" _id="1002" m_type="132" readable_date="Oct 29, 2024 10:20:00 AM"
+       contact_name="Neighborhood Group">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null"
+            ctt_s="null" ctt_t="null" text="Count us in! Should we bring anything?" sub_id="1" />
+    </parts>
+    <addrs>
+      <addr address="+15551234567" type="130" charset="106" />
+      <addr address="+15552345678" type="130" charset="106" />
+      <addr address="+15553456789" type="130" charset="106" />
+      <addr address="+15554567890" type="130" charset="106" />
+      <addr address="+15555678901" type="130" charset="106" />
+      <addr address="+15552345678" type="137" charset="106" />
+      <addr address="+15559999999" type="151" charset="106" />
+    </addrs>
+  </mms>
+
+  <mms date="1730202400000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="2"
+       address="group.chat.neighbors@rcs.test.com" sub_cs="106" resp_st="null" retr_st="null" d_tm="null"
+       text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null"
+       creator="com.test.messaging" date_sent="1730202400" read="1" m_size="0" rpt_a="null" ct_cls="135"
+       pri="null" sub_id="1" tr_id="test-thread-neighbors-001" resp_txt="null" ct_l="null" m_cls="null"
+       d_rpt="null" v="null" _id="1003" m_type="132" readable_date="Oct 29, 2024 10:40:00 AM"
+       contact_name="Neighborhood Group">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null"
+            ctt_s="null" ctt_t="null" text="Great! Maybe some chips and drinks? I'll handle the burgers." sub_id="1" />
+    </parts>
+    <addrs>
+      <addr address="+15551234567" type="130" charset="106" />
+      <addr address="+15552345678" type="130" charset="106" />
+      <addr address="+15553456789" type="130" charset="106" />
+      <addr address="+15554567890" type="130" charset="106" />
+      <addr address="+15555678901" type="130" charset="106" />
+      <addr address="+15559999999" type="137" charset="106" />
+      <addr address="+15551234567" type="151" charset="106" />
+      <addr address="+15552345678" type="151" charset="106" />
+      <addr address="+15553456789" type="151" charset="106" />
+      <addr address="+15554567890" type="151" charset="106" />
+      <addr address="+15555678901" type="151" charset="106" />
+    </addrs>
+  </mms>
+
+  <!-- Group Chat: Work Project Team -->
+  <mms date="1730210000000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1"
+       address="group.work.project@rcs.test.com" sub_cs="106" resp_st="null" retr_st="null" d_tm="null"
+       text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null"
+       creator="com.test.messaging" date_sent="1730210000" read="1" m_size="0" rpt_a="null" ct_cls="135"
+       pri="null" sub_id="1" tr_id="test-thread-work-project-001" resp_txt="null" ct_l="null" m_cls="null"
+       d_rpt="null" v="null" _id="2001" m_type="132" readable_date="Oct 29, 2024 12:46:40 PM"
+       contact_name="Project Alpha Team">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null"
+            ctt_s="null" ctt_t="null" text="Quick update: The presentation is ready for Monday's meeting." sub_id="1" />
+    </parts>
+    <addrs>
+      <addr address="+15556661111" type="130" charset="106" />
+      <addr address="+15556662222" type="130" charset="106" />
+      <addr address="+15556663333" type="130" charset="106" />
+      <addr address="+15556661111" type="137" charset="106" />
+      <addr address="+15559999999" type="151" charset="106" />
+    </addrs>
+  </mms>
+
+  <mms date="1730211000000" rr="null" sub="" ct_t="image/jpeg" read_status="null" seen="1" msg_box="1"
+       address="group.work.project@rcs.test.com" sub_cs="106" resp_st="null" retr_st="null" d_tm="null"
+       text_only="0" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null"
+       creator="com.test.messaging" date_sent="1730211000" read="1" m_size="45821" rpt_a="null" ct_cls="135"
+       pri="null" sub_id="1" tr_id="test-thread-work-project-001" resp_txt="null" ct_l="null" m_cls="null"
+       d_rpt="null" v="null" _id="2002" m_type="132" readable_date="Oct 29, 2024 1:03:20 PM"
+       contact_name="Project Alpha Team">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null"
+            ctt_s="null" ctt_t="null" text="Here's the final slide deck mockup" sub_id="1" />
+      <part seq="1" ct="image/jpeg" name="presentation-mockup.jpg" chset="null" cd="null" fn="null"
+            cid="&lt;image001&gt;" cl="null" ctt_s="null" ctt_t="null" text="null" sub_id="1"
+            data="/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAAA//EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AH//Z" />
+    </parts>
+    <addrs>
+      <addr address="+15556661111" type="130" charset="106" />
+      <addr address="+15556662222" type="130" charset="106" />
+      <addr address="+15556663333" type="130" charset="106" />
+      <addr address="+15556662222" type="137" charset="106" />
+      <addr address="+15559999999" type="151" charset="106" />
+    </addrs>
+  </mms>
+
+  <mms date="1730212000000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="2"
+       address="group.work.project@rcs.test.com" sub_cs="106" resp_st="null" retr_st="null" d_tm="null"
+       text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null"
+       creator="com.test.messaging" date_sent="1730212000" read="1" m_size="0" rpt_a="null" ct_cls="135"
+       pri="null" sub_id="1" tr_id="test-thread-work-project-001" resp_txt="null" ct_l="null" m_cls="null"
+       d_rpt="null" v="null" _id="2003" m_type="132" readable_date="Oct 29, 2024 1:20:00 PM"
+       contact_name="Project Alpha Team">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null"
+            ctt_s="null" ctt_t="null" text="Looks great! Thanks for putting this together." sub_id="1" />
+    </parts>
+    <addrs>
+      <addr address="+15556661111" type="130" charset="106" />
+      <addr address="+15556662222" type="130" charset="106" />
+      <addr address="+15556663333" type="130" charset="106" />
+      <addr address="+15559999999" type="137" charset="106" />
+      <addr address="+15556661111" type="151" charset="106" />
+      <addr address="+15556662222" type="151" charset="106" />
+      <addr address="+15556663333" type="151" charset="106" />
+    </addrs>
+  </mms>
+
+  <!-- Group Chat: Family Trip Planning -->
+  <rcs date="1730220000000" msg_box="1" contact_name="Family Vacation"
+       body="Fallback: Anyone interested in a ski trip in January?">
+    <parts>
+      <part seq="0" ct="text/plain" text="Anyone interested in a ski trip in January?" />
+    </parts>
+    <addrs>
+      <addr address="+15557771111" type="130" />
+      <addr address="+15557772222" type="130" />
+      <addr address="+15557773333" type="130" />
+      <addr address="+15557774444" type="130" />
+      <addr address="+15557771111" type="137" />
+      <addr address="+15559999999" type="151" />
+    </addrs>
+  </rcs>
+
+  <rcs date="1730221000000" msg_box="1" contact_name="Family Vacation"
+       body="Fallback: We're in! The kids would love it.">
+    <parts>
+      <part seq="0" ct="text/plain" text="We're in! The kids would love it." />
+    </parts>
+    <addrs>
+      <addr address="+15557771111" type="130" />
+      <addr address="+15557772222" type="130" />
+      <addr address="+15557773333" type="130" />
+      <addr address="+15557774444" type="130" />
+      <addr address="+15557772222" type="137" />
+      <addr address="+15559999999" type="151" />
+    </addrs>
+  </rcs>
+
+  <rcs date="1730222000000" msg_box="2" contact_name="Family Vacation"
+       body="Fallback: Great! I'll start looking at resorts and send some options.">
+    <parts>
+      <part seq="0" ct="text/plain" text="Great! I'll start looking at resorts and send some options." />
+    </parts>
+    <addrs>
+      <addr address="+15557771111" type="130" />
+      <addr address="+15557772222" type="130" />
+      <addr address="+15557773333" type="130" />
+      <addr address="+15557774444" type="130" />
+      <addr address="+15559999999" type="137" />
+      <addr address="+15557771111" type="151" />
+      <addr address="+15557772222" type="151" />
+      <addr address="+15557773333" type="151" />
+      <addr address="+15557774444" type="151" />
+    </addrs>
+  </rcs>
+
+  <!-- Regular SMS for comparison -->
+  <sms protocol="0" address="+15558881111" date="1730230000000" type="1" subject="null"
+       body="Hey, got your message about the group chat!" contact_name="Alice Johnson" />
+
+  <sms protocol="0" address="+15558881111" date="1730231000000" type="2" subject="null"
+       body="Yeah, trying to organize the neighborhood event!" contact_name="Alice Johnson" />
+
+  <!-- One more group chat with a reaction -->
+  <mms date="1730240000000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1"
+       address="group.chat.neighbors@rcs.test.com" sub_cs="106" resp_st="null" retr_st="null" d_tm="null"
+       text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null"
+       creator="com.test.messaging" date_sent="1730240000" read="1" m_size="0" rpt_a="null" ct_cls="135"
+       pri="null" sub_id="1" tr_id="test-thread-neighbors-001" resp_txt="null" ct_l="null" m_cls="null"
+       d_rpt="null" v="null" _id="1004" m_type="132" readable_date="Oct 29, 2024 4:33:20 PM"
+       contact_name="Neighborhood Group">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null"
+            ctt_s="null" ctt_t="null" text="👍 Perfect! See everyone Saturday!" sub_id="1" />
+    </parts>
+    <addrs>
+      <addr address="+15551234567" type="130" charset="106" />
+      <addr address="+15552345678" type="130" charset="106" />
+      <addr address="+15553456789" type="130" charset="106" />
+      <addr address="+15554567890" type="130" charset="106" />
+      <addr address="+15555678901" type="130" charset="106" />
+      <addr address="+15553456789" type="137" charset="106" />
+      <addr address="+15559999999" type="151" charset="106" />
+    </addrs>
+  </mms>
+
+</smses>
+
