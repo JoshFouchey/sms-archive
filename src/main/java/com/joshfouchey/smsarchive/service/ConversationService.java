@@ -1,153 +1,206 @@
 package com.joshfouchey.smsarchive.service;
 
+import com.joshfouchey.smsarchive.dto.ConversationSummaryDto;
+import com.joshfouchey.smsarchive.dto.MessageDto;
+import com.joshfouchey.smsarchive.dto.PagedResponse;
+import com.joshfouchey.smsarchive.mapper.MessageMapper;
+import com.joshfouchey.smsarchive.model.Contact;
 import com.joshfouchey.smsarchive.model.Conversation;
 import com.joshfouchey.smsarchive.model.ConversationType;
-import com.joshfouchey.smsarchive.model.Contact;
+import com.joshfouchey.smsarchive.model.Message;
 import com.joshfouchey.smsarchive.model.User;
-import com.joshfouchey.smsarchive.repository.ConversationRepository;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
-import lombok.extern.slf4j.Slf4j;
+import com.joshfouchey.smsarchive.repository.ConversationRepository;
+import com.joshfouchey.smsarchive.repository.MessageRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@Slf4j
 @Service
 public class ConversationService {
 
     private final ConversationRepository conversationRepository;
+    private final MessageRepository messageRepository;
     private final ContactRepository contactRepository;
     private final CurrentUserProvider currentUserProvider;
 
     public ConversationService(ConversationRepository conversationRepository,
-                               ContactRepository contactRepository,
-                               CurrentUserProvider currentUserProvider) {
+                              MessageRepository messageRepository,
+                              ContactRepository contactRepository,
+                              CurrentUserProvider currentUserProvider) {
         this.conversationRepository = conversationRepository;
+        this.messageRepository = messageRepository;
         this.contactRepository = contactRepository;
         this.currentUserProvider = currentUserProvider;
     }
 
-    /**
-     * Find or create a ONE_TO_ONE conversation for the current user and the given normalized number.
-     * If a matching single-participant conversation already exists it is returned. Otherwise a new
-     * Contact (if needed) and Conversation are created atomically.
-     *
-     * @param normalizedNumber canonical digits-only number
-     * @param displayName optional display name to apply if creating new contact/conversation
-     * @return persisted Conversation
-     */
-    @Transactional
-    public Conversation findOrCreateOneToOne(String normalizedNumber, String displayName) {
+    @Transactional(readOnly = true)
+    public List<ConversationSummaryDto> getAllConversations() {
         var user = currentUserProvider.getCurrentUser();
-        return findOrCreateOneToOneForUser(user, normalizedNumber, displayName);
+        List<Conversation> conversations = conversationRepository.findAllByUserOrderByLastMessage(user);
+
+        return conversations.stream()
+                .map(this::toSummaryDto)
+                .toList();
     }
 
-    @Transactional
-    public Conversation findOrCreateOneToOneForUser(User user, String normalizedNumber, String displayName) {
-        log.debug("findOrCreateOneToOneForUser: user={}, normalizedNumber={}, displayName={}",
-                user.getId(), normalizedNumber, displayName);
+    @Transactional(readOnly = true)
+    public PagedResponse<MessageDto> getConversationMessages(Long conversationId,
+                                                             int page,
+                                                             int size,
+                                                             String sortDir) {
+        if (size > 500) size = 500;
+        if (size < 1) size = 1;
 
-        var existingList = conversationRepository.findOneToOneByUserAndParticipant(user, normalizedNumber);
-        if (!existingList.isEmpty()) {
-            // If multiple due to legacy duplication, prefer the one with latest activity
-            Conversation existing = existingList.stream()
-                    .sorted((a,b) -> {
-                        var at = Optional.ofNullable(a.getLastMessageAt()).orElse(java.time.Instant.EPOCH);
-                        var bt = Optional.ofNullable(b.getLastMessageAt()).orElse(java.time.Instant.EPOCH);
-                        return bt.compareTo(at);
-                    })
-                    .findFirst()
-                    .get();
-            log.debug("Found existing conversation: id={}", existing.getId());
-            return existing;
+        var user = currentUserProvider.getCurrentUser();
+
+        // Verify conversation belongs to user
+        Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
+                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+
+        Sort sort = Sort.by("timestamp");
+        sort = "asc".equalsIgnoreCase(sortDir) ? sort.ascending() : sort.descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<Message> result = messageRepository.findByConversationIdAndUser(conversationId, user, pageable);
+
+        List<MessageDto> content = result.getContent().stream()
+                .map(MessageMapper::toDto)
+                .toList();
+
+        return new PagedResponse<>(
+                content,
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages(),
+                result.isFirst(),
+                result.isLast()
+        );
+    }
+
+    private ConversationSummaryDto toSummaryDto(Conversation conv) {
+        // Get participant names
+        List<String> participantNames = conv.getParticipants().stream()
+                .map(contact -> contact.getName() != null ? contact.getName() : contact.getNumber())
+                .collect(Collectors.toList());
+
+        // Get last message details
+        var user = currentUserProvider.getCurrentUser();
+        Message lastMessage = messageRepository.findLastMessageByConversation(conv.getId(), user);
+
+        String lastMessagePreview = null;
+        boolean lastMessageHasImage = false;
+
+        if (lastMessage != null) {
+            lastMessagePreview = lastMessage.getBody() != null && !lastMessage.getBody().isEmpty()
+                    ? lastMessage.getBody().substring(0, Math.min(200, lastMessage.getBody().length()))
+                    : "";
+            lastMessageHasImage = lastMessage.getParts() != null &&
+                    lastMessage.getParts().stream()
+                            .anyMatch(part -> part.getContentType() != null &&
+                                    part.getContentType().startsWith("image/"));
         }
 
-        // Ensure contact exists (fallback to normalizedNumber if no displayName)
-        Contact contact = contactRepository.findByUserAndNormalizedNumber(user, normalizedNumber)
-                .orElseGet(() -> {
-                    var c = com.joshfouchey.smsarchive.model.Contact.builder()
-                            .user(user)
-                            .number(normalizedNumber)
-                            .normalizedNumber(normalizedNumber)
-                            .name(displayName == null || displayName.isBlank() ? null : displayName)
-                            .build();
-                    Contact saved = contactRepository.save(c);
-                    log.debug("Created new contact: id={}, normalizedNumber={}", saved.getId(), normalizedNumber);
-                    return saved;
-                });
-
-        // Create new conversation
-        Conversation conversation = Conversation.builder()
-                .user(user)
-                .type(ConversationType.ONE_TO_ONE)
-                .name(contact.getName() != null ? contact.getName() : contact.getNumber())
-                .build();
-        conversation.getParticipants().add(contact);
-        Conversation saved = conversationRepository.save(conversation);
-        log.debug("Created new conversation: id={}, participants={}", saved.getId(), saved.getParticipants().size());
-        return saved;
+        return new ConversationSummaryDto(
+                conv.getId(),
+                conv.getType(),
+                conv.getName(),
+                participantNames,
+                conv.getLastMessageAt(),
+                lastMessagePreview,
+                lastMessageHasImage,
+                0L // TODO: implement unread count if needed
+        );
     }
 
-    /**
-     * Save a conversation entity (useful for updating lastMessageAt during import).
-     */
+    // Methods for ImportService
+
+    @Transactional
+    public Conversation findOrCreateOneToOne(String normalizedNumber, String suggestedName) {
+        var user = currentUserProvider.getCurrentUser();
+        return findOrCreateOneToOneForUser(user, normalizedNumber, suggestedName);
+    }
+
+    @Transactional
+    public Conversation findOrCreateGroup(String threadKey, Set<String> participantNumbers, String suggestedName) {
+        var user = currentUserProvider.getCurrentUser();
+        return findOrCreateGroupForUser(user, threadKey, participantNumbers, suggestedName);
+    }
+
+    @Transactional
+    public Conversation findOrCreateOneToOneForUser(User user, String normalizedNumber, String suggestedName) {
+        // Find or create contact
+        Contact contact = contactRepository.findByUserAndNormalizedNumber(user, normalizedNumber)
+                .orElseGet(() -> {
+                    Contact c = new Contact();
+                    c.setUser(user);
+                    c.setNormalizedNumber(normalizedNumber);
+                    c.setNumber(normalizedNumber);
+                    c.setName(suggestedName != null && !suggestedName.isBlank() ? suggestedName : null);
+                    return contactRepository.save(c);
+                });
+
+        // Find existing one-to-one conversation
+        List<Conversation> existing = conversationRepository.findOneToOneByUserAndParticipant(user, normalizedNumber);
+        if (!existing.isEmpty()) {
+            return existing.get(0);
+        }
+
+        // Create new one-to-one conversation
+        Conversation conv = new Conversation();
+        conv.setUser(user);
+        conv.setType(ConversationType.ONE_TO_ONE);
+        conv.setName(contact.getName() != null ? contact.getName() : contact.getNumber());
+        conv.getParticipants().add(contact);
+        return conversationRepository.save(conv);
+    }
+
+    @Transactional
+    public Conversation findOrCreateGroupForUser(User user, String threadKey, Set<String> participantNumbers, String suggestedName) {
+        // Try to find existing group by thread key
+        if (threadKey != null && !threadKey.isBlank()) {
+            var existing = conversationRepository.findGroupByThreadKey(user, threadKey);
+            if (existing.isPresent()) {
+                return existing.get();
+            }
+        }
+
+        // Find or create contacts for all participants
+        Set<Contact> contacts = new HashSet<>();
+        for (String normalized : participantNumbers) {
+            Contact contact = contactRepository.findByUserAndNormalizedNumber(user, normalized)
+                    .orElseGet(() -> {
+                        Contact c = new Contact();
+                        c.setUser(user);
+                        c.setNormalizedNumber(normalized);
+                        c.setNumber(normalized);
+                        return contactRepository.save(c);
+                    });
+            contacts.add(contact);
+        }
+
+        // Create new group conversation
+        Conversation conv = new Conversation();
+        conv.setUser(user);
+        conv.setType(ConversationType.GROUP);
+        conv.setThreadKey(threadKey);
+        conv.setName(suggestedName != null && !suggestedName.isBlank() ? suggestedName : "Group Chat");
+        conv.setParticipants(contacts);
+        return conversationRepository.save(conv);
+    }
+
     @Transactional
     public Conversation save(Conversation conversation) {
         return conversationRepository.save(conversation);
     }
-
-    /**
-     * Find or create a GROUP conversation using an external thread key (e.g., MMS/RCS address) and the set of
-     * normalized participant numbers. Missing contacts will be created. Existing conversation participants are
-     * merged (new ones added).
-     */
-    @Transactional
-    public Conversation findOrCreateGroup(String threadKey, Set<String> participantNormalizedNumbers, String suggestedName) {
-        var user = currentUserProvider.getCurrentUser();
-        return findOrCreateGroupForUser(user, threadKey, participantNormalizedNumbers, suggestedName);
-    }
-
-    @Transactional
-    public Conversation findOrCreateGroupForUser(User user, String threadKey, Set<String> participantNormalizedNumbers, String suggestedName) {
-        var existingOpt = conversationRepository.findGroupByThreadKey(user, threadKey);
-        if (existingOpt.isPresent()) {
-            Conversation convo = existingOpt.get();
-            // ensure all participants present
-            var existingNumbers = convo.getParticipants().stream().map(Contact::getNormalizedNumber).collect(Collectors.toSet());
-            for (String pn : participantNormalizedNumbers) {
-                if (!existingNumbers.contains(pn)) {
-                    Contact c = contactRepository.findByUserAndNormalizedNumber(user, pn)
-                            .orElseGet(() -> contactRepository.save(Contact.builder()
-                                    .user(user)
-                                    .number(pn)
-                                    .normalizedNumber(pn)
-                                    .name(null)
-                                    .build()));
-                    convo.getParticipants().add(c);
-                }
-            }
-            return conversationRepository.save(convo); // update participants if modified
-        }
-        // Build new conversation
-        Conversation convo = Conversation.builder()
-                .user(user)
-                .type(ConversationType.GROUP)
-                .threadKey(threadKey)
-                .name(suggestedName == null || suggestedName.isBlank() ? threadKey : suggestedName)
-                .build();
-        for (String pn : participantNormalizedNumbers) {
-            Contact c = contactRepository.findByUserAndNormalizedNumber(user, pn)
-                    .orElseGet(() -> contactRepository.save(Contact.builder()
-                            .user(user)
-                            .number(pn)
-                            .normalizedNumber(pn)
-                            .name(null)
-                            .build()));
-            convo.getParticipants().add(c);
-        }
-        return conversationRepository.save(convo);
-    }
 }
+

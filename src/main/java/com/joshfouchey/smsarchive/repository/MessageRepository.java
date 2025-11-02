@@ -93,5 +93,14 @@ ORDER BY day_ts
 
     long countByUser(com.joshfouchey.smsarchive.model.User user);
 
+    @Query("select m from Message m where m.conversation.id = :conversationId and m.user = :user")
+    Page<Message> findByConversationIdAndUser(@Param("conversationId") Long conversationId,
+                                               @Param("user") com.joshfouchey.smsarchive.model.User user,
+                                               Pageable pageable);
+
+    @Query("select m from Message m where m.conversation.id = :conversationId and m.user = :user order by m.timestamp desc limit 1")
+    Message findLastMessageByConversation(@Param("conversationId") Long conversationId,
+                                          @Param("user") com.joshfouchey.smsarchive.model.User user);
+
     interface DayCountProjection { java.sql.Timestamp getDay_ts(); long getCount(); }
 }

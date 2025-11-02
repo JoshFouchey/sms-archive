@@ -1,6 +1,10 @@
 package com.joshfouchey.smsarchive.controller;
 
-import com.joshfouchey.smsarchive.dto.MessagePartDto;
+import com.joshfouchey.smsarchive.dto.GalleryImageDto;
+import com.joshfouchey.smsarchive.dto.PagedResponse;
+import com.joshfouchey.smsarchive.mapper.GalleryMapper;
+import com.joshfouchey.smsarchive.model.Contact;
+import com.joshfouchey.smsarchive.model.Message;
 import com.joshfouchey.smsarchive.model.MessagePart;
 import com.joshfouchey.smsarchive.service.MediaService;
 import org.springframework.http.ResponseEntity;
@@ -27,16 +31,21 @@ public class MediaController {
     ) {
         try {
             Page<MessagePart> result = mediaService.getImages(contactId, page, size);
-            List<MessagePartDto> dto = result.stream()
-                    .map(p -> new MessagePartDto(
-                            p.getId(),
-                            p.getMessage().getId(),
-                            p.getMessage().getTimestamp(),
-                            normalizePath(p.getFilePath()),
-                            p.getContentType()
-                    ))
+            List<GalleryImageDto> dto = result.stream()
+                    .map(GalleryMapper::toDto)
                     .toList();
-            return ResponseEntity.ok(dto);
+
+            PagedResponse<GalleryImageDto> response = new PagedResponse<>(
+                    dto,
+                    result.getNumber(),
+                    result.getSize(),
+                    result.getTotalElements(),
+                    result.getTotalPages(),
+                    result.isFirst(),
+                    result.isLast()
+            );
+
+            return ResponseEntity.ok(response);
         } catch (EntityNotFoundException ex) {
             return ResponseEntity.status(404).body(Map.of(
                     "status", 404,
@@ -46,10 +55,6 @@ public class MediaController {
         }
     }
 
-    private String normalizePath(String raw) {
-        if (raw == null || raw.isBlank()) return null; // propagate null, front-end can decide to hide
-        return raw.replace("\\", "/");
-    }
 
     @DeleteMapping("/images/{id}")
     public ResponseEntity<?> deleteImage(@PathVariable Long id) {

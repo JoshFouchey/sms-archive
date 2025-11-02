@@ -75,10 +75,12 @@ class MediaControllerTest {
         mockMvc.perform(get("/api/media/images"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$[0].id").value(100L))
-                .andExpect(jsonPath("$[0].filePath").value(nullValue()))
-                .andExpect(jsonPath("$[1].id").value(101L))
-                .andExpect(jsonPath("$[1].filePath").value("media/messages/uuid/part0.png"));
+                .andExpect(jsonPath("$.content[0].id").value(100L))
+                .andExpect(jsonPath("$.content[0].filePath").value(nullValue()))
+                .andExpect(jsonPath("$.content[1].id").value(101L))
+                .andExpect(jsonPath("$.content[1].filePath").value("media/messages/uuid/part0.png"))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.page").value(0));
     }
 
     @Test
