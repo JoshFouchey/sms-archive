@@ -706,8 +706,20 @@ public class ImportService {
         String normalized = normalizeNumber(number);
         String cacheKey = user.getId()+"|"+normalized;
         Contact cached = contactCache.get(cacheKey);
-        if (cached != null) return cached;
+        if (cached != null) {
+            // Check if we should update the cached contact's name
+            if (shouldUpdateContactName(cached, suggestedName)) {
+                String sanitizedName = sanitizeContactName(suggestedName);
+                cached.setName(sanitizedName);
+                cached = contactRepo.save(cached);
+                contactCache.put(cacheKey, cached); // Update cache with new name
+                log.debug("Updated contact {} name from '{}' to '{}'", cached.getId(), cached.getNumber(), sanitizedName);
+            }
+            return cached;
+        }
+
         Contact contact = contactRepo.findByUserAndNormalizedNumber(user, normalized).orElseGet(() -> {
+            // Contact doesn't exist - create new one
             Contact c = new Contact();
             c.setUser(user);
             c.setNumber(number == null ? UNKNOWN_NUMBER_DISPLAY : number);
@@ -715,10 +727,59 @@ public class ImportService {
             // Only set name if it's meaningful, otherwise use the number
             String sanitizedName = sanitizeContactName(suggestedName);
             c.setName(sanitizedName != null ? sanitizedName : c.getNumber());
+            log.debug("Created new contact with name: {}", c.getName());
             return contactRepo.save(c);
         });
+
+        // Contact exists - check if we should update the name
+        if (shouldUpdateContactName(contact, suggestedName)) {
+            String sanitizedName = sanitizeContactName(suggestedName);
+            contact.setName(sanitizedName);
+            contact = contactRepo.save(contact);
+            log.debug("Updated existing contact {} name from '{}' to '{}'", contact.getId(), contact.getNumber(), sanitizedName);
+        }
+
         contactCache.put(cacheKey, contact);
         return contact;
+    }
+
+    /**
+     * Determines if a contact's name should be updated with a new suggested name.
+     * Returns true if:
+     * 1. We have a valid suggested name (not null, not blank, not "unknown")
+     * 2. AND the current name is just a phone number (matches the contact's number or normalized number)
+     * 3. OR the current name is null/blank
+     */
+    private boolean shouldUpdateContactName(Contact contact, String suggestedName) {
+        // No suggested name or it's invalid - don't update
+        String sanitizedSuggested = sanitizeContactName(suggestedName);
+        if (sanitizedSuggested == null) {
+            return false;
+        }
+
+        String currentName = contact.getName();
+
+        // No current name - should update
+        if (currentName == null || currentName.isBlank()) {
+            return true;
+        }
+
+        // Current name is "unknown" - should update
+        if (currentName.equalsIgnoreCase(UNKNOWN_NUMBER_DISPLAY)) {
+            return true;
+        }
+
+        // Check if current name is just a phone number
+        // It's a phone number if it matches the contact's number or normalized number
+        String currentNameNormalized = normalizeNumber(currentName);
+        if (currentNameNormalized.equals(contact.getNormalizedNumber())) {
+            log.debug("Contact {} has phone number as name, will update to: {}", contact.getId(), sanitizedSuggested);
+            return true;
+        }
+
+        // Current name appears to be a real name - don't replace it
+        log.debug("Contact {} already has a real name '{}', keeping it", contact.getId(), currentName);
+        return false;
     }
 
     private String sanitizeContactName(String name) {
