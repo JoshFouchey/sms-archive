@@ -180,17 +180,27 @@ const participantColors = [
 ];
 
 // Map to store participant -> color assignments for current conversation
-const participantColorMap = ref<Map<string, string>>(new Map());
+const participantColorMap = ref(new Map<string, string>());
 
-function getParticipantColor(senderIdentifier: string | undefined): string {
-  if (!senderIdentifier) return 'bg-gray-200 text-gray-900 dark:bg-slate-700 dark:text-gray-100';
+function getParticipantColor(senderIdentifier: string | undefined | null): string {
+  const defaultColor = 'bg-gray-200 text-gray-900 dark:bg-slate-700 dark:text-gray-100';
 
-  if (!participantColorMap.value.has(senderIdentifier)) {
-    const colorIndex = participantColorMap.value.size % participantColors.length;
-    participantColorMap.value.set(senderIdentifier, participantColors[colorIndex]);
+  // Return default color if no identifier
+  if (!senderIdentifier) {
+    return defaultColor;
   }
 
-  return participantColorMap.value.get(senderIdentifier)!;
+  const map = participantColorMap.value;
+  const id = String(senderIdentifier);
+
+  // Assign color if not already assigned
+  if (!map.has(id)) {
+    const colorIndex = map.size % participantColors.length;
+    const color = participantColors[colorIndex] ?? defaultColor;
+    map.set(id, color);
+  }
+
+  return map.get(id) || defaultColor;
 }
 
 const conversations = ref<ConversationSummary[]>([]);
