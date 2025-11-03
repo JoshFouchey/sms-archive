@@ -105,7 +105,7 @@ import Toast from "primevue/toast";
 import ConfirmDialog from 'primevue/confirmdialog';
 import { useToast } from "primevue/usetoast";
 import { useConfirm } from 'primevue/useconfirm';
-import { getImages, deleteImageById, getDistinctContacts, type MessagePart, type Contact } from "../services/api";
+import { getImages, deleteImageById, getDistinctContacts, type GalleryImage, type Contact } from "../services/api";
 import ImageViewer from '@/components/ImageViewer.vue';
 import type { ViewerImage } from '@/components/ImageViewer.vue';
 
@@ -120,7 +120,7 @@ const contactOptions = computed(() => contacts.value.map(c => ({
   value: c.id
 })));
 
-const images = ref<MessagePart[]>([]);
+const images = ref<GalleryImage[]>([]);
 const page = ref(0);
 const size = 40; // batch size
 const loading = ref(false);
@@ -151,12 +151,19 @@ async function loadImages() {
   if (loading.value || allLoaded.value) return;
   loading.value = true;
   try {
-    const newImages = await getImages(page.value, size, selectedContactId.value ?? undefined);
-    if (!Array.isArray(newImages) || newImages.length === 0) {
+    const response = await getImages(page.value, size, selectedContactId.value ?? undefined);
+    const newImages = response.content || [];
+    // Filter out images with null filePath
+    const validImages = newImages.filter(img => img.filePath != null && img.filePath !== '');
+    if (validImages.length === 0) {
       allLoaded.value = true;
     } else {
-      images.value.push(...newImages);
+      images.value.push(...validImages);
       page.value++;
+    }
+    // If we got fewer items than requested, we've reached the end
+    if (newImages.length < size) {
+      allLoaded.value = true;
     }
   } catch (err) {
     console.error(err);
@@ -243,24 +250,24 @@ function buildBackendMediaUrl(rel: string, thumb: boolean): string {
   }
   return `/media/messages/${rel}`;
 }
-function getThumbnailUrl(img: MessagePart) {
+function getThumbnailUrl(img: GalleryImage) {
   const rel = extractRelativeMediaPath(img.filePath);
   if (!rel) return '';
   return buildBackendMediaUrl(rel, true);
 }
-function getFullImageUrl(img: MessagePart) {
+function getFullImageUrl(img: GalleryImage) {
   const rel = extractRelativeMediaPath(img.filePath);
   if (!rel) return '';
   return buildBackendMediaUrl(rel, false);
 }
-function onThumbError(ev: Event, img: MessagePart) {
+function onThumbError(ev: Event, img: GalleryImage) {
   const target = ev.target as HTMLImageElement;
   const rel = extractRelativeMediaPath(img.filePath);
   if (!rel) return;
   target.src = buildBackendMediaUrl(rel, false);
 }
 
-function getAlt(img: MessagePart) {
+function getAlt(img: GalleryImage) {
   return img.contentType ? img.contentType.replace(/^image\//, "") : "";
 }
 
