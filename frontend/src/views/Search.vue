@@ -72,8 +72,7 @@
         <thead class="bg-gray-100 dark:bg-gray-700 text-left">
           <tr>
             <th class="px-3 py-2 whitespace-nowrap">Timestamp</th>
-            <th class="px-3 py-2 whitespace-nowrap">Sender</th>
-            <th class="px-3 py-2 whitespace-nowrap">Recipient</th>
+            <th class="px-3 py-2 whitespace-nowrap">Direction</th>
             <th class="px-3 py-2 whitespace-nowrap">Contact</th>
             <th class="px-3 py-2">Body</th>
           </tr>
@@ -87,8 +86,16 @@
             <td class="px-3 py-2 align-top whitespace-nowrap">
               {{ formatDateTime(m.timestamp) }}
             </td>
-            <td class="px-3 py-2 align-top">{{ m.sender }}</td>
-            <td class="px-3 py-2 align-top">{{ m.recipient || '—' }}</td>
+            <td class="px-3 py-2 align-top">
+              <span
+                :class="{
+                  'text-blue-600 dark:text-blue-400': m.direction === 'INBOUND',
+                  'text-green-600 dark:text-green-400': m.direction === 'OUTBOUND'
+                }"
+              >
+                {{ m.direction === 'INBOUND' ? '← Received' : '→ Sent' }}
+              </span>
+            </td>
             <td class="px-3 py-2 align-top">
               {{ m.contactName || m.contactNumber || '—' }}
             </td>
