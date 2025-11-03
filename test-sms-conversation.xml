@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<messages exported_at="2025-01-01T12:00:00Z">
+  <!-- SMS: inbound (type=1 inbox) -->
+  <sms
+      protocol="0"
+      address="+15551234567"
+      date="1696300000000"
+      type="1"
+      body="Hey Josh, did you ever finish that drone prototype?"
+      contact_name="Alice Smith"/>
+
+  <!-- SMS: outbound (type=2 sent) -->
+  <sms
+      protocol="0"
+      address="+15551234567"
+      date="1696303600000"
+      type="2"
+      body="Hi Alice! Yep, finally wrapped it up last weekend. Took it for a test flight too!"
+      contact_name="Alice Smith"/>
+
+  <!-- SMS: inbound (type=1 received) -->
+  <sms
+      protocol="0"
+      address="+15551234567"
+      date="1696307200000"
+      type="1"
+      body="No way! Did it crash or fly like a champ?"
+      contact_name="Alice Smith"/>
+
+  <!-- SMS: outbound (type=2 sent) -->
+  <sms
+      protocol="0"
+      address="+15551234567"
+      date="1696310800000"
+      type="2"
+      body="Flew like a champ! Even got some cool aerial shots of the riverfront."
+      contact_name="Alice Smith"/>
+
+  <!-- SMS: inbound -->
+  <sms
+      protocol="0"
+      address="+15551234567"
+      date="1696314400000"
+      type="1"
+      body="That's awesome! How's the video quality? Crystal clear or shaky?"
+      contact_name="Alice Smith"/>
+
+  <!-- SMS: outbound -->
+  <sms
+      protocol="0"
+      address="+15551234567"
+      date="1696318000000"
+      type="2"
+      body="Surprisingly smooth! The stabilization worked better than I expected. Looks almost cinematic."
+      contact_name="Alice Smith"/>
+
+  <!-- SMS: inbound -->
+  <sms
+      protocol="0"
+      address="+15551234567"
+      date="1696321600000"
+      type="1"
+      body="Nice! Did you use the new camera module you were talking about?"
+      contact_name="Alice Smith"/>
+
+  <!-- SMS: outbound -->
+  <sms
+      protocol="0"
+      address="+15551234567"
+      date="1696325200000"
+      type="2"
+      body="Yep, the 4K module. It made a huge difference. Colors pop, and the details are sharp."
+      contact_name="Alice Smith"/>
+
+  <!-- SMS: inbound -->
+  <sms
+      protocol="0"
+      address="+15551234567"
+      date="1696328800000"
+      type="1"
+      body="Sounds like you nailed it! Any plans to add more features?"
+      contact_name="Alice Smith"/>
+
+  <!-- SMS: outbound -->
+  <sms
+      protocol="0"
+      address="+15551234567"
+      date="1696332400000"
+      type="2"
+      body="Thinking about adding obstacle detection next. Would make flying in tight spots way safer."
+      contact_name="Alice Smith"/>
+</messages>
+

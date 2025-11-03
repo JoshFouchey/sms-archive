@@ -217,6 +217,7 @@ public class ImportService {
 
     private void handleSms(Message cur, String suggestedName, ImportProgress progress, Set<String> seenKeys, List<Message> batch) {
         finalizeStreamingContact(cur, suggestedName);
+        assignConversationForSms(cur, suggestedName); // Assign conversation after contact is resolved
         boolean dup = isDuplicateInRunOrDb(cur, seenKeys);
         if (dup) {
             progress.incDuplicateMessages();
@@ -296,7 +297,6 @@ public class ImportService {
             case "sms" -> {
                 ctx.suggestedName = nullIfBlank(attr(r, "contact_name"));
                 ctx.cur = buildSmsStreaming(r);
-                assignConversationForSms(ctx.cur, ctx.suggestedName); // new
                 handleSms(ctx.cur, ctx.suggestedName, progress, seenKeys, batch);
                 ctx.cur = null; ctx.suggestedName = null;
             }

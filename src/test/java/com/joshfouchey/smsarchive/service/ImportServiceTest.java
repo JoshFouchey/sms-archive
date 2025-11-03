@@ -229,6 +229,7 @@ class ImportServiceTest {
         @Autowired MessagePartRepository messagePartRepository;
         @Autowired ContactRepository contactRepository;
         @Autowired com.joshfouchey.smsarchive.repository.UserRepository userRepository;
+        @Autowired com.joshfouchey.smsarchive.repository.ConversationRepository conversationRepository;
 
         private com.joshfouchey.smsarchive.model.User testUser;
 
@@ -237,6 +238,7 @@ class ImportServiceTest {
             // Order matters due to FK relationships
             messagePartRepository.deleteAll();
             messageRepository.deleteAll();
+            conversationRepository.deleteAll();
             contactRepository.deleteAll();
             userRepository.deleteAll();
 
@@ -399,6 +401,61 @@ class ImportServiceTest {
             assertThat(progress.getStatus()).isEqualTo("COMPLETED");
             assertThat(progress.getImportedMessages()).isEqualTo(5);
             assertThat(messageRepository.count() - before).isEqualTo(5);
+        }
+
+        @Test
+        @DisplayName("SMS messages are assigned to conversations after contact resolution")
+        void smsMessagesAreAssignedToConversations() throws Exception {
+            // Create XML with SMS messages between two contacts
+            String xml = """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <messages exported_at="2025-01-01T12:00:00Z">
+                      <sms protocol="0" address="+15551234567" date="1696300000000" type="1"
+                           body="Hey, did you finish that project?" contact_name="Alice Smith"/>
+                      <sms protocol="0" address="+15551234567" date="1696303600000" type="2"
+                           body="Yes, just wrapped it up!" contact_name="Alice Smith"/>
+                      <sms protocol="0" address="+15551234567" date="1696307200000" type="1"
+                           body="Great! Want to grab coffee?" contact_name="Alice Smith"/>
+                      <sms protocol="0" address="+15559876543" date="1696400000000" type="1"
+                           body="Meeting at 3pm today" contact_name="Bob Jones"/>
+                      <sms protocol="0" address="+15559876543" date="1696403600000" type="2"
+                           body="Sounds good, see you then" contact_name="Bob Jones"/>
+                    </messages>
+                    """;
+
+            File f = Files.createTempFile("sms-conversation-test", ".xml").toFile();
+            try (FileWriter fw = new FileWriter(f)) { fw.write(xml); }
+
+            // Import the messages
+            UUID jobId = importService.startImportAsync(f.toPath());
+            ImportService.ImportProgress progress = awaitCompletion(jobId);
+
+            // Verify import succeeded
+            assertThat(progress.getStatus()).isEqualTo("COMPLETED");
+            assertThat(progress.getImportedMessages()).isEqualTo(5);
+
+            // Verify all messages have non-null conversation IDs
+            var allMessages = messageRepository.findAll();
+            assertThat(allMessages).hasSize(5);
+            assertThat(allMessages).allMatch(msg -> msg.getConversation() != null,
+                    "All SMS messages should have a conversation assigned");
+            assertThat(allMessages).allMatch(msg -> msg.getConversation().getId() != null,
+                    "All conversations should have non-null IDs");
+
+            // Verify messages are grouped correctly by contact
+            var aliceContact = contactRepository.findByUserAndNormalizedNumber(testUser, "15551234567")
+                    .orElseThrow(() -> new AssertionError("Alice contact should exist"));
+            long aliceMessageCount = allMessages.stream()
+                    .filter(msg -> msg.getContact() != null && msg.getContact().getId().equals(aliceContact.getId()))
+                    .count();
+            assertThat(aliceMessageCount).isEqualTo(3);
+
+            var bobContact = contactRepository.findByUserAndNormalizedNumber(testUser, "15559876543")
+                    .orElseThrow(() -> new AssertionError("Bob contact should exist"));
+            long bobMessageCount = allMessages.stream()
+                    .filter(msg -> msg.getContact() != null && msg.getContact().getId().equals(bobContact.getId()))
+                    .count();
+            assertThat(bobMessageCount).isEqualTo(2);
         }
     }
 }
