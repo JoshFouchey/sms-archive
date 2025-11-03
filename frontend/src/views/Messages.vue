@@ -80,17 +80,25 @@
           class="mb-3 flex flex-col"
           :class="msg.isMe ? 'items-end' : 'items-start'"
         >
-          <!-- Sender name for group messages (only show for inbound messages in multi-participant conversations) -->
+          <!-- Sender name for group messages with color dot indicator -->
           <div
             v-if="!msg.isMe && selectedConversation?.participantCount && selectedConversation.participantCount > 2 && msg.senderName"
-            class="text-xs text-gray-500 dark:text-gray-400 mb-1 ml-2"
+            class="text-xs mb-1 ml-2 flex items-center gap-1.5"
           >
-            {{ msg.senderName }}
+            <span
+              class="w-2 h-2 rounded-full inline-block"
+              :class="getParticipantColor(msg.senderIdentifier)"
+            ></span>
+            <span class="text-gray-500 dark:text-gray-400">{{ msg.senderName }}</span>
           </div>
           <div
             :class="[
               'max-w-[78%] rounded-lg px-3 py-2 shadow-sm text-sm leading-snug space-y-2',
-              msg.isMe ? 'accent-bg text-white' : 'bg-gray-200 text-gray-900 dark:bg-slate-700 dark:text-gray-100'
+              msg.isMe
+                ? 'accent-bg text-white'
+                : (selectedConversation?.participantCount && selectedConversation.participantCount > 2
+                    ? getParticipantColor(msg.senderIdentifier)
+                    : 'bg-gray-200 text-gray-900 dark:bg-slate-700 dark:text-gray-100')
             ]"
           >
             <div v-if="msg.body && msg.body !== '[media]'">{{ msg.body }}</div>
@@ -153,9 +161,37 @@ import { useToast } from 'primevue/usetoast';
 import { deleteImageById } from '../services/api';
 
 interface UiImagePart { id: number; fullUrl: string; thumbUrl: string; contentType: string; isSingle: boolean; error?: boolean; globalIndex: number; }
-interface UiMessage { id: number; body: string; timestamp: string; isMe: boolean; senderName?: string; images?: UiImagePart[]; }
+interface UiMessage { id: number; body: string; timestamp: string; isMe: boolean; senderName?: string; senderIdentifier?: string; images?: UiImagePart[]; }
 
 const toast = useToast();
+
+// Color palette for group conversation participants
+const participantColors = [
+  'bg-blue-700 text-white',
+  'bg-green-700 text-white',
+  'bg-purple-700 text-white',
+  'bg-orange-700 text-white',
+  'bg-pink-700 text-white',
+  'bg-teal-700 text-white',
+  'bg-indigo-700 text-white',
+  'bg-rose-700 text-white',
+  'bg-amber-700 text-white',
+  'bg-cyan-700 text-white',
+];
+
+// Map to store participant -> color assignments for current conversation
+const participantColorMap = ref<Map<string, string>>(new Map());
+
+function getParticipantColor(senderIdentifier: string | undefined): string {
+  if (!senderIdentifier) return 'bg-gray-200 text-gray-900 dark:bg-slate-700 dark:text-gray-100';
+
+  if (!participantColorMap.value.has(senderIdentifier)) {
+    const colorIndex = participantColorMap.value.size % participantColors.length;
+    participantColorMap.value.set(senderIdentifier, participantColors[colorIndex]);
+  }
+
+  return participantColorMap.value.get(senderIdentifier)!;
+}
 
 const conversations = ref<ConversationSummary[]>([]);
 const contactsLoading = ref(true);
@@ -190,6 +226,7 @@ async function selectConversation(conversation: ConversationSummary) {
   if (selectedConversation.value?.id === conversation.id) return;
   selectedConversation.value = conversation;
   // Reset state
+  participantColorMap.value.clear(); // Clear color assignments for new conversation
   messages.value = [];
   messagesError.value = '';
   messagesLoading.value = true;
@@ -259,7 +296,9 @@ function toUiMessage(m: ApiMessage): UiMessage {
   // Check if message is from current user (OUTBOUND or no senderContactId means it's from us)
   const isMe = m.direction === 'OUTBOUND' || !m.senderContactId;
   const senderName = m.senderContactName || m.senderContactNumber || undefined;
-  return { id: m.id, body, timestamp: m.timestamp, isMe, senderName, images: images.length ? images : undefined };
+  // Use contact number or ID as unique identifier for consistent color assignment
+  const senderIdentifier = m.senderContactNumber || m.senderContactId?.toString();
+  return { id: m.id, body, timestamp: m.timestamp, isMe, senderName, senderIdentifier, images: images.length ? images : undefined };
 }
 
 function formatDate(iso: string) { return iso ? new Date(iso).toLocaleDateString() : ''; }
