@@ -31,45 +31,54 @@
       </Card>
     </div>
 
-    <!-- Top Contacts -->
-    <Panel header="Top Contacts" toggleable collapsed v-if="dashboard">
-      <DataTable :value="dashboard.topContacts" size="small" :rows="10" :paginator="dashboard.topContacts.length > 10">
-        <Column field="displayName" header="Contact" />
-        <Column field="messageCount" header="Messages" />
-      </DataTable>
-    </Panel>
+    <!-- Dashboard Panels -->
+    <Accordion v-if="dashboard" :value="[]" multiple>
+      <!-- Top Contacts -->
+      <AccordionPanel value="0">
+        <AccordionHeader>Top Contacts</AccordionHeader>
+        <AccordionContent>
+          <DataTable :value="dashboard.topContacts" size="small" :rows="10" :paginator="dashboard.topContacts.length > 10">
+            <Column field="displayName" header="Contact" />
+            <Column field="messageCount" header="Messages" />
+          </DataTable>
+        </AccordionContent>
+      </AccordionPanel>
 
-    <!-- Messages Per Day -->
-    <Panel header="Messages Per Day" toggleable collapsed v-if="messagesPerDayChartData">
-      <div class="flex flex-col gap-4">
-        <div class="flex flex-wrap items-end gap-4 justify-between">
-          <div class="flex flex-wrap items-end gap-4">
-            <div class="flex flex-col">
-              <label class="text-xs font-medium mb-1">Start Date</label>
-              <Calendar v-model="startDate" dateFormat="yy-mm-dd" :maxDate="endDate" @update:modelValue="onRangeChange" />
+      <!-- Messages Per Day -->
+      <AccordionPanel value="1">
+        <AccordionHeader>Messages Per Day</AccordionHeader>
+        <AccordionContent>
+          <div class="flex flex-col gap-4">
+            <div class="flex flex-wrap items-end gap-4 justify-between">
+              <div class="flex flex-wrap items-end gap-4">
+                <div class="flex flex-col">
+                  <label class="text-xs font-medium mb-1">Start Date</label>
+                  <Calendar v-model="startDate" dateFormat="yy-mm-dd" :maxDate="endDate" @update:modelValue="onRangeChange" />
+                </div>
+                <div class="flex flex-col">
+                  <label class="text-xs font-medium mb-1">End Date</label>
+                  <Calendar v-model="endDate" dateFormat="yy-mm-dd" :minDate="startDate" @update:modelValue="onRangeChange" />
+                </div>
+                <div class="flex flex-col min-w-48">
+                  <label class="text-xs font-medium mb-1">Contact</label>
+                  <Dropdown :options="contactOptions" optionLabel="label" optionValue="value" v-model="selectedContactId" placeholder="All Contacts" class="min-w-48" @change="onRangeChange" />
+                </div>
+                <div class="flex flex-col">
+                  <label class="text-xs font-medium mb-1 invisible">Refresh</label>
+                  <Button label="Apply" size="small" icon="pi pi-check" :disabled="loading" @click="fetchDashboard" />
+                </div>
+              </div>
+              <div class="text-sm text-gray-600 dark:text-gray-300 flex gap-4" v-if="messagesPerDayChartData">
+                <span>Total: <strong>{{ messagesPerPeriodTotal }}</strong></span>
+                <span>Avg/Day: <strong>{{ averageMessagesPerDay }}</strong></span>
+                <span>Days: <strong>{{ dayCount }}</strong></span>
+              </div>
             </div>
-            <div class="flex flex-col">
-              <label class="text-xs font-medium mb-1">End Date</label>
-              <Calendar v-model="endDate" dateFormat="yy-mm-dd" :minDate="startDate" @update:modelValue="onRangeChange" />
-            </div>
-            <div class="flex flex-col min-w-48">
-              <label class="text-xs font-medium mb-1">Contact</label>
-              <Dropdown :options="contactOptions" optionLabel="label" optionValue="value" v-model="selectedContactId" placeholder="All Contacts" class="min-w-48" @change="onRangeChange" />
-            </div>
-            <div class="flex flex-col">
-              <label class="text-xs font-medium mb-1 invisible">Refresh</label>
-              <Button label="Apply" size="small" icon="pi pi-check" :disabled="loading" @click="fetchDashboard" />
-            </div>
+            <Chart type="bar" :data="messagesPerDayChartData" :options="messagesPerDayChartOptions" class="w-full h-72" />
           </div>
-          <div class="text-sm text-gray-600 dark:text-gray-300 flex gap-4" v-if="messagesPerDayChartData">
-            <span>Total: <strong>{{ messagesPerPeriodTotal }}</strong></span>
-            <span>Avg/Day: <strong>{{ averageMessagesPerDay }}</strong></span>
-            <span>Days: <strong>{{ dayCount }}</strong></span>
-          </div>
-        </div>
-        <Chart type="bar" :data="messagesPerDayChartData" :options="messagesPerDayChartOptions" class="w-full h-72" />
-      </div>
-    </Panel>
+        </AccordionContent>
+      </AccordionPanel>
+    </Accordion>
 
     <div v-if="loading && !dashboard" class="text-sm text-gray-500">Loading dashboard...</div>
     <PrimeMessage v-if="error" severity="error">{{ error }}</PrimeMessage>
@@ -80,7 +89,10 @@
 import { ref, onMounted, computed } from 'vue';
 import { getAnalyticsDashboard, getAllContactSummaries, type AnalyticsDashboardDto, type AnalyticsSummary, type MessageCountPerDayDto, type ContactSummary } from '@/services/api';
 import Card from 'primevue/card';
-import Panel from 'primevue/panel';
+import Accordion from 'primevue/accordion';
+import AccordionPanel from 'primevue/accordionpanel';
+import AccordionHeader from 'primevue/accordionheader';
+import AccordionContent from 'primevue/accordioncontent';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Chart from 'primevue/chart';
