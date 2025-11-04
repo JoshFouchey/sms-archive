@@ -80,7 +80,6 @@
           class="mb-3 flex flex-col"
           :class="msg.isMe ? 'items-end' : 'items-start'"
         >
-          <!-- If this is a reaction message, don't render normal bubble (keep it in list for lookup) -->
           <template v-if="!msg.reaction">
             <!-- Sender name for group messages with color dot indicator -->
             <div
@@ -105,48 +104,53 @@
                 ]"
               >
                 <div v-if="msg.body && msg.body !== '[media]'">{{ msg.body }}</div>
-                <!-- Image thumbnails -->
+                <!-- Image thumbnails (outer wrapper changed from button to div to avoid nested button) -->
                 <div v-if="msg.images && msg.images.length" class="flex flex-wrap gap-2">
                   <div
                     v-for="img in msg.images"
                     :key="img.id"
-                    class="relative group cursor-pointer overflow-hidden rounded-md bg-black/10 dark:bg-black/30"
+                    class="relative group cursor-pointer overflow-hidden rounded-md bg-black/10 dark:bg-black/30 focus:outline-none focus:ring-2 focus:ring-accent/70"
                     :class="img.isSingle ? 'w-48 h-48' : 'w-32 h-32'"
                     role="button"
                     tabindex="0"
+                    aria-label="Open preview"
                     @click="openImage(img.globalIndex)"
-                    @keydown.enter.prevent="openImage(img.globalIndex)"
-                    @keydown.space.prevent="openImage(img.globalIndex)"
+                    @keydown="onThumbKey($event, img.globalIndex)"
                   >
                     <img
                       :src="img.thumbUrl"
-                      :alt="img.contentType"
+                      :alt="img.contentType || 'preview'"
                       class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                       loading="lazy"
                       @error="onThumbError($event, img)"
                     />
                     <button
+                      type="button"
                       @click.stop="deleteImage(img.id)"
-                      class="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition"
+                      class="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition text-xs"
+                      aria-label="Delete image"
+                      title="Delete image"
                     >✕</button>
                     <div v-if="img.error" class="absolute inset-0 flex items-center justify-center text-[10px] bg-black/40 text-white">Image</div>
                   </div>
                 </div>
-                <!-- Reactions overlay using mapped reactions by message id -->
-                <div
+                <!-- Reactions overlay -->
+                <ul
                   v-if="getGroupedReactions(msg.id).length"
                   class="absolute -bottom-2 right-2 flex gap-1"
+                  :aria-label="'Reactions for message ' + msg.id"
                 >
-                  <div
+                  <li
                     v-for="(r, idx) in getGroupedReactions(msg.id)"
                     :key="idx"
                     class="bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-full px-2 py-0.5 text-xs shadow-sm flex items-center gap-1"
                     :title="r.tooltip"
+                    :aria-label="r.count > 1 ? r.emoji + ' reaction count ' + r.count : r.emoji + ' reaction'"
                   >
-                    <span>{{ r.emoji }}</span>
-                    <span v-if="r.count > 1" class="text-[10px] font-semibold">{{ r.count }}</span>
-                  </div>
-                </div>
+                    <span aria-hidden="true">{{ r.emoji }}</span>
+                    <span v-if="r.count > 1" class="text-[10px] font-semibold" aria-hidden="true">{{ r.count }}</span>
+                  </li>
+                </ul>
               </div>
               <span
                 class="mt-1 text-[10px] tracking-wide uppercase block"
@@ -311,104 +315,98 @@ function buildMediaUrl(rel: string, thumb: boolean): string {
 
 function normalizeForMatch(s: string): string {
   return (s || '')
-    .replace(/[“”]/g, '"') // smart quotes to straight
-    .replace(/[\u200B-\u200D\uFEFF\u2000-\u200F]/g, '') // zero-width & directional formatting chars & various thin spaces
-    .replace(/\s+/g, ' ') // collapse whitespace sequences
+    .replace(/[“”]/g, '"')
+    .replace(/[\u2000-\u200F\uFEFF]/g, '')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
+function extractImageParts(m: ApiMessage): UiImagePart[] {
+  const result: UiImagePart[] = [];
+  if (!Array.isArray(m.parts)) return result;
+  const imageParts = m.parts.filter((p) => p.contentType && p.contentType.startsWith('image'));
+  const single = imageParts.length === 1;
+  for (const p of imageParts) {
+    const rel = extractRelativeMediaPath(p.filePath || '');
+    if (!rel) continue;
+    const fullUrl = buildMediaUrl(rel, false);
+    const thumbUrl = buildMediaUrl(rel, true);
+    result.push({ id: p.id, fullUrl, thumbUrl, contentType: p.contentType, isSingle: single, globalIndex: -1 });
+  }
+  return result;
+}
+
+function parseReaction(normalizedBody: string, m: ApiMessage): UiReaction | undefined {
+  const match = normalizedBody.match(/^(.+?)\s+to\s+"(.+)"$/);
+  if (!match || match.length < 3) return undefined;
+  const rawEmoji: string = match[1] ?? '';
+  const rawTarget: string = match[2] ?? '';
+  if (!rawEmoji || !rawTarget) return undefined;
+  const emoji = rawEmoji.trim();
+  if (emoji.length > 12) return undefined;
+  const senderNameValue: string | undefined = m.senderContactName ?? m.senderContactNumber ?? undefined;
+  return {
+    emoji,
+    targetMessageBody: rawTarget,
+    targetNormalizedBody: normalizeForMatch(rawTarget),
+    ...(senderNameValue ? { senderName: senderNameValue } : {})
+  } as UiReaction;
+}
+
 function toUiMessage(m: ApiMessage): UiMessage {
-  const images: UiImagePart[] = [];
-  if (Array.isArray(m.parts)) {
-    const imageParts = m.parts.filter(p => p.contentType && p.contentType.startsWith('image'));
-    const single = imageParts.length === 1;
-    for (const p of imageParts) {
-      const rel = extractRelativeMediaPath(p.filePath || '');
-      if (!rel) continue;
-      const fullUrl = buildMediaUrl(rel, false);
-      const thumbUrl = buildMediaUrl(rel, true);
-      images.push({ id: p.id, fullUrl, thumbUrl, contentType: p.contentType, isSingle: single, globalIndex: -1 });
-    }
+  const images = extractImageParts(m);
+  const bodyRaw = m.body ? m.body.trim() : '';
+  let body: string;
+  if (bodyRaw.length) {
+    body = bodyRaw;
+  } else if (images.length) {
+    body = '';
+  } else {
+    body = '[media]';
   }
-  let body = (m.body && m.body.trim().length) ? m.body.trim() : (images.length ? '' : '[media]');
   const normalizedBody = normalizeForMatch(body);
-
-  // Reaction detection on normalized version (handles smart quotes / zero-width chars)
-  let reaction: UiReaction | undefined;
-  const reactionMatch = normalizedBody.match(/^(.+?)\s+to\s+"(.+)"$/);
-  if (reactionMatch && reactionMatch.length >= 3) {
-    const rawEmoji = reactionMatch[1] ?? '';
-    const rawTarget = reactionMatch[2] ?? '';
-    if (rawEmoji) {
-      const emoji = rawEmoji.trim();
-      const targetOriginal = rawTarget; // normalized target inside quotes
-      if (emoji.length <= 12) { // allow slightly longer composite emoji sequences
-        const senderNameValue = m.senderContactName ?? m.senderContactNumber;
-        reaction = {
-          emoji,
-          targetMessageBody: targetOriginal,
-          targetNormalizedBody: normalizeForMatch(targetOriginal),
-          ...(senderNameValue ? { senderName: senderNameValue } : {})
-        } as UiReaction;
-        body = ''; // hide reaction textual form
-      }
-    }
-  }
-
+  const reaction = parseReaction(normalizedBody, m);
+  if (reaction) body = '';
   const isMe = m.direction === 'OUTBOUND' || !m.senderContactId;
   const senderName = m.senderContactName || m.senderContactNumber || undefined;
   const senderIdentifier = m.senderContactNumber || m.senderContactId?.toString();
   return { id: m.id, body, timestamp: m.timestamp, isMe, senderName, senderIdentifier, images: images.length ? images : undefined, reaction, normalizedBody };
 }
 
-function formatDate(iso: string) { return iso ? new Date(iso).toLocaleDateString() : ''; }
-function formatDateTime(iso: string) { return iso ? new Date(iso).toLocaleString() : ''; }
+const formatDate = (iso: string) => iso ? new Date(iso).toLocaleDateString() : '';
+const formatDateTime = (iso: string) => iso ? new Date(iso).toLocaleString() : '';
 function handleScroll(e: Event) { const el = e.target as HTMLElement; if (el.scrollTop < 64) loadOlderMessages(); }
 function onThumbError(ev: Event, img: UiImagePart) { const el = ev.target as HTMLImageElement; if (el.src === img.fullUrl) { img.error = true; } else { el.src = img.fullUrl; } }
-function prevImage() { if (currentIndex.value == null || currentIndex.value <= 0) return; currentIndex.value--; }
-function nextImage() { if (currentIndex.value == null || currentIndex.value >= conversationImages.value.length - 1) return; currentIndex.value++; }
-function closeViewer() { viewerOpen.value = false; currentIndex.value = null; unlockBodyScroll(); }
-function onIndexChange(i: number) { currentIndex.value = i; }
-
-// Replace conversationImages computed with flattened list that assigns globalIndex
-const conversationImages = computed(() => {
-  let acc: UiImagePart[] = []; let idx = 0;
-  for (const m of messages.value) {
-    if (!m.images) continue;
-    for (const img of m.images) { img.globalIndex = idx++; acc.push(img); }
+function onThumbKey(e: KeyboardEvent, index: number) {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    openImage(index);
   }
-  return acc;
-});
-const currentIndex = ref<number | null>(null);
-
-const currentImage = computed(() => currentIndex.value == null ? null : conversationImages.value[currentIndex.value]);
-const viewerImages = computed<ViewerImage[]>(() => conversationImages.value.map(img => ({ id: img.id, fullUrl: img.fullUrl, thumbUrl: img.thumbUrl, contentType: img.contentType })));
-
-function openImage(index: number) {
-  currentIndex.value = index;
-  viewerOpen.value = true;
-  lockBodyScroll();
 }
-
-function confirmAndDeleteCurrent() {
-  if (currentImage.value) deleteImage(currentImage.value.id);
+// Refactor single-line functions to multi-line for style warnings
+function prevImage() {
+  if (currentIndex.value == null) return;
+  if (currentIndex.value <= 0) return;
+  currentIndex.value--;
 }
-
-function deleteImage(id: number) {
-  deleteImageById(id).then((ok) => {
-    if (!ok) { toast.add({ severity:'error', summary:'Delete Failed', detail:'Server error', life:3000 }); return; }
-    for (const m of messages.value) { if (m.images) m.images = m.images.filter(im => im.id !== id); }
-    messages.value = messages.value.map(m => ({ ...m }));
-    const imgs = conversationImages.value;
-    if (currentIndex.value != null) {
-      if (currentIndex.value >= imgs.length) currentIndex.value = imgs.length - 1;
-      if (!imgs.length) closeViewer();
-    }
-    toast.add({ severity:'success', summary:'Deleted', detail:'Image removed', life:2000 });
-  }).catch(e => toast.add({ severity:'error', summary:'Delete Failed', detail:e.message || 'Error', life:3000 }));
+function nextImage() {
+  if (currentIndex.value == null) return;
+  if (currentIndex.value >= conversationImages.value.length - 1) return;
+  currentIndex.value++;
 }
-
-const viewerOpen = ref(false);
+function closeViewer() {
+  viewerOpen.value = false;
+  currentIndex.value = null;
+  unlockBodyScroll();
+}
+function onIndexChange(i: number) {
+  currentIndex.value = i;
+}
+function scrollToBottom() {
+  const el = messageContainer.value;
+  if (!el) return;
+  el.scrollTop = el.scrollHeight;
+}
 
 // Body scroll lock helpers (reuse from Gallery semantics)
 let savedScrollY = 0;
@@ -458,7 +456,6 @@ onUnmounted(() => {
   unlockBodyScroll();
 });
 
-function scrollToBottom() { const el = messageContainer.value; if (el) el.scrollTop = el.scrollHeight; }
 async function loadOlderMessages() {
   if (!selectedConversation.value) return;
   if (!hasMoreOlder.value) return;
@@ -488,14 +485,14 @@ function rebuildReactionIndex() {
   const priorMessages: UiMessage[] = [];
   for (const msg of messages.value) {
     if (msg.reaction) {
-      // find nearest previous non-reaction message whose normalizedBody matches targetNormalizedBody
       for (let i = priorMessages.length - 1; i >= 0; i--) {
-        const candidate = priorMessages[i];
-        if (candidate.normalizedBody && candidate.normalizedBody === msg.reaction.targetNormalizedBody) {
+        const candidate: UiMessage | undefined = priorMessages[i];
+        if (!candidate) continue;
+        if (candidate.normalizedBody === msg.reaction.targetNormalizedBody) {
           msg.reaction.targetMessageId = candidate.id;
           const arr = reactionIndex.value.get(candidate.id) || [];
-          arr.push(msg.reaction);
-          reactionIndex.value.set(candidate.id, arr);
+            arr.push(msg.reaction);
+            reactionIndex.value.set(candidate.id, arr);
           break;
         }
       }
@@ -521,6 +518,41 @@ function getGroupedReactions(messageId: number) {
     count: e.count,
     tooltip: e.senders.length ? `${e.emoji} by ${e.senders.join(', ')}` : `${e.emoji}`
   }));
+}
+
+// Ensure media viewer reactive state & helpers (re-added after earlier removal)
+const viewerOpen = ref(false);
+const currentIndex = ref<number | null>(null);
+const conversationImages = computed(() => {
+  const acc: UiImagePart[] = []; let idx = 0;
+  for (const m of messages.value) {
+    if (!m.images) continue;
+    for (const img of m.images) { img.globalIndex = idx++; acc.push(img); }
+  }
+  return acc;
+});
+const currentImage = computed(() => currentIndex.value == null ? null : conversationImages.value[currentIndex.value]);
+const viewerImages = computed<ViewerImage[]>(() => conversationImages.value.map(img => ({ id: img.id, fullUrl: img.fullUrl, thumbUrl: img.thumbUrl, contentType: img.contentType })));
+
+function openImage(index: number) {
+  currentIndex.value = index;
+  viewerOpen.value = true;
+  lockBodyScroll();
+}
+function confirmAndDeleteCurrent() {
+  if (!currentImage.value) return;
+  deleteImage(currentImage.value.id);
+}
+function deleteImage(id: number) {
+  deleteImageById(id).then(ok => {
+    if (!ok) { toast.add({ severity:'error', summary:'Delete Failed', detail:'Server error', life:3000 }); return; }
+    for (const m of messages.value) { if (m.images) m.images = m.images.filter(im => im.id !== id); }
+    messages.value = messages.value.map(m => ({ ...m }));
+    const imgs = conversationImages.value;
+    if (currentIndex.value != null && currentIndex.value >= imgs.length) currentIndex.value = imgs.length - 1;
+    if (!imgs.length) closeViewer();
+    toast.add({ severity:'success', summary:'Deleted', detail:'Image removed', life:2000 });
+  }).catch(e => toast.add({ severity:'error', summary:'Delete Failed', detail:e?.message || 'Error', life:3000 }));
 }
 </script>
 
