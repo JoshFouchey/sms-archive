@@ -1,0 +1,89 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<!--File Created By SMS Backup & Restore v10.23.002 on 03/11/2025 20:58:58-->
+<!--
+
+To view this file in a more readable format, visit https://synctech.com.au/view-backup/
+
+-->
+<smses count="8" backup_set="aa0ca6a2-661d-443b-99f1-aa0a557ea55a" backup_date="1762221538041" type="full">
+  <mms date="1762221345000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+15132407299" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="4" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeDh1d0lPcXRDUTBlRT12SWpqbWpWaWcqEEDz3lCKcE03jHEOSOCYxYA=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="312331" m_type="128" readable_date="Nov 3, 2025 8:55:45 PM" contact_name="My Work Phone">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text='&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id="Text" top="0" left="0" height="100%" width="100%"/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur="5000ms"&gt;&lt;text src="text000001.txt" region="Text" /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;' sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Test" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+15132407299" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1762221376000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+15132407299" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1762221376" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQ5OEFBQ0NDRS1FRDIyLTRCRTgtODE2My04QkI0NjNEQzBGNTEqENhBgpvx+EmRn6ehPI4IIjk=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="312332" m_type="132" readable_date="Nov 3, 2025 8:56:16 PM" contact_name="My Work Phone">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Thanks " sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15132407299" type="130" charset="106" />
+      <addr address="+15132407299" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1762221382000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+15132407299" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="41" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeEhRS1VBTkExU2ktQ1BNT3JvaVduUXcqECGbj4T3zEjNo5ecs0/xPIE=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="312333" m_type="128" readable_date="Nov 3, 2025 8:56:22 PM" contact_name="My Work Phone">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text='&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id="Text" top="0" left="0" height="100%" width="100%"/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur="5000ms"&gt;&lt;text src="text000001.txt" region="Text" /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;' sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text=" ​❤️​ to “ Thanks  ” " sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+15132407299" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1762221392000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+15132407299" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1762221392" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiRCREZCQ0VGNS04ODQ1LTRFRjctQjUzMy0yMjgwNDUyQjBGOUYqEH5T06a3EkrAtn87cZv6XFs=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="312334" m_type="132" readable_date="Nov 3, 2025 8:56:32 PM" contact_name="My Work Phone">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="New message " sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15132407299" type="130" charset="106" />
+      <addr address="+15132407299" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1762221401000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+15132407299" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="7" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeGZFNk9kT0QxVExpeE5zVS1aTW1XVHcqENWXigoS+EyPmfOAyO/b+jU=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="312335" m_type="128" readable_date="Nov 3, 2025 8:56:41 PM" contact_name="My Work Phone">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text='&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id="Text" top="0" left="0" height="100%" width="100%"/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur="5000ms"&gt;&lt;text src="text000001.txt" region="Text" /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;' sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Thanks " sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+15132407299" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1762221415000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+15132407299" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1762221415" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiRBRTZCQUMzQy02Q0QwLTRFRjgtOTE1RC1BNzM0NjY0NjlENkEqEFdxVAf0ykvJn+v6GBbe+Is=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="312336" m_type="132" readable_date="Nov 3, 2025 8:56:55 PM" contact_name="My Work Phone">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text=" ​&#128077;​ to “ Thanks  ” " sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15132407299" type="130" charset="106" />
+      <addr address="+15132407299" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1762221455000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+15132407299" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="11" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeDNqPUQ1U2s3U3BpRmlvRXB0UDE3cncqELkoaGSNq0Rfq7S2wGt6CRQ=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="312337" m_type="128" readable_date="Nov 3, 2025 8:57:35 PM" contact_name="My Work Phone">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text='&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id="Text" top="0" left="0" height="100%" width="100%"/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur="5000ms"&gt;&lt;text src="text000001.txt" region="Text" /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;' sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Thanks test" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+15132407299" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1762221467000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+15132407299" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="44" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeHA0eFRtanl1U2dlVnhlQnZmVTZpSmcqEMdlVMAREkFTky4rQZhKzp4=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="312338" m_type="128" readable_date="Nov 3, 2025 8:57:47 PM" contact_name="My Work Phone">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text='&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id="Text" top="0" left="0" height="100%" width="100%"/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur="5000ms"&gt;&lt;text src="text000001.txt" region="Text" /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;' sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text=" ​&#128077;​ to “ New message  ” " sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+15132407299" type="151" charset="106" />
+    </addrs>
+  </mms>
+</smses>

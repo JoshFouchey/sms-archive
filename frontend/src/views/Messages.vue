@@ -80,60 +80,80 @@
           class="mb-3 flex flex-col"
           :class="msg.isMe ? 'items-end' : 'items-start'"
         >
-          <!-- Sender name for group messages with color dot indicator -->
-          <div
-            v-if="!msg.isMe && selectedConversation?.participantCount && selectedConversation.participantCount > 2 && msg.senderName"
-            class="text-xs mb-1 ml-2 flex items-center gap-1.5"
-          >
-            <span
-              class="w-2 h-2 rounded-full inline-block"
-              :class="getParticipantColor(msg.senderIdentifier)"
-            ></span>
-            <span class="text-gray-500 dark:text-gray-400">{{ msg.senderName }}</span>
-          </div>
-          <div
-            :class="[
-              'max-w-[78%] rounded-lg px-3 py-2 shadow-sm text-sm leading-snug space-y-2',
-              msg.isMe
-                ? 'accent-bg text-white'
-                : (selectedConversation?.participantCount && selectedConversation.participantCount > 2
-                    ? getParticipantColor(msg.senderIdentifier)
-                    : 'bg-gray-200 text-gray-900 dark:bg-slate-700 dark:text-gray-100')
-            ]"
-          >
-            <div v-if="msg.body && msg.body !== '[media]'">{{ msg.body }}</div>
-            <!-- Image thumbnails -->
-            <div v-if="msg.images && msg.images.length" class="flex flex-wrap gap-2">
-              <div
-                v-for="img in msg.images"
-                :key="img.id"
-                class="relative group cursor-pointer overflow-hidden rounded-md bg-black/10 dark:bg-black/30"
-                :class="img.isSingle ? 'w-48 h-48' : 'w-32 h-32'"
-                role="button"
-                tabindex="0"
-                @click="openImage(img.globalIndex)"
-                @keydown.enter.prevent="openImage(img.globalIndex)"
-                @keydown.space.prevent="openImage(img.globalIndex)"
-              >
-                <img
-                  :src="img.thumbUrl"
-                  :alt="img.contentType"
-                  class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                  loading="lazy"
-                  @error="onThumbError($event, img)"
-                />
-                <button
-                  @click.stop="deleteImage(img.id)"
-                  class="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition"
-                >✕</button>
-                <div v-if="img.error" class="absolute inset-0 flex items-center justify-center text-[10px] bg-black/40 text-white">Image</div>
-              </div>
+          <!-- If this is a reaction message, don't render normal bubble (keep it in list for lookup) -->
+          <template v-if="!msg.reaction">
+            <!-- Sender name for group messages with color dot indicator -->
+            <div
+              v-if="!msg.isMe && selectedConversation?.participantCount && selectedConversation.participantCount > 2 && msg.senderName"
+              class="text-xs mb-1 ml-2 flex items-center gap-1.5"
+            >
+              <span
+                class="w-2 h-2 rounded-full inline-block"
+                :class="getParticipantColor(msg.senderIdentifier)"
+              ></span>
+              <span class="text-gray-500 dark:text-gray-400">{{ msg.senderName }}</span>
             </div>
-          </div>
-          <span
-            class="mt-1 text-[10px] tracking-wide uppercase"
-            :class="msg.isMe ? 'accent-dark-text' : 'text-gray-400 dark:text-gray-500'"
-          >{{ formatDateTime(msg.timestamp) }}</span>
+            <div class="relative">
+              <div
+                :class="[
+                  'relative max-w-[78%] rounded-lg px-3 py-2 shadow-sm text-sm leading-snug space-y-2',
+                  msg.isMe
+                    ? 'accent-bg text-white'
+                    : (selectedConversation?.participantCount && selectedConversation.participantCount > 2
+                        ? getParticipantColor(msg.senderIdentifier)
+                        : 'bg-gray-200 text-gray-900 dark:bg-slate-700 dark:text-gray-100')
+                ]"
+              >
+                <div v-if="msg.body && msg.body !== '[media]'">{{ msg.body }}</div>
+                <!-- Image thumbnails -->
+                <div v-if="msg.images && msg.images.length" class="flex flex-wrap gap-2">
+                  <div
+                    v-for="img in msg.images"
+                    :key="img.id"
+                    class="relative group cursor-pointer overflow-hidden rounded-md bg-black/10 dark:bg-black/30"
+                    :class="img.isSingle ? 'w-48 h-48' : 'w-32 h-32'"
+                    role="button"
+                    tabindex="0"
+                    @click="openImage(img.globalIndex)"
+                    @keydown.enter.prevent="openImage(img.globalIndex)"
+                    @keydown.space.prevent="openImage(img.globalIndex)"
+                  >
+                    <img
+                      :src="img.thumbUrl"
+                      :alt="img.contentType"
+                      class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                      loading="lazy"
+                      @error="onThumbError($event, img)"
+                    />
+                    <button
+                      @click.stop="deleteImage(img.id)"
+                      class="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition"
+                    >✕</button>
+                    <div v-if="img.error" class="absolute inset-0 flex items-center justify-center text-[10px] bg-black/40 text-white">Image</div>
+                  </div>
+                </div>
+                <!-- Reactions overlay using mapped reactions by message id -->
+                <div
+                  v-if="getGroupedReactions(msg.id).length"
+                  class="absolute -bottom-2 right-2 flex gap-1"
+                >
+                  <div
+                    v-for="(r, idx) in getGroupedReactions(msg.id)"
+                    :key="idx"
+                    class="bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-full px-2 py-0.5 text-xs shadow-sm flex items-center gap-1"
+                    :title="r.tooltip"
+                  >
+                    <span>{{ r.emoji }}</span>
+                    <span v-if="r.count > 1" class="text-[10px] font-semibold">{{ r.count }}</span>
+                  </div>
+                </div>
+              </div>
+              <span
+                class="mt-1 text-[10px] tracking-wide uppercase block"
+                :class="msg.isMe ? 'accent-dark-text' : 'text-gray-400 dark:text-gray-500'"
+              >{{ formatDateTime(msg.timestamp) }}</span>
+            </div>
+          </template>
         </div>
       </div>
 
@@ -161,7 +181,8 @@ import { useToast } from 'primevue/usetoast';
 import { deleteImageById } from '../services/api';
 
 interface UiImagePart { id: number; fullUrl: string; thumbUrl: string; contentType: string; isSingle: boolean; error?: boolean; globalIndex: number; }
-interface UiMessage { id: number; body: string; timestamp: string; isMe: boolean; senderName?: string; senderIdentifier?: string; images?: UiImagePart[]; }
+interface UiReaction { emoji: string; targetMessageBody: string; targetNormalizedBody: string; senderName?: string; targetMessageId?: number; }
+interface UiMessage { id: number; body: string; timestamp: string; isMe: boolean; senderName?: string; senderIdentifier?: string; images?: UiImagePart[]; reaction?: UiReaction; normalizedBody?: string; }
 
 const toast = useToast();
 
@@ -250,14 +271,12 @@ async function loadInitialMessages() {
   if (!selectedConversation.value) return;
   try {
     const paged: PagedResponse<ApiMessage> = await getConversationMessages(selectedConversation.value.id, 0, pageSize, 'desc');
-    // We want ascending internally so newest at bottom.
-    const pageMessages = paged.content
-      .slice() // shallow copy
-      .reverse() // convert descending page to ascending
+    messages.value = paged.content
+      .slice()
+      .reverse()
       .map(m => toUiMessage(m));
-    messages.value = pageMessages; // now oldest (of page) at top, newest at bottom
-    hasMoreOlder.value = !paged.last; // if backend says not last, there ARE older messages (higher page index)
-    nextPage.value = 1; // next page (older) index to fetch
+    hasMoreOlder.value = !paged.last;
+    nextPage.value = 1;
     await nextTick();
     scrollToBottom();
   } catch (e: any) {
@@ -265,6 +284,7 @@ async function loadInitialMessages() {
   } finally {
     messagesLoading.value = false;
   }
+  rebuildReactionIndex();
 }
 
 function normalizePath(p: string) { return (p || '').replace(/\\/g,'/'); }
@@ -289,6 +309,14 @@ function buildMediaUrl(rel: string, thumb: boolean): string {
   return `/media/messages/${rel}`;
 }
 
+function normalizeForMatch(s: string): string {
+  return (s || '')
+    .replace(/[“”]/g, '"') // smart quotes to straight
+    .replace(/[\u200B-\u200D\uFEFF\u2000-\u200F]/g, '') // zero-width & directional formatting chars & various thin spaces
+    .replace(/\s+/g, ' ') // collapse whitespace sequences
+    .trim();
+}
+
 function toUiMessage(m: ApiMessage): UiMessage {
   const images: UiImagePart[] = [];
   if (Array.isArray(m.parts)) {
@@ -296,19 +324,41 @@ function toUiMessage(m: ApiMessage): UiMessage {
     const single = imageParts.length === 1;
     for (const p of imageParts) {
       const rel = extractRelativeMediaPath(p.filePath || '');
-      if (!rel) continue; // skip if cannot derive relative path
+      if (!rel) continue;
       const fullUrl = buildMediaUrl(rel, false);
       const thumbUrl = buildMediaUrl(rel, true);
       images.push({ id: p.id, fullUrl, thumbUrl, contentType: p.contentType, isSingle: single, globalIndex: -1 });
     }
   }
-  const body = (m.body && m.body.trim().length) ? m.body : (images.length ? '' : '[media]');
-  // Check if message is from current user (OUTBOUND or no senderContactId means it's from us)
+  let body = (m.body && m.body.trim().length) ? m.body.trim() : (images.length ? '' : '[media]');
+  const normalizedBody = normalizeForMatch(body);
+
+  // Reaction detection on normalized version (handles smart quotes / zero-width chars)
+  let reaction: UiReaction | undefined;
+  const reactionMatch = normalizedBody.match(/^(.+?)\s+to\s+"(.+)"$/);
+  if (reactionMatch && reactionMatch.length >= 3) {
+    const rawEmoji = reactionMatch[1] ?? '';
+    const rawTarget = reactionMatch[2] ?? '';
+    if (rawEmoji) {
+      const emoji = rawEmoji.trim();
+      const targetOriginal = rawTarget; // normalized target inside quotes
+      if (emoji.length <= 12) { // allow slightly longer composite emoji sequences
+        const senderNameValue = m.senderContactName ?? m.senderContactNumber;
+        reaction = {
+          emoji,
+          targetMessageBody: targetOriginal,
+          targetNormalizedBody: normalizeForMatch(targetOriginal),
+          ...(senderNameValue ? { senderName: senderNameValue } : {})
+        } as UiReaction;
+        body = ''; // hide reaction textual form
+      }
+    }
+  }
+
   const isMe = m.direction === 'OUTBOUND' || !m.senderContactId;
   const senderName = m.senderContactName || m.senderContactNumber || undefined;
-  // Use contact number or ID as unique identifier for consistent color assignment
   const senderIdentifier = m.senderContactNumber || m.senderContactId?.toString();
-  return { id: m.id, body, timestamp: m.timestamp, isMe, senderName, senderIdentifier, images: images.length ? images : undefined };
+  return { id: m.id, body, timestamp: m.timestamp, isMe, senderName, senderIdentifier, images: images.length ? images : undefined, reaction, normalizedBody };
 }
 
 function formatDate(iso: string) { return iso ? new Date(iso).toLocaleDateString() : ''; }
@@ -419,8 +469,8 @@ async function loadOlderMessages() {
   const prevTop = container ? container.scrollTop : 0;
   try {
     const paged: PagedResponse<ApiMessage> = await getConversationMessages(selectedConversation.value.id, nextPage.value, pageSize, 'desc');
-    const pageMessages = paged.content.slice().reverse().map(m => toUiMessage(m));
-    messages.value = [...pageMessages, ...messages.value];
+    const newMessages = paged.content.slice().reverse().map(m => toUiMessage(m));
+    messages.value = [...newMessages, ...messages.value];
     hasMoreOlder.value = !paged.last;
     nextPage.value += 1;
     await nextTick();
@@ -428,8 +478,52 @@ async function loadOlderMessages() {
   } catch (e: any) {
     messagesError.value = e?.message || 'Failed to load older messages';
   } finally { olderLoading.value = false; }
+  rebuildReactionIndex();
+}
+
+const reactionIndex = ref(new Map<number, UiReaction[]>()); // messageId -> reactions
+
+function rebuildReactionIndex() {
+  reactionIndex.value.clear();
+  const priorMessages: UiMessage[] = [];
+  for (const msg of messages.value) {
+    if (msg.reaction) {
+      // find nearest previous non-reaction message whose normalizedBody matches targetNormalizedBody
+      for (let i = priorMessages.length - 1; i >= 0; i--) {
+        const candidate = priorMessages[i];
+        if (candidate.normalizedBody && candidate.normalizedBody === msg.reaction.targetNormalizedBody) {
+          msg.reaction.targetMessageId = candidate.id;
+          const arr = reactionIndex.value.get(candidate.id) || [];
+          arr.push(msg.reaction);
+          reactionIndex.value.set(candidate.id, arr);
+          break;
+        }
+      }
+    } else {
+      priorMessages.push(msg);
+    }
+  }
+}
+
+function getGroupedReactions(messageId: number) {
+  const reactions = reactionIndex.value.get(messageId) || [];
+  if (!reactions.length) return [] as { emoji: string; count: number; tooltip: string }[];
+  const counts = new Map<string, { emoji: string; count: number; senders: string[] }>();
+  for (const r of reactions) {
+    const key = r.emoji;
+    if (!counts.has(key)) counts.set(key, { emoji: r.emoji, count: 0, senders: [] });
+    const entry = counts.get(key)!;
+    entry.count += 1;
+    if (r.senderName) entry.senders.push(r.senderName);
+  }
+  return Array.from(counts.values()).map(e => ({
+    emoji: e.emoji,
+    count: e.count,
+    tooltip: e.senders.length ? `${e.emoji} by ${e.senders.join(', ')}` : `${e.emoji}`
+  }));
 }
 </script>
 
 <style>
+/* Reaction badges are positioned absolutely relative to message bubble */
 </style>
