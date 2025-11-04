@@ -1,13 +1,13 @@
 <template>
-  <div class="p-6 max-w-5xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow space-y-6">
-    <h1 class="text-2xl font-bold">Search Messages</h1>
-    <p class="text-gray-600 dark:text-gray-400">
+  <div class="p-4 md:p-6 max-w-5xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow space-y-4 md:space-y-6">
+    <h1 class="text-xl md:text-2xl font-bold">Search Messages</h1>
+    <p class="text-sm md:text-base text-gray-600 dark:text-gray-400">
       Search across all messages by text and optionally filter by a contact.
     </p>
 
     <!-- Search Form -->
     <form
-      class="grid gap-4 md:grid-cols-4 items-end"
+      class="grid gap-3 md:gap-4 md:grid-cols-4 items-end"
       @submit.prevent="performSearch"
     >
       <div class="md:col-span-2 flex flex-col gap-1">
@@ -17,7 +17,7 @@
           v-model="searchText"
           type="text"
           placeholder="Enter text..."
-          class="rounded border px-3 py-2 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="rounded border px-3 py-2.5 md:py-2 text-base dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
           @keyup.enter="performSearch"
         />
       </div>
@@ -26,7 +26,7 @@
         <select
           id="contactFilter"
           v-model.number="selectedContactId"
-          class="rounded border px-3 py-2 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="rounded border px-3 py-2.5 md:py-2 text-base dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option :value="null">All contacts</option>
           <option v-for="c in contacts" :key="c.id" :value="c.id">
@@ -38,14 +38,14 @@
         <button
           type="submit"
           :disabled="loading"
-          class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded px-4 py-2 disabled:opacity-50"
+          class="flex-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded px-4 py-2.5 md:py-2 disabled:opacity-50 transition-colors font-medium"
         >
           {{ loading ? 'Searching...' : 'Search' }}
         </button>
         <button
           type="button"
           @click="clearSearch"
-          class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-100 rounded px-4 py-2"
+          class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 active:bg-gray-400 dark:active:bg-gray-400 text-gray-800 dark:text-gray-100 rounded px-4 py-2.5 md:py-2 transition-colors font-medium"
         >
           Clear
         </button>
@@ -63,48 +63,52 @@
       No results found.
     </div>
 
-    <!-- Results Table -->
+    <!-- Results Count -->
+    <div v-if="filteredResults.length" class="text-sm text-gray-600 dark:text-gray-400">
+      Found {{ filteredResults.length }} result{{ filteredResults.length === 1 ? '' : 's' }}
+    </div>
+
+    <!-- Results Cards -->
     <div
       v-if="filteredResults.length"
-      class="overflow-auto border rounded dark:border-gray-700"
+      class="space-y-3"
     >
-      <table class="min-w-full text-sm">
-        <thead class="bg-gray-100 dark:bg-gray-700 text-left">
-          <tr>
-            <th class="px-3 py-2 whitespace-nowrap">Timestamp</th>
-            <th class="px-3 py-2 whitespace-nowrap">Direction</th>
-            <th class="px-3 py-2 whitespace-nowrap">Contact</th>
-            <th class="px-3 py-2">Body</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="m in filteredResults"
-            :key="m.id"
-            class="border-t dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+      <div
+        v-for="m in filteredResults"
+        :key="m.id"
+        class="border dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all"
+      >
+        <!-- Header row: Contact name and timestamp -->
+        <div class="flex justify-between items-start gap-3 mb-2">
+          <div class="flex-1 min-w-0">
+            <h3 class="font-semibold text-base text-gray-900 dark:text-gray-100 truncate">
+              {{ m.contactName || m.contactNumber || 'Unknown' }}
+            </h3>
+          </div>
+          <div class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+            {{ formatDateTime(m.timestamp) }}
+          </div>
+        </div>
+
+        <!-- Direction badge -->
+        <div class="mb-3">
+          <span
+            :class="{
+              'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300': m.direction === 'INBOUND',
+              'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300': m.direction === 'OUTBOUND'
+            }"
+            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
           >
-            <td class="px-3 py-2 align-top whitespace-nowrap">
-              {{ formatDateTime(m.timestamp) }}
-            </td>
-            <td class="px-3 py-2 align-top">
-              <span
-                :class="{
-                  'text-blue-600 dark:text-blue-400': m.direction === 'INBOUND',
-                  'text-green-600 dark:text-green-400': m.direction === 'OUTBOUND'
-                }"
-              >
-                {{ m.direction === 'INBOUND' ? '← Received' : '→ Sent' }}
-              </span>
-            </td>
-            <td class="px-3 py-2 align-top">
-              {{ m.contactName || m.contactNumber || '—' }}
-            </td>
-            <td class="px-3 py-2 align-top max-w-xs">
-              <div class="truncate" :title="m.body">{{ m.body }}</div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            <span>{{ m.direction === 'INBOUND' ? '←' : '→' }}</span>
+            <span>{{ m.direction === 'INBOUND' ? 'Received' : 'Sent' }}</span>
+          </span>
+        </div>
+
+        <!-- Message body -->
+        <div class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed break-words">
+          {{ m.body }}
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -193,18 +197,4 @@ function formatDateTime(iso: string) {
 }
 </script>
 
-<style scoped>
-/* Basic table adjustments */
-table {
-  border-collapse: collapse;
-}
-th {
-  font-weight: 600;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-tbody tr:nth-child(even) {
-  background-color: rgba(0, 0, 0, 0.02);
-}
-</style>
+
