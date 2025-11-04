@@ -1,9 +1,14 @@
 <template>
   <div class="flex h-screen bg-gray-100 dark:bg-slate-950 text-gray-900 dark:text-gray-100">
-    <!-- Contacts panel -->
-    <aside class="w-1/3 max-w-sm border-r border-gray-200 dark:border-slate-700 bg-gray-50/90 dark:bg-slate-900/70 backdrop-blur p-4 overflow-y-auto">
+    <!-- Contacts panel - hidden on mobile when conversation is selected -->
+    <aside
+      :class="[
+        'w-full md:w-1/3 md:max-w-sm border-r border-gray-200 dark:border-slate-700 bg-gray-50/90 dark:bg-slate-900/70 backdrop-blur p-4 overflow-y-auto',
+        selectedConversation ? 'hidden md:block' : 'block'
+      ]"
+    >
       <h2 class="text-lg font-semibold mb-4 tracking-tight text-gray-700 dark:text-gray-200">
-        Contacts
+        Conversations
       </h2>
 
       <div v-if="contactsLoading" class="text-sm text-gray-500 dark:text-gray-400">Loading conversations...</div>
@@ -15,14 +20,14 @@
         :key="conversation.id"
         @click="selectConversation(conversation)"
         :class="[
-          'group mb-3 p-3 rounded-lg border cursor-pointer transition-colors duration-150 flex flex-col gap-1',
+          'group mb-3 p-4 md:p-3 rounded-lg border cursor-pointer transition-colors duration-150 flex flex-col gap-1 min-h-[72px] md:min-h-0',
           selectedConversation?.id === conversation.id
             ? 'accent-bg accent-border text-white shadow-sm'
-            : 'bg-white/90 dark:bg-slate-800/80 border-gray-200 dark:border-slate-700 hover:accent-muted-bg dark:hover:bg-slate-700/70'
+            : 'bg-white/90 dark:bg-slate-800/80 border-gray-200 dark:border-slate-700 hover:accent-muted-bg dark:hover:bg-slate-700/70 active:scale-[0.98]'
         ]"
       >
         <div class="flex justify-between items-center">
-          <h3 :class="['font-medium truncate', selectedConversation?.id === conversation.id ? 'text-white' : 'text-gray-800 dark:text-gray-100']">
+          <h3 :class="['font-medium truncate text-base md:text-sm', selectedConversation?.id === conversation.id ? 'text-white' : 'text-gray-800 dark:text-gray-100']">
             {{ conversation.name }}
             <span v-if="conversation.participantCount > 2" class="text-xs opacity-70 ml-1">({{ conversation.participantCount }})</span>
           </h3>
@@ -47,13 +52,31 @@
       </div>
     </aside>
 
-    <!-- Conversation panel -->
-    <main class="flex-1 flex flex-col p-4 bg-white/70 dark:bg-slate-900/60 backdrop-blur">
-      <h2 class="text-lg font-semibold mb-2 tracking-tight text-gray-700 dark:text-gray-200">
-        <span v-if="selectedConversation?.participantCount && selectedConversation.participantCount > 2">Group:</span>
-        <span v-else>Conversation with</span>
-        <span class="accent-text">{{ selectedConversation?.name || '...' }}</span>
-      </h2>
+    <!-- Conversation panel - hidden on mobile when no conversation selected -->
+    <main
+      :class="[
+        'flex-1 flex flex-col p-3 md:p-4 bg-white/70 dark:bg-slate-900/60 backdrop-blur',
+        !selectedConversation ? 'hidden md:flex' : 'flex'
+      ]"
+    >
+      <!-- Header with back button on mobile -->
+      <div class="flex items-center gap-2 mb-2">
+        <button
+          v-if="selectedConversation"
+          @click="clearConversation"
+          class="md:hidden flex items-center justify-center w-10 h-10 rounded-lg bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 active:scale-95 transition-all"
+          aria-label="Back to conversations"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <h2 class="text-lg md:text-xl font-semibold tracking-tight text-gray-700 dark:text-gray-200 flex-1 truncate">
+          <span v-if="selectedConversation?.participantCount && selectedConversation.participantCount > 2">Group:</span>
+          <span v-else>Conversation with</span>
+          <span class="accent-text">{{ selectedConversation?.name || '...' }}</span>
+        </h2>
+      </div>
 
       <!-- Status messages (outside scroll container) -->
       <div v-if="!selectedConversation && !messagesLoading" class="mt-4 text-sm text-gray-500 dark:text-gray-500 italic">
@@ -61,7 +84,7 @@
       </div>
 
       <!-- Scrollable messages container -->
-      <div v-if="selectedConversation" ref="messageContainer" class="flex-1 overflow-y-auto mt-2 pr-1" @scroll="handleScroll">
+      <div v-if="selectedConversation" ref="messageContainer" class="flex-1 overflow-y-auto mt-2 pr-1 -mr-3 md:mr-0" @scroll="handleScroll">
         <!-- Older loader / end marker at top -->
         <div class="flex justify-center my-2">
           <span v-if="olderLoading" class="text-[11px] text-gray-400 dark:text-gray-500">Loading older messages...</span>
@@ -95,7 +118,7 @@
             <div class="relative">
               <div
                 :class="[
-                  'relative max-w-[78%] rounded-lg px-3 py-2 shadow-sm text-sm leading-snug space-y-2',
+                  'relative max-w-[78%] md:max-w-[85%] rounded-lg px-3 py-2 shadow-sm text-sm leading-snug space-y-2',
                   msg.isMe
                     ? 'accent-bg text-white'
                     : (selectedConversation?.participantCount && selectedConversation.participantCount > 2
@@ -269,6 +292,12 @@ async function selectConversation(conversation: ConversationSummary) {
   hasMoreOlder.value = false;
   olderLoading.value = false;
   await loadInitialMessages();
+}
+
+function clearConversation() {
+  selectedConversation.value = null;
+  messages.value = [];
+  participantColorMap.value.clear();
 }
 
 async function loadInitialMessages() {
