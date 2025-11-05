@@ -367,6 +367,11 @@ public class ImportService {
             log.debug("Skipping conversation assignment - cannot resolve address");
             return; // skip if cannot resolve
         }
+
+        // Enhanced logging to diagnose normalization consistency
+        log.debug("Assigning SMS to conversation for normalized: {}, contact.number: {}, suggestedName: {}",
+                  normalized, counterparty.getNumber(), suggestedName);
+
         User user = threadLocalImportUser.get();
         if (user == null) user = currentUserProvider.getCurrentUser();
         Conversation convo = conversationService.findOrCreateOneToOneForUser(user, normalized, suggestedName);
@@ -395,8 +400,26 @@ public class ImportService {
         if (user == null) user = currentUserProvider.getCurrentUser();
         Conversation convo;
         if (participantNumbers.size() == 1) {
-            convo = conversationService.findOrCreateOneToOneForUser(user, participantNumbers.iterator().next(), suggestedName);
+            String normalizedFromAddr = participantNumbers.iterator().next();
+
+            // Enhanced logging: Check if the contact's normalized number matches what we got from addr
+            Contact contact = msg.getContact();
+            if (contact != null && contact.getNormalizedNumber() != null) {
+                String normalizedFromContact = contact.getNormalizedNumber();
+                log.debug("Assigning MMS to conversation - normalized from <addr>: {}, normalized from contact: {}, match: {}, suggestedName: {}",
+                          normalizedFromAddr, normalizedFromContact, normalizedFromAddr.equals(normalizedFromContact), suggestedName);
+
+                // Use the contact's normalized number for consistency with SMS messages
+                // This ensures both SMS and MMS from the same contact use the same normalized number
+                convo = conversationService.findOrCreateOneToOneForUser(user, normalizedFromContact, suggestedName);
+            } else {
+                log.debug("Assigning MMS to conversation - using normalized from <addr>: {} (no contact available), suggestedName: {}",
+                          normalizedFromAddr, suggestedName);
+                convo = conversationService.findOrCreateOneToOneForUser(user, normalizedFromAddr, suggestedName);
+            }
         } else {
+            log.debug("Assigning MMS to group conversation - participants: {}, threadKey: {}, suggestedName: {}",
+                      participantNumbers, threadKey, suggestedName);
             convo = conversationService.findOrCreateGroupForUser(user, threadKey, participantNumbers, suggestedName);
         }
         if (convo == null || convo.getId() == null) {
@@ -540,6 +563,9 @@ public class ImportService {
         String tempRecipient = meta != null ? (String) meta.get("_tempRecipient") : null;
         String tempAddress = meta != null ? (String) meta.get("_tempAddress") : null;
 
+        log.debug("finalizeStreamingContact - protocol: {}, direction: {}, tempSender: {}, tempRecipient: {}, tempAddress: {}",
+                  msg.getProtocol(), msg.getDirection(), tempSender, tempRecipient, tempAddress);
+
         // Determine counterparty based on direction
         String counterparty;
         String senderAddress;
@@ -569,9 +595,16 @@ public class ImportService {
         }
         msg.setUser(user);
 
+        log.debug("finalizeStreamingContact - counterparty: {}, suggestedName: {}", counterparty, suggestedName);
+
         // Resolve the primary contact (the counterparty)
         Contact contact = resolveContact(user, counterparty, suggestedName);
         msg.setContact(contact);
+
+        log.debug("finalizeStreamingContact - resolved contact: id={}, number={}, normalized={}",
+                  contact != null ? contact.getId() : null,
+                  contact != null ? contact.getNumber() : null,
+                  contact != null ? contact.getNormalizedNumber() : null);
 
         // Set senderContact for inbound messages (null for outbound = current user)
         if (msg.getDirection() == MessageDirection.INBOUND && senderAddress != null) {

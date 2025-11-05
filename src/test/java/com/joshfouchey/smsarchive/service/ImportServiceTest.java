@@ -14,6 +14,7 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -242,10 +243,15 @@ class ImportServiceTest {
             contactRepository.deleteAll();
             userRepository.deleteAll();
 
-            testUser = new com.joshfouchey.smsarchive.model.User();
-            testUser.setUsername("testuser");
-            testUser.setPasswordHash("$2a$10$dummyhash");
-            testUser = userRepository.save(testUser);
+            // Find or create testuser - needed because @Transactional on test methods
+            // can cause timing issues where the user might still exist from a previous test
+            testUser = userRepository.findByUsername("testuser")
+                    .orElseGet(() -> {
+                        com.joshfouchey.smsarchive.model.User newUser = new com.joshfouchey.smsarchive.model.User();
+                        newUser.setUsername("testuser");
+                        newUser.setPasswordHash("$2a$10$dummyhash");
+                        return userRepository.save(newUser);
+                    });
         }
 
         private ImportService.ImportProgress awaitCompletion(UUID job) {
@@ -456,6 +462,105 @@ class ImportServiceTest {
                     .filter(msg -> msg.getContact() != null && msg.getContact().getId().equals(bobContact.getId()))
                     .count();
             assertThat(bobMessageCount).isEqualTo(2);
+        }
+
+        @Test
+        @Transactional
+        @DisplayName("SMS and MMS messages from same contact should be in the same conversation")
+        void smsAndMmsFromSameContactShouldShareConversation() throws Exception {
+            // This test demonstrates the bug where an SMS message and MMS messages from the same
+            // contact end up in separate conversations due to normalization differences
+            String xml = """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <messages exported_at="2025-01-01T12:00:00Z">
+                      <!-- MMS message from Alice -->
+                      <mms date="1696300000000" msg_box="1" contact_name="Alice Smith">
+                        <parts>
+                          <part seq="0" ct="text/plain" text="Hey, check out this photo!"/>
+                          <part seq="1" ct="image/jpeg" name="photo.jpg" data="dGVzdGltYWdl"/>
+                        </parts>
+                        <addrs>
+                          <addr type="137" address="+15551234567"/>
+                          <addr type="151" address="me"/>
+                        </addrs>
+                      </mms>
+                      
+                      <!-- SMS message from the same contact (Alice) -->
+                      <sms protocol="0" address="+15551234567" date="1696303600000" type="1"
+                           body="Did you get my photo?" contact_name="Alice Smith"/>
+                      
+                      <!-- Another MMS from Alice (outbound reply from us) -->
+                      <mms date="1696307200000" msg_box="2" contact_name="Alice Smith">
+                        <parts>
+                          <part seq="0" ct="text/plain" text="Here's another one!"/>
+                        </parts>
+                        <addrs>
+                          <addr type="137" address="me"/>
+                          <addr type="151" address="+15551234567"/>
+                        </addrs>
+                      </mms>
+                      
+                      <!-- Another SMS from Alice -->
+                      <sms protocol="0" address="+15551234567" date="1696310800000" type="2"
+                           body="Got it, thanks!" contact_name="Alice Smith"/>
+                    </messages>
+                    """;
+
+            File f = Files.createTempFile("sms-mms-conversation-test", ".xml").toFile();
+            try (FileWriter fw = new FileWriter(f)) { fw.write(xml); }
+
+            // Import the messages
+            UUID jobId = importService.startImportAsync(f.toPath());
+            ImportService.ImportProgress progress = awaitCompletion(jobId);
+
+            // Verify import succeeded
+            assertThat(progress.getStatus()).isEqualTo("COMPLETED");
+            assertThat(progress.getImportedMessages()).isEqualTo(4);
+
+            // Verify all messages have conversations assigned
+            var allMessages = messageRepository.findAll();
+            assertThat(allMessages).hasSize(4);
+            assertThat(allMessages).allMatch(msg -> msg.getConversation() != null,
+                    "All messages should have a conversation assigned");
+
+            // Verify there's only ONE contact created for Alice
+            var aliceContacts = contactRepository.findAll().stream()
+                    .filter(c -> c.getNormalizedNumber().equals("15551234567"))
+                    .toList();
+            assertThat(aliceContacts).hasSize(1)
+                    .describedAs("Should have exactly one contact for Alice's number");
+
+            Contact aliceContact = aliceContacts.get(0);
+
+            // Verify all messages are associated with the same contact
+            var aliceMessages = allMessages.stream()
+                    .filter(msg -> msg.getContact() != null && msg.getContact().getId().equals(aliceContact.getId()))
+                    .toList();
+            assertThat(aliceMessages).hasSize(4)
+                    .describedAs("All 4 messages should be associated with Alice's contact");
+
+            // THE KEY ASSERTION: All messages from Alice should be in the SAME conversation
+            var conversationIds = aliceMessages.stream()
+                    .map(msg -> msg.getConversation().getId())
+                    .distinct()
+                    .toList();
+
+            assertThat(conversationIds).hasSize(1)
+                    .describedAs("All SMS and MMS messages from the same contact should be in ONE conversation, but found: " + conversationIds.size());
+
+            // Verify the conversation has all 4 messages
+            Long conversationId = conversationIds.get(0);
+            var messagesInConversation = allMessages.stream()
+                    .filter(msg -> msg.getConversation().getId().equals(conversationId))
+                    .toList();
+            assertThat(messagesInConversation).hasSize(4)
+                    .describedAs("The single conversation should contain all 4 messages");
+
+            // Verify the conversation has the correct number of participants (just Alice)
+            var conversation = conversationRepository.findById(conversationId)
+                    .orElseThrow(() -> new AssertionError("Conversation should exist"));
+            assertThat(conversation.getParticipants()).hasSize(1)
+                    .describedAs("One-to-one conversation should have exactly 1 participant");
         }
     }
 }
