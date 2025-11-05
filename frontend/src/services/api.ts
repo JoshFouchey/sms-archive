@@ -186,6 +186,19 @@ export async function getConversationMessages(
     return res.data;
 }
 
+/**
+ * Delete a conversation by ID. Returns 'deleted' or 'not_found'.
+ */
+export async function deleteConversation(conversationId: number): Promise<'deleted' | 'not_found'> {
+    try {
+        const res = await axios.delete(`${API_BASE}/api/conversations/${conversationId}`);
+        return res.status === 204 ? 'deleted' : 'not_found';
+    } catch (e: any) {
+        if (e.response && e.response.status === 404) return 'not_found';
+        throw e;
+    }
+}
+
 /* ==============================
    Messages (Legacy - deprecated)
 ============================== */
