@@ -76,6 +76,18 @@
           <span v-else>Conversation with</span>
           <span class="accent-text">{{ selectedConversation?.name || '...' }}</span>
         </h2>
+        <!-- Delete conversation button (desktop + mobile when conversation selected) -->
+        <button
+          v-if="selectedConversation"
+          @click="openDeleteConversationModal(selectedConversation)"
+          class="flex items-center justify-center w-10 h-10 rounded-lg bg-red-500/90 hover:bg-red-600 text-white active:scale-95 transition focus:outline-none focus:ring-2 focus:ring-red-400"
+          aria-label="Delete conversation"
+          title="Delete conversation"
+        >
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M8 6V4h8v2m1 0v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V6h10z" />
+          </svg>
+        </button>
       </div>
 
       <!-- Status messages (outside scroll container) -->
@@ -197,15 +209,68 @@
       />
     </main>
   </div>
-</template>
 
+  <!-- Delete Conversation Confirmation Modal -->
+  <teleport to="body">
+    <div
+      v-if="showDeleteConversationModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8"
+      aria-modal="true"
+      role="dialog"
+      aria-labelledby="delete-conversation-title"
+    >
+      <!-- Backdrop -->
+      <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="cancelDeleteConversation" aria-hidden="true"></div>
+      <!-- Modal panel -->
+      <div
+        class="relative w-full max-w-sm md:max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 flex flex-col overflow-hidden animate-fadeIn"
+      >
+        <div class="px-5 pt-5 pb-3">
+          <h3 id="delete-conversation-title" class="text-lg font-semibold tracking-tight text-gray-800 dark:text-gray-100 flex items-center gap-2">
+            <svg class="w-5 h-5 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M8 6V4h8v2m1 0v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V6h10z" />
+            </svg>
+            Delete Conversation
+          </h3>
+          <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+            This will permanently delete all messages in <strong class="font-medium">{{ conversationPendingDelete?.name }}</strong>.
+            <span class="block mt-1">Images associated with this conversation will also be removed. This action cannot be undone.</span>
+          </p>
+        </div>
+        <div class="px-5 pb-5 flex flex-col md:flex-row gap-3 md:gap-2">
+          <button
+            @click="confirmDeleteConversation"
+            :disabled="deletingConversation"
+            class="w-full md:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-sm font-medium px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-400 active:scale-[0.97]"
+          >
+            <span v-if="!deletingConversation">Delete</span>
+            <span v-else class="inline-flex items-center gap-1">
+              <svg class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="10" stroke-width="4" class="opacity-25"></circle>
+                <path d="M4 12a8 8 0 0 1 8-8" stroke-width="4" class="opacity-75" stroke-linecap="round"></path>
+              </svg>
+              Deleting...
+            </span>
+          </button>
+          <button
+            @click="cancelDeleteConversation"
+            :disabled="deletingConversation"
+            class="w-full md:w-auto inline-flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-50 text-gray-800 dark:text-gray-100 text-sm font-medium px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-gray-400 active:scale-[0.97]"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </teleport>
+</template>
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue';
 import { getAllConversations, getConversationMessages, type ConversationSummary, type Message as ApiMessage, type PagedResponse } from '../services/api';
 import ImageViewer from '@/components/ImageViewer.vue';
 import type { ViewerImage } from '@/components/ImageViewer.vue';
 import { useToast } from 'primevue/usetoast';
-import { deleteImageById } from '../services/api';
+import { deleteImageById, deleteConversation } from '../services/api';
 
 interface UiImagePart { id: number; fullUrl: string; thumbUrl: string; contentType: string; isSingle: boolean; error?: boolean; globalIndex: number; }
 interface UiReaction { emoji: string; targetMessageBody: string; targetNormalizedBody: string; senderName?: string; targetMessageId?: number; }
@@ -583,8 +648,71 @@ function deleteImage(id: number) {
     toast.add({ severity:'success', summary:'Deleted', detail:'Image removed', life:2000 });
   }).catch(e => toast.add({ severity:'error', summary:'Delete Failed', detail:e?.message || 'Error', life:3000 }));
 }
-</script>
 
+// Delete conversation modal state
+const showDeleteConversationModal = ref(false);
+const deletingConversation = ref(false);
+const conversationPendingDelete = ref<ConversationSummary | null>(null);
+
+function openDeleteConversationModal(c: ConversationSummary) {
+  conversationPendingDelete.value = c;
+  showDeleteConversationModal.value = true;
+  // Optional: lock scroll on mobile to prevent background scroll
+  lockBodyScroll();
+}
+function cancelDeleteConversation() {
+  if (deletingConversation.value) return; // don't allow cancel during delete
+  showDeleteConversationModal.value = false;
+  conversationPendingDelete.value = null;
+  unlockBodyScroll();
+}
+async function confirmDeleteConversation() {
+  if (!conversationPendingDelete.value) return;
+  deletingConversation.value = true;
+  try {
+    const result = await deleteConversation(conversationPendingDelete.value.id);
+    if (result === 'deleted') {
+      const deletedId = conversationPendingDelete.value!.id;
+      conversations.value = conversations.value.filter(c => c.id !== deletedId);
+      if (selectedConversation.value?.id === deletedId) {
+        // Close any open viewer before clearing
+        if (viewerOpen.value) closeViewer();
+        clearConversation();
+      }
+      toast.add({ severity: 'success', summary: 'Conversation Deleted', detail: 'All messages removed', life: 3000 });
+    } else {
+      toast.add({ severity: 'warn', summary: 'Not Found', detail: 'Conversation no longer exists', life: 3000 });
+    }
+  } catch (e: any) {
+    toast.add({ severity: 'error', summary: 'Delete Failed', detail: e?.message || 'Server error', life: 4000 });
+  } finally {
+    deletingConversation.value = false;
+    showDeleteConversationModal.value = false;
+    conversationPendingDelete.value = null;
+    unlockBodyScroll();
+  }
+}
+
+// Close modal if conversation changes while open (e.g., user selects different conversation via aside)
+watch(selectedConversation, (newVal) => {
+  if (showDeleteConversationModal.value && conversationPendingDelete.value && newVal && newVal.id !== conversationPendingDelete.value.id) {
+    cancelDeleteConversation();
+  }
+});
+
+// Ensure escape key closes the modal even if image viewer also open
+function handleDeleteModalKey(e: KeyboardEvent) {
+  if (!showDeleteConversationModal.value) return;
+  if (e.key === 'Escape') {
+    cancelDeleteConversation();
+  }
+}
+window.addEventListener('keydown', handleDeleteModalKey);
+// Clean up listener on unmount
+onUnmounted(() => window.removeEventListener('keydown', handleDeleteModalKey));
+</script>
 <style>
 /* Reaction badges are positioned absolutely relative to message bubble */
+@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+.animate-fadeIn { animation: fadeIn 0.18s ease-out; }
 </style>
