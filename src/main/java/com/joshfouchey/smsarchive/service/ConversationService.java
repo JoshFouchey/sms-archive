@@ -199,5 +199,20 @@ public class ConversationService {
     public Conversation save(Conversation conversation) {
         return conversationRepository.save(conversation);
     }
-}
 
+    @Transactional
+    public void deleteConversationById(Long conversationId) {
+        var user = currentUserProvider.getCurrentUser();
+        Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
+                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+        // Fetch messages for this conversation
+        List<Message> messages = messageRepository.findAllByConversationIdAndUser(conversationId, user);
+        // Delete messages (parts cascade via orphanRemoval)
+        if (!messages.isEmpty()) {
+            messageRepository.deleteAll(messages);
+            messageRepository.flush();
+        }
+        // Finally delete the conversation
+        conversationRepository.delete(conversation);
+    }
+}

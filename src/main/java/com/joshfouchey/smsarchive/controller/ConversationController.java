@@ -31,5 +31,15 @@ public class ConversationController {
             @RequestParam(defaultValue = "desc") String sort) {
         return conversationService.getConversationMessages(conversationId, page, size, sort);
     }
-}
 
+    @DeleteMapping("/{conversationId}")
+    public org.springframework.http.ResponseEntity<Void> deleteConversation(@PathVariable Long conversationId) {
+        try {
+            conversationService.deleteConversationById(conversationId);
+            return org.springframework.http.ResponseEntity.noContent().build();
+        } catch (RuntimeException ex) {
+            // Conversation not found or not owned
+            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND).build();
+        }
+    }
+}
