@@ -5,6 +5,10 @@ import com.joshfouchey.smsarchive.service.ContactService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 
@@ -22,5 +26,19 @@ public class ContactController {
     public List<ContactDto> getAllContacts() {
         return contactService.getAllDistinctContacts();
     }
-}
 
+    // PUT /api/contacts/{id} to update a contact's name (null or blank clears name)
+    @PutMapping("/{id}")
+    public ResponseEntity<ContactDto> updateContactName(@PathVariable Long id, @RequestBody UpdateContactNameRequest request) {
+        try {
+            var updated = contactService.updateContactName(id, request.name());
+            return ResponseEntity.ok(updated);
+        } catch (java.util.NoSuchElementException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    public record UpdateContactNameRequest(String name) {}
+}

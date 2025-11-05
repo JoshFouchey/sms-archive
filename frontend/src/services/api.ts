@@ -275,3 +275,12 @@ export async function searchBySender(sender: string): Promise<Message[]> { const
 export async function searchByRecipient(recipient: string): Promise<Message[]> { const res = await axios.get(`${API_BASE}/search/recipient`, { params: { recipient }}); return res.data; }
 export async function searchByText(text: string): Promise<Message[]> { const res = await axios.get(`${API_BASE}/search/text`, { params: { text }}); return res.data; }
 export async function searchByDateRange(start: string, end: string): Promise<Message[]> { const res = await axios.get(`${API_BASE}/search/dates`, { params: { start, end }}); return res.data; }
+
+/* ==============================
+   Contacts
+============================== */
+
+export async function updateContactName(id: number, name: string | null): Promise<Contact> {
+    const res = await axios.put(`${API_BASE}/api/contacts/${id}`, { name });
+    return res.data;
+}

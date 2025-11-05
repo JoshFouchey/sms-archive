@@ -31,4 +31,22 @@ public class ContactService {
                 .map(ContactMapper::toDto)
                 .toList();
     }
+
+    @Transactional
+    public ContactDto updateContactName(Long contactId, String name) {
+        var user = currentUserProvider.getCurrentUser();
+        var contact = contactRepository.findById(contactId).orElseThrow(java.util.NoSuchElementException::new);
+        if (!contact.getUser().equals(user)) {
+            // Do not expose existence; treat as not found
+            throw new java.util.NoSuchElementException();
+        }
+        // Normalize name: trim; blank -> null
+        String normalized = name == null ? null : name.trim();
+        if (normalized != null && normalized.isEmpty()) {
+            normalized = null;
+        }
+        contact.setName(normalized);
+        // JPA will flush on transaction commit; return updated DTO
+        return com.joshfouchey.smsarchive.mapper.ContactMapper.toDto(contact);
+    }
 }
