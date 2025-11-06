@@ -320,7 +320,19 @@ public class ImportService {
                 if (ctx.inMultipart && ctx.cur != null) {
                     accumulateAddressStreaming(r, ctx.cur);
                     String addrVal = attr(r, "address");
-                    if (addrVal != null && !addrVal.isBlank() && !addrVal.equalsIgnoreCase(SENDER_ME)) {
+                    String addrType = attr(r, "type");
+
+                    // Only add participants that represent the counterparty, not the user
+                    // For INBOUND (msg_box=1): FROM (137) is the counterparty
+                    // For OUTBOUND (msg_box=2): TO (151) is the counterparty
+                    boolean shouldAddParticipant = false;
+                    if (ctx.cur.getDirection() == MessageDirection.INBOUND && ADDR_TYPE_FROM.equals(addrType)) {
+                        shouldAddParticipant = true;
+                    } else if (ctx.cur.getDirection() == MessageDirection.OUTBOUND && ADDR_TYPE_TO.equals(addrType)) {
+                        shouldAddParticipant = true;
+                    }
+
+                    if (shouldAddParticipant && addrVal != null && !addrVal.isBlank() && !addrVal.equalsIgnoreCase(SENDER_ME)) {
                         if (ctx.participantNumbers == null) ctx.participantNumbers = new LinkedHashSet<>();
                         String norm = normalizeNumber(addrVal);
                         if (!UNKNOWN_NORMALIZED.equals(norm)) ctx.participantNumbers.add(norm);
