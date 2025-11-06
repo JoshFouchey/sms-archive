@@ -1,0 +1,856 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<smses count="107" backup_set="723ee748-f1fc-4759-a9e8-1beda82fec9f" backup_date="1762396582099" type="full">
+  <sms protocol="0" address="+13155321938" date="1738277706004" type="2" subject="proto:CjoKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SFCIAKhAdQT2HZ/xAc461tHA5znzS" body="The sunset looked amazing tonight." toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="0" sub_id="3" readable_date="Jan 30, 2025 5:55:06 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738277712047" type="2" subject="proto:CjoKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SFCIAKhBqNEuAUItJXbhKX7XkojkR" body="Thinking about trying that new pizza place downtown." toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="0" sub_id="3" readable_date="Jan 30, 2025 5:55:12 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738277747839" type="1" subject="null" body="Finally finished that book I told you about." toa="null" sc_toa="null" service_center="+14054724070" read="1" status="-1" locked="0" date_sent="1738277746000" sub_id="3" readable_date="Jan 30, 2025 5:55:47 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738277754301" type="1" subject="null" body="Went for a jog, now I’m exhausted." toa="null" sc_toa="null" service_center="+14054724070" read="1" status="-1" locked="0" date_sent="1738277753000" sub_id="3" readable_date="Jan 30, 2025 5:55:54 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738277807348" type="2" subject="proto:CjoKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SFCIAKhDZRvM5k9pO9YQyDx8bKDqS" body="Heading out for a walk, need some fresh air." toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="0" sub_id="3" readable_date="Jan 30, 2025 5:56:47 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738277831236" type="1" subject="null" body="Weather’s been weird lately, don’t you think?" toa="null" sc_toa="null" service_center="+14054724070" read="1" status="-1" locked="0" date_sent="1738277830000" sub_id="3" readable_date="Jan 30, 2025 5:57:11 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738277842831" type="1" subject="null" body="Weather’s been weird lately, don’t you think?" toa="null" sc_toa="null" service_center="+14054724070" read="1" status="-1" locked="0" date_sent="1738277841000" sub_id="3" readable_date="Jan 30, 2025 5:57:22 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738277912296" type="1" subject="null" body="Have you seen my headphones anywhere?" toa="null" sc_toa="null" service_center="+14054724070" read="1" status="-1" locked="0" date_sent="1738277910000" sub_id="3" readable_date="Jan 30, 2025 5:58:32 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738278011916" type="2" subject="proto:CjoKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SFCIAKhBrxYRJrpFNJ7bv8Esb9nw8" body="Heading out for a walk, need some fresh air." toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="0" sub_id="3" readable_date="Jan 30, 2025 6:00:11 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738278050147" type="1" subject="null" body="Forgot my keys again, typical me!" toa="null" sc_toa="null" service_center="+14054724070" read="1" status="-1" locked="0" date_sent="1738278049000" sub_id="3" readable_date="Jan 30, 2025 6:00:50 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738278095587" type="2" subject="proto:CjoKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SFCIAKhAw2Iy2xNNO/IV+cYtSySoy" body="Forgot my keys again, typical me!" toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="0" sub_id="3" readable_date="Jan 30, 2025 6:01:35 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738278134652" type="2" subject="proto:CjoKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SFCIAKhAysjMFscJDW4joo7+N6geX" body="New movie comes out Friday, want to go?" toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="0" sub_id="3" readable_date="Jan 30, 2025 6:02:14 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738278176961" type="1" subject="null" body="Can’t believe it’s already Thursday." toa="null" sc_toa="null" service_center="+14054724070" read="1" status="-1" locked="0" date_sent="1738278175000" sub_id="3" readable_date="Jan 30, 2025 6:02:56 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738278184612" type="1" subject="null" body="Laptop’s acting up again, ugh." toa="null" sc_toa="null" service_center="+14054724070" read="1" status="-1" locked="0" date_sent="1738278182000" sub_id="3" readable_date="Jan 30, 2025 6:03:04 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738278255268" type="2" subject="proto:CjoKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SFCIAKhDQKewN9oVCw6lReHTF3ld9" body="The sunset looked amazing tonight." toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="0" sub_id="3" readable_date="Jan 30, 2025 6:04:15 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738278274219" type="1" subject="null" body="The sunset looked amazing tonight." toa="null" sc_toa="null" service_center="+14054724070" read="1" status="-1" locked="0" date_sent="1738278272000" sub_id="3" readable_date="Jan 30, 2025 6:04:34 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738278373522" type="2" subject="proto:CjoKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SFCIAKhAlNU0EjHFGOLMSEu2ULJ8o" body="Forgot my keys again, typical me!" toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="0" sub_id="3" readable_date="Jan 30, 2025 6:06:13 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738278408000" type="2" subject="proto:CjoKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SFCIAKhC6gVCKb7hEqrvkGGhjngul" body="Thinking about trying that new pizza place downtown." toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="0" sub_id="3" readable_date="Jan 30, 2025 6:06:48 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738278423945" type="1" subject="null" body="Trying to cut down on coffee, wish me luck." toa="null" sc_toa="null" service_center="+14054724070" read="1" status="-1" locked="0" date_sent="1738278423000" sub_id="3" readable_date="Jan 30, 2025 6:07:03 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738278434213" type="1" subject="null" body="Forgot my keys again, typical me!" toa="null" sc_toa="null" service_center="+14054724070" read="1" status="-1" locked="0" date_sent="1738278432000" sub_id="3" readable_date="Jan 30, 2025 6:07:14 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738278447563" type="2" subject="proto:CjoKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SFCIAKhBL+KZJSxNCRbgliciQ3Oal" body="Finally finished that book I told you about." toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="0" sub_id="3" readable_date="Jan 30, 2025 6:07:27 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738278475263" type="1" subject="null" body="Trying to cut down on coffee, wish me luck." toa="null" sc_toa="null" service_center="+14054724070" read="1" status="-1" locked="0" date_sent="1738278473000" sub_id="3" readable_date="Jan 30, 2025 6:07:55 PM" contact_name="Jonathan Briggs" />
+  <sms protocol="0" address="+13155321938" date="1738278764423" type="2" subject="proto:CjoKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SFCIAKhACGhRpYl1J4bJblEtDnOPa" body="Went for a jog, now I’m exhausted." toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="0" sub_id="3" readable_date="Jan 30, 2025 6:12:44 PM" contact_name="Jonathan Briggs" />
+  <mms date="1737477603000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737477603" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiRGRkJENDhFRi04MUQ2LTQ5MDEtQUFDRS03NTFGNjI4NjVEN0MqENhIn3uNOUpttsCPA9/QGdg=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278022" m_type="132" readable_date="Jan 21, 2025 11:40:03 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Trying to cut down on coffee, wish me luck." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737477648000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="77" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeExvZEpBVXU9U2tPU2JTUzlnUkNCaFEqEFs5LTSoCUqImjksZXUA90A=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278023" m_type="128" readable_date="Jan 21, 2025 11:40:48 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Traffic was terrible this morning." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737477658000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="41" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeGRPSVJVNXh4U0xlejZ6a25PNVZ4VFEqEFQ9CEkZQU4zic+pmFxIbvg=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278024" m_type="128" readable_date="Jan 21, 2025 11:40:58 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Might go camping next weekend if the weather holds up." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737477678000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737477678" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQwMjc2RjY2Ny02OTFDLTRCMUItQjMyNy1CMTk3RkRBQjFBNDcqEJYbj94NUUW1jh9q0m2t768=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278025" m_type="132" readable_date="Jan 21, 2025 11:41:18 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Just got back from the store, they had a sale on apples." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737477748000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="114" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeGprYm9KQ0pCUVh5dDhXUmdLaElhNVEqELzFjt0mX0U8nkgpUGPvRJg=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278026" m_type="128" readable_date="Jan 21, 2025 11:42:28 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="New movie comes out Friday, want to go?" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737477749000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737477749" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQ0OEJFQzU3OS05NzFBLTQ4RjMtOUY0RS03QjZEMUIwNkYxODUqEI8VoCtfhkTjqIvBJELSGE4=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278027" m_type="132" readable_date="Jan 21, 2025 11:42:29 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Forgot my keys again, typical me!" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737477771000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="84" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeFFJeWxSV1ZaVHNhTk5SVWQzV1AxbXcqEIr2ym9Ps0B+lHPdP3A+S3E=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278028" m_type="128" readable_date="Jan 21, 2025 11:42:51 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Need to remember to water the plants later." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737477781000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="32" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeDl6clAyWFBmUXlXQmNXd1BxUElFOVEqEIDSq/dWJUQQiW1DV8u003s=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278029" m_type="128" readable_date="Jan 21, 2025 11:43:01 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="New movie comes out Friday, want to go?" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737477799000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737477799" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiRDNTNDMEEyQy1GMEY4LTRCNDQtODgyOC1EREY3OURDNTQwMzIqELjilACLkkU0rhdEikVVxlg=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278030" m_type="132" readable_date="Jan 21, 2025 11:43:19 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Laptop’s acting up again, ugh." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737477811000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737477811" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQ5MDk0RkE1Qi03MTVGLTQyQTUtQjFCQS05MzJFNzI1MTE5MzMqEIQr7Vjt/Ev/jAZAU7aSyok=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278031" m_type="132" readable_date="Jan 21, 2025 11:43:31 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Just got back from the store, they had a sale on apples." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737477821000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="12" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeDBLTWVHSmdOUUdDanlXMUE2Rk9HWWcqEGrwOFOOxU2crjSm5x49voE=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278032" m_type="128" readable_date="Jan 21, 2025 11:43:41 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Have you seen my headphones anywhere?" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737477837000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737477837" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiRCMTM3OTk0My0zMTFGLTQzRjEtOUZERS1BRUNFRUVBODEwQkIqEMw4b7pjSUP6i9mrdFPs8oE=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278033" m_type="132" readable_date="Jan 21, 2025 11:43:57 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Can’t believe it’s already Thursday." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737477838000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="24" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeHp3Ulo2aGxOUWlTMHVrbG9RTFFXWkEqEDE6OmFEwEtmolXXdBplpIs=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278034" m_type="128" readable_date="Jan 21, 2025 11:43:58 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Trying to cut down on coffee, wish me luck." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737477846000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737477846" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQ0NTcxNjdEQi1DMjExLTQ5NjItOEZENi0zN0I2RUEwQjk3NkEqEBngPaSGzUt8tcVPj0vlnaI=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278035" m_type="132" readable_date="Jan 21, 2025 11:44:06 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Laptop’s acting up again, ugh." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737477959000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737477959" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiRBOUI5NTE1My0wMTg5LTQ2QjItQUM1OS1EQkIzRDdDNjRCOEUqEJzk9Y/tbEKXvTmHImWRa5g=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278036" m_type="132" readable_date="Jan 21, 2025 11:45:59 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Weather’s been weird lately, don’t you think?" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737478013000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737478013" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQ2NzQ1NUYyNS1FNDY1LTRDNjItODBENy0wREY5RjJBMEQxOTIqEPq/R3asb0zCqUq+IzD7Kt4=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278037" m_type="132" readable_date="Jan 21, 2025 11:46:53 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Need to remember to water the plants later." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737479145000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="26" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeEl1a0sxSUs5UjlpTHpEUE03dkhkaWcqEL2GQDfB1EQipTnc6NXj/yo=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278038" m_type="128" readable_date="Jan 21, 2025 12:05:45 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Weather’s been weird lately, don’t you think?" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737479159000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="15" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeG5pRTAtc0dwU2VhYTUtRlkwZlRmdHcqEMqiAMefDkt9soAZohjRW6U=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278039" m_type="128" readable_date="Jan 21, 2025 12:05:59 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Trying to cut down on coffee, wish me luck." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737479284000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737479284" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiRCMEIzRjJDNS0yMjlELTQ5Q0UtOTY3RS00N0MxREYxMjk3M0YqEAGUDz/H9U92hqXKtajCQhk=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278040" m_type="132" readable_date="Jan 21, 2025 12:08:04 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Thinking about trying that new pizza place downtown." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737486795000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737486795" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQxMzgxNjA2Mi1GMjNBLTQ1QzItQkQ1NC02RThBNEUzQkRCMDYqELn6qzOBF0kxpRKQfohzmVc=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278053" m_type="132" readable_date="Jan 21, 2025 2:13:15 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Can’t believe it’s already Thursday." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737486821000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737486821" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiRDQkRGRDU4Ni1CNzAwLTQyRjUtODY2MS0xRERGM0Y2NTQ1NzUqEBRBM/iNa05trZkBlwMENQg=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278055" m_type="132" readable_date="Jan 21, 2025 2:13:41 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Can’t believe it’s already Thursday." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737486830000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737486830" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiRFQjgyNEY3RC0wNDFGLTQxNUEtOThGNi0zMzIxMzYwNTFBNEYqEBBNsWC/50Olo8qqp3rRD5I=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278056" m_type="132" readable_date="Jan 21, 2025 2:13:50 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Need to remember to water the plants later." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737494808000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737494808" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQwQkUxRkI1Mi1ENTJDLTQ5OEQtQkQ2RC00M0UzNjRFRkQ0RUIqEMxFi9gTCU/og6UxkWRrF9E=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278066" m_type="132" readable_date="Jan 21, 2025 4:26:48 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Did you see that new gadget release today?" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737494964000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="59" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeFF0QjdsZEd6UmsyOURGSzU5MEZwSHcqEOiftJPKnktNnn8BlDDCGe4=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278079" m_type="128" readable_date="Jan 21, 2025 4:29:24 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Forgot my keys again, typical me!" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737494971000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="23" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeDlEOFhwUGpMUW1LVm5ZaTVRS00tcVEqEIklWvSe/k+Hiz0e0STWKhM=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278080" m_type="128" readable_date="Jan 21, 2025 4:29:31 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Forgot my keys again, typical me!" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737494980000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737494980" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQxNjZBMDQ0RS1CNjM3LTRGMTAtQjg3NC05QzNEMzMxMkI1QUEqEDJuRbDMFEiLmQvz+3Yf75Y=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278081" m_type="132" readable_date="Jan 21, 2025 4:29:40 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Went for a jog, now I’m exhausted." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737494988000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737494988" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQwMkM1QUVDMC02NkVGLTQwODQtQTQyMC00ODc5NjEzMzg5QjYqEF3/eUcTpUERvmxjrLX/LK8=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278083" m_type="132" readable_date="Jan 21, 2025 4:29:48 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="New movie comes out Friday, want to go?" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737495072000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="35" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeFphTXpSVkNkUWFHbmlMYmtvdXVSRncqEICCBcsR0kKnhaW8fiSdHIo=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278090" m_type="128" readable_date="Jan 21, 2025 4:31:12 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Forgot my keys again, typical me!" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737495147000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="23" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeGgwaE1PaHp2VHBLWUlUOU1BbUhoVkEqEPYOF75mL0olqlvnGEUveQE=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278094" m_type="128" readable_date="Jan 21, 2025 4:32:27 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="The dog won’t stop barking at the mailman." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737496100000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="18" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeHZpbFRkR2ZZUXNLZTMtN1J0PTBtOEEqEGhUlw5AKETMi0dJLQQE7Zk=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278106" m_type="128" readable_date="Jan 21, 2025 4:48:20 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Can’t believe it’s already Thursday." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737496507000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737496507" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiRGQ0Y4RDU0RC0xQzE3LTQ2MTEtOEI3Ni01RTcxQkY2RTBGQjEqEBMiiQW4G0+iqcqkkj3KHdI=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278124" m_type="132" readable_date="Jan 21, 2025 4:55:07 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Just got back from the store, they had a sale on apples." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737496679000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="4" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeExkUDQwcXZnVHNHVnplQTRvYmV5ZVEqEMRR49lc0Ut1m6A/sU8aiEY=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278137" m_type="128" readable_date="Jan 21, 2025 4:57:59 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="The dog won’t stop barking at the mailman." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737496698000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737496698" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiREMkRBMDc4NC1GOTAzLTQ4ODYtQUMwMS00NkEwNkQ5MzM2NTUqEM3/mwktxkdctNEHn44mkGY=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278139" m_type="132" readable_date="Jan 21, 2025 4:58:18 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Watched a new show last night, it was pretty good." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737576632000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737576632" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQ2OEQ2RDczMi01QUZELTRCMDQtQkY0MS03RjFFQTNEQURDMUMqEB/Amp5HR0jIod1hAz6pjPs=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278250" m_type="132" readable_date="Jan 22, 2025 3:10:32 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Trying to cut down on coffee, wish me luck." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737587244000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="47" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeE9NVEg3YzIyVE9pakQ9b3RmMzA5ZHcqEKTsYQyUjUU1tfR+hwGM+Mw=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278257" m_type="128" readable_date="Jan 22, 2025 6:07:24 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Need to remember to water the plants later." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737587280000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737587280" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQ2RUUzNTYzRC1CNDgxLTRGQjQtOTI3My04REE5NzlCQzg2MDEqEA2NBTTAI084mF7puONxUgY=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278260" m_type="132" readable_date="Jan 22, 2025 6:08:00 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Thinking about trying that new pizza place downtown." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737587340000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="46" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeDltY1FjLVdUUmt5cTB0TEhRTW05dlEqECBB63CeZEfetwOHwNoYAvw=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278265" m_type="128" readable_date="Jan 22, 2025 6:09:00 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="The sunset looked amazing tonight." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737587374000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="25" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeE5PUEZ4VEhBUklXdVhFbU5CbUVwWUEqEPRbS5tymkKpuT86C4cygOA=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278266" m_type="128" readable_date="Jan 22, 2025 6:09:34 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="The sunset looked amazing tonight." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737587427000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737587427" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQxNjA0NTQ5QS1BNTczLTRDMzYtQTNFMi04N0JFNEJGNERDNEQqELDMlHdi4UpVixjMUhe8rO4=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278270" m_type="132" readable_date="Jan 22, 2025 6:10:27 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Traffic was terrible this morning." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737587468000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="22" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeGxHVnpycFZNVEdhSGhCdmgxYS1GdFEqEHfVonedjky0h7cNT5eNgnc=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278273" m_type="128" readable_date="Jan 22, 2025 6:11:08 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Can’t believe it’s already Thursday." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737587502000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="36" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeERPUXp3LWhhUj1pNFVnLXRlYWJGbmcqEEAPKHtZDEoCnpczM9Knw4U=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278274" m_type="128" readable_date="Jan 22, 2025 6:11:42 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Thinking about trying that new pizza place downtown." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737587563000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737587563" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiRBRTk1MkUxMy1GMkI5LTQzRUUtQjQ3MC1GNjAxNThENTBCQzgqEFj1fiNFWUsNqFX6q3iaS1Y=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278277" m_type="132" readable_date="Jan 22, 2025 6:12:43 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Forgot my keys again, typical me!" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737587642000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="84" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeDluc25yWE09UkNTPTdiNDA2WWU0Z2cqEBMhMy8uVEQ8vrnHhtxTuT8=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278280" m_type="128" readable_date="Jan 22, 2025 6:14:02 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Thinking about trying that new pizza place downtown." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737587721000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737587721" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQ1ODY3MTlCNi1DMDU3LTQ0NTMtOTg4RS1DNDJFNTZEMzlDOTMqENOQBEi/F0tbvUlRG8m9Ueo=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278281" m_type="132" readable_date="Jan 22, 2025 6:15:21 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Cooking pasta for dinner, simple and easy." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737827176000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="32" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeFJxTnZlRTRqVHZxSkM3dTNxVHlpeXcqEJ2E+gUZ40j6t8BJCRgXx0s=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278603" m_type="128" readable_date="Jan 25, 2025 12:46:16 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Heading out for a walk, need some fresh air." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737827216000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737827216" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiRENDk3MzYzOC03NkVELTQ3QUYtQkFFNy04Mjg0N0QwMTZCNzQqECEp9lG7skTDp/2Nh2P/aBo=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278604" m_type="132" readable_date="Jan 25, 2025 12:46:56 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Watched a new show last night, it was pretty good." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737831504000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="21" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeFBOV1hFPTRkUkEtY3RwMVRDRlV0VWcqEMKYJtxlGUUark0b1q4/Zwo=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278616" m_type="128" readable_date="Jan 25, 2025 1:58:24 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="The dog won’t stop barking at the mailman." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737831543000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737831543" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiRBMjhBMkRGRC1GOEQ3LTQ0MzItQjU2Qy0wRDA3NTRGRUU2MEEqEMn2UQOdwkbymCsKI/wOXLY=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278617" m_type="132" readable_date="Jan 25, 2025 1:59:03 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Can’t believe it’s already Thursday." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737851295000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="49" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeHpvNVVPOWtBUnQtWXdhYy1ZcjBXeFEqEAFXqVBzUkgcpHLw9QUdTdM=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278644" m_type="128" readable_date="Jan 25, 2025 7:28:15 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Need to remember to water the plants later." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737851455000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737851455" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQ4RUFCQ0JERC0wRjJGLTQxOTEtOUNGOS1FRjUxRUQwNUVDOEYqEH+aKfMqNksyuALeAsce07o=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278647" m_type="132" readable_date="Jan 25, 2025 7:30:55 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="The sunset looked amazing tonight." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737851659000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="14" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeGRnendPVktRUW51R0F6NkF5S2Y5SVEqELvVBd+duEmxvqbGOY/tOQs=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278648" m_type="128" readable_date="Jan 25, 2025 7:34:19 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Weather’s been weird lately, don’t you think?" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1737851880000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1737851880" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQxOEQ2QjA1Ny1EQjA5LTQ0MzctOTkyMi00QjU0QzE4RTBDNUYqEPRIJiWiDkiwo3BpJQtHNcY=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278649" m_type="132" readable_date="Jan 25, 2025 7:38:00 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Trying to cut down on coffee, wish me luck." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738200158000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="8" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeFozMUtYTVNPU0lLdWU2V1Vmd2t2YVEqENZItmIUYEa6u2mnwMoeJqg=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278951" m_type="128" readable_date="Jan 29, 2025 8:22:38 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Finally finished that book I told you about." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738200196000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1738200196" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQwOEEyM0QzNC1DMUI0LTQzQTItOTRCNC1EMkIxMDRDNkEwMjQqEPVBBMvgZ08MheUTSdXWMRM=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278952" m_type="132" readable_date="Jan 29, 2025 8:23:16 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="New movie comes out Friday, want to go?" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738200327000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1738200327" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQ5NEY5OUY1RC05MzE2LTRBODctQkM4Ny0zMUQwNThCNTEwOTkqEJMEMIe73E+vr7x6rdsFw1c=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="278954" m_type="132" readable_date="Jan 29, 2025 8:25:27 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Need to remember to water the plants later." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738208198000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="46" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeHB4N1JmOWZhUllLOU11dC1JZUdEaWcqELumlWBpBEl3kbo83Q8FLKA=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="278958" m_type="128" readable_date="Jan 29, 2025 10:36:38 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="The sunset looked amazing tonight." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738508103000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="22" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeElSYlNvV1JhUVZLb0ZsTT10UmVTa2cqEHzguU/91klHpKmlkHSPT3E=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="279206" m_type="128" readable_date="Feb 2, 2025 9:55:03 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Weather’s been weird lately, don’t you think?" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738508135000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1738508135" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQwM0YwQjZCNy1GMjhCLTQ2NzUtOTNBOC0xRTNFOUE4QTE2M0YqEMjuESW8fUzel2QlNRM6Hyo=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="279207" m_type="132" readable_date="Feb 2, 2025 9:55:35 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Thinking about trying that new pizza place downtown." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738508277000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="63" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeENYb3lJUEhpUzAyS0ZJYTdhTjJQOGcqEBejxujmp02uv/OcljKB6ow=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="279209" m_type="128" readable_date="Feb 2, 2025 9:57:57 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Weather’s been weird lately, don’t you think?" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738508365000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1738508365" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQ5NzkzMDVENC05MzQwLTQ0ODktODExQy1BOTQ5NkFCRENEQzgqELmDKnWvMkktt94rwFZLueg=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="279210" m_type="132" readable_date="Feb 2, 2025 9:59:25 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Laptop’s acting up again, ugh." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738508480000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="53" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeExNRXA2anlSUlhxWTNSbnA1MGVPTlEqEGRYLTDB6kGng2V15NuX7DA=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="279211" m_type="128" readable_date="Feb 2, 2025 10:01:20 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Weather’s been weird lately, don’t you think?" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738508718000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1738508718" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiRDQUIzMEE5RS00OTA0LTRDMkEtODQxMy0yODlERENEMjA3QkMqEI09+jzNAkd5ry7iWxGYiUk=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="279221" m_type="132" readable_date="Feb 2, 2025 10:05:18 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="New movie comes out Friday, want to go?" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738508807000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1738508807" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiRCMzMyQTc3MS1GMjU5LTRFNjYtQUM2QS03MzVBMUE1RjJCMUYqEHbx/xZYDkKbmDOIqud67Oo=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="279224" m_type="132" readable_date="Feb 2, 2025 10:06:47 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Laptop’s acting up again, ugh." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738509055000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1738509055" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQxNzZFMDFGQi04RjJFLTQ3RTEtODc3QS1ERUQ1REQwQ0QxMDUqEKYBWkQ7xUxDroXyiS1RWUc=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="279232" m_type="132" readable_date="Feb 2, 2025 10:10:55 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="The sunset looked amazing tonight." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738509095000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="41" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeGRIMT1WSE16UURlVTEyMy1aZ1ZhU3cqEKyj20N+xkbMrEW6koLPT3w=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="279233" m_type="128" readable_date="Feb 2, 2025 10:11:35 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Watched a new show last night, it was pretty good." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738509142000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1738509142" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQ1MTM4NzFGMS0yNzE2LTQyRDAtODAzQy0yODU1OTk0NzJEQjIqENggjboHrUJZvKidQKe8vok=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="279234" m_type="132" readable_date="Feb 2, 2025 10:12:22 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Forgot my keys again, typical me!" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738509227000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="53" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeFUyTmZTM1RXUkZtM1NQZTl0YlZXVVEqEEhsMo4k/U9xnv1FWAkEJ5Y=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="279235" m_type="128" readable_date="Feb 2, 2025 10:13:47 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Went for a jog, now I’m exhausted." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738509269000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1738509269" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQ3RjkzQTc1MS04NDE2LTRGODQtQkEzMi1FRTdDNEZDOTAxRUMqED43AYgWIk9pk1V7aRGV94g=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="279236" m_type="132" readable_date="Feb 2, 2025 10:14:29 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Went for a jog, now I’m exhausted." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738509288000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="27" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeFphMVI0YTNNUngya2toUW1FYWF2Z3cqEGilbpvZYkEYudghjd5Ltbo=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="279237" m_type="128" readable_date="Feb 2, 2025 10:14:48 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Heading out for a walk, need some fresh air." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738509331000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1738509331" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiRFRTRBRDZCOC0xMUI0LTQzMkUtQjFENy1GNUEzODcxREVGMEIqEK4u2LrxM0ffl2dBz0v12CI=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="279238" m_type="132" readable_date="Feb 2, 2025 10:15:31 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="The sunset looked amazing tonight." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738509368000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1738509368" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQ5MTJDN0E4NC02NDM2LTQxMzUtQTAxNy1BNkZGNTY1NUQ5RDgqEDeICdts0kCBnBxemC6yUCU=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="279239" m_type="132" readable_date="Feb 2, 2025 10:16:08 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Went for a jog, now I’m exhausted." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738510494000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="26" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeD0tV0ZIUjBpU1htR3hJYzJHNGtkNEEqEGvM1WNw0kZqvRtZ88y9V/M=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="279246" m_type="128" readable_date="Feb 2, 2025 10:34:54 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Trying to cut down on coffee, wish me luck." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738510626000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1738510626" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiREMzY3N0FBOC04RkYxLTQyQUMtQUNEQS0yMUFBRDM2MDlBNEEqEFD3fLkc4EtdsebE+TfA6Gs=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="279247" m_type="132" readable_date="Feb 2, 2025 10:37:06 AM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Traffic was terrible this morning." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738517245000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="65" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeFE0Tmc9OEdYU3dPemNjM0RnVXI1ZXcqELoy1pHx0ky9v2l36H/u1ZA=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="279260" m_type="128" readable_date="Feb 2, 2025 12:27:25 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Need to remember to water the plants later." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738518953000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="45" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeGs1UmNNUVFOU0lTSzdBMFh2M202M2cqEJza99+eJ0crgy9htmjUHaY=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="279262" m_type="128" readable_date="Feb 2, 2025 12:55:53 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Have you seen my headphones anywhere?" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738518970000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="62" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeEhxaW9ZS2dtUjc2ZzQtU2M4Uj04aXcqEGDq7ALzxUOflV8ej2uxzwg=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="279263" m_type="128" readable_date="Feb 2, 2025 12:56:10 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Finally finished that book I told you about." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738526273000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1738526273" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQ3MzYzQjM1MS0xRTkyLTQ0M0UtQTkyMi05MUNBQzZEQ0I1MkUqEM8D/2yahkvjsGDmQJ5CHWs=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="279277" m_type="132" readable_date="Feb 2, 2025 2:57:53 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Watched a new show last night, it was pretty good." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738528055000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="116" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeGZDUkUycm5EUzVlV0VjU3oxcDAzb3cqEO8O2RonK0KLqD62R0l6EpA=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="279294" m_type="128" readable_date="Feb 2, 2025 3:27:35 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Watched a new show last night, it was pretty good." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738528096000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1738528096" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQ3NDA2NDFFNC1GRjk3LTRCMzItOTc5QS0wOTUwMzk0ODUwN0UqEFZ6q61zI0PDganVTuT9Tic=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="279295" m_type="132" readable_date="Feb 2, 2025 3:28:16 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Laptop’s acting up again, ugh." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738528467000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="69" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeEgxPUY4LVR6UmxDc0k0ZUxoSUlLVkEqEOK2QVXKykP7koIgcLPrW2I=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="279296" m_type="128" readable_date="Feb 2, 2025 3:34:27 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Cooking pasta for dinner, simple and easy." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738528519000" rr="129" sub="null" ct_t="application/vnd.wap.multipart.related" read_status="null" seen="1" msg_box="2" address="+13155321938" sub_cs="null" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="604800" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="0" read="1" m_size="57" rpt_a="null" ct_cls="135" pri="129" sub_id="3" tr_id="proto:ClQKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SLhIaKhhNeHlweTgzeGtlUVZlbHpZOVBXcWpGPVEqEL1rNA9x60xvn1YQlfa+bz8=" resp_txt="null" ct_l="null" m_cls="personal" d_rpt="129" v="18" _id="279297" m_type="128" readable_date="Feb 2, 2025 3:35:19 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="-1" ct="application/smil" name="null" chset="null" cd="null" fn="null" cid="&lt;smil&gt;" cl="smil.xml" ctt_s="null" ctt_t="null" text="&lt;smil&gt;&lt;head&gt;&lt;layout&gt;&lt;root-layout/&gt;&lt;region id=&quot;Text&quot; top=&quot;0&quot; left=&quot;0&quot; height=&quot;100%&quot; width=&quot;100%&quot;/&gt;&lt;/layout&gt;&lt;/head&gt;&lt;body&gt;&lt;par dur=&quot;5000ms&quot;&gt;&lt;text src=&quot;text000001.txt&quot; region=&quot;Text&quot; /&gt;&lt;/par&gt;&lt;/body&gt;&lt;/smil&gt;" sub_id="3" />
+      <part seq="0" ct="text/plain" name="null" chset="106" cd="null" fn="null" cid="&lt;text000001&gt;" cl="text000001.txt" ctt_s="null" ctt_t="null" text="Can’t believe it’s already Thursday." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+15138242798" type="137" charset="106" />
+      <addr address="+13155321938" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738528607000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1738528607" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiQ1NEQxNjZGQS0yOTAzLTQ2M0EtQTMwRS03MDY0NjI0ODYwN0UqEBRyXi65sUKSuWt9M7okV4I=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="279298" m_type="132" readable_date="Feb 2, 2025 3:36:47 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="Traffic was terrible this morning." sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+  <mms date="1738528654000" rr="null" sub="" ct_t="text/plain" read_status="null" seen="1" msg_box="1" address="+13155321938" sub_cs="106" resp_st="null" retr_st="null" d_tm="null" text_only="1" exp="null" locked="0" m_id="null" st="null" retr_txt_cs="null" retr_txt="null" creator="com.google.android.apps.messaging" date_sent="1738528654" read="1" m_size="0" rpt_a="null" ct_cls="135" pri="null" sub_id="3" tr_id="proto:CmAKImNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLm1lc3NhZ2luZy4SOhImKiRFOUY4ODI1Ni0wQzhFLTRGMDctOTBFRi1CRTJGRDQwNjlENTIqEEl0tlF7P0Til1/7cFxYeHU=" resp_txt="null" ct_l="null" m_cls="null" d_rpt="null" v="null" _id="279299" m_type="132" readable_date="Feb 2, 2025 3:37:34 PM" contact_name="Jonathan Briggs">
+    <parts>
+      <part seq="0" ct="text/plain" name="body" chset="106" cd="null" fn="null" cid="null" cl="null" ctt_s="null" ctt_t="null" text="New movie comes out Friday, want to go?" sub_id="3" />
+    </parts>
+    <addrs>
+      <addr address="+13155321938" type="130" charset="106" />
+      <addr address="+13155321938" type="137" charset="106" />
+      <addr address="+15138242798" type="151" charset="106" />
+    </addrs>
+  </mms>
+</smses>
