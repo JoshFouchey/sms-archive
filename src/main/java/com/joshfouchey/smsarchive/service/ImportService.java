@@ -13,7 +13,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.sql.DataSource;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamReader;
@@ -27,20 +26,15 @@ import java.util.concurrent.atomic.AtomicLong;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
-import java.sql.Connection;
-import java.sql.SQLException;
 
 @Slf4j
 @Service
 public class ImportService {
 
-    private boolean postgresDialect; // set via DataSource detection
-
     private static final String SENDER_ME = "me";
     private static final String ADDR_TYPE_FROM = "137";
     private static final String ADDR_TYPE_TO = "151";
     private static final int MSG_BOX_INBOX = 1;
-    private static final int MSG_BOX_SENT = 2;
     private static final String TEXT_PLAIN = "text/plain";
     private static final String UNKNOWN_NORMALIZED = "__unknown__";
     private static final String APPLICATION_SMIL = "application/smil";
@@ -108,17 +102,6 @@ public class ImportService {
     @Autowired(required = false)
     public void setImportTaskExecutor(@Qualifier("importTaskExecutor") TaskExecutor executor) {
         this.importTaskExecutor = executor;
-    }
-
-    @Autowired
-    public void setDataSource(DataSource ds) {
-        try (Connection connection = ds.getConnection()) {
-            String product = connection.getMetaData().getDatabaseProductName();
-            this.postgresDialect = product != null && product.toLowerCase().contains("postgres");
-        } catch (SQLException e) {
-            log.warn("Failed to detect database dialect", e);
-            this.postgresDialect = false;
-        }
     }
 
     @VisibleForTesting
