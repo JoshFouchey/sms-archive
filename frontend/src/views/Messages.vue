@@ -73,7 +73,7 @@
         </button>
         <h2 class="text-lg md:text-xl font-semibold tracking-tight text-gray-700 dark:text-gray-200 flex-1 truncate">
           <span v-if="selectedConversation?.participantCount && selectedConversation.participantCount > 2">Group:</span>
-          <span v-else>Conversation with</span>
+          <span v-else>Conversation with </span>
           <span class="accent-text">{{ selectedConversation?.name || '...' }}</span>
         </h2>
         <!-- Delete conversation button (desktop + mobile when conversation selected) -->
