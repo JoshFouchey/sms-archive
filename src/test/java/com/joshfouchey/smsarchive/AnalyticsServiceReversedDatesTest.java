@@ -36,6 +36,7 @@ class AnalyticsServiceReversedDatesTest extends EnhancedPostgresTestContainer {
     @Autowired ContactRepository contactRepository;
     @Autowired MessageRepository messageRepository;
     @Autowired UserRepository userRepository;
+    @Autowired com.joshfouchey.smsarchive.repository.ConversationRepository conversationRepository;
 
     Contact contact;
     User testUser;
@@ -52,11 +53,19 @@ class AnalyticsServiceReversedDatesTest extends EnhancedPostgresTestContainer {
         testUser = userRepository.save(testUser);
 
         contact = contactRepository.save(Contact.builder().number("+15550123").normalizedNumber("15550123").name("X").user(testUser).build());
+
+        // Create conversation with the contact as participant
+        com.joshfouchey.smsarchive.model.Conversation conv = new com.joshfouchey.smsarchive.model.Conversation();
+        conv.setUser(testUser);
+        conv.setName(contact.getName());
+        conv.getParticipants().add(contact);
+        conv = conversationRepository.save(conv);
+
         // messages across a 5 day span
         LocalDate start = LocalDate.now().minusDays(5);
         for (int i = 0; i < 5; i++) {
             Message m = new Message();
-            m.setContact(contact);
+            m.setConversation(conv);
             m.setUser(testUser);
             m.setProtocol(MessageProtocol.SMS);
             m.setDirection(MessageDirection.OUTBOUND);

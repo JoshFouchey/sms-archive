@@ -33,6 +33,7 @@ class UserIsolationTest extends EnhancedPostgresTestContainer {
     @Autowired UserRepository userRepo;
     @Autowired ContactRepository contactRepo;
     @Autowired MessageRepository messageRepo;
+    @Autowired com.joshfouchey.smsarchive.repository.ConversationRepository conversationRepo;
 
     String tokenA;
     String tokenB;
@@ -54,9 +55,17 @@ class UserIsolationTest extends EnhancedPostgresTestContainer {
         contactA.setNumber("+15551234567");
         contactA.setNormalizedNumber("15551234567");
         contactRepo.save(contactA);
+
+        // Create conversation with contactA as participant
+        com.joshfouchey.smsarchive.model.Conversation conv = new com.joshfouchey.smsarchive.model.Conversation();
+        conv.setUser(userA);
+        conv.setName("Test Conversation");
+        conv.getParticipants().add(contactA);
+        conv = conversationRepo.save(conv);
+
         Message m = new Message();
         m.setUser(userA);
-        m.setContact(contactA);
+        m.setConversation(conv);
         m.setSenderContact(contactA); // INBOUND: sender is the contact
         m.setProtocol(MessageProtocol.SMS);
         m.setDirection(MessageDirection.INBOUND);

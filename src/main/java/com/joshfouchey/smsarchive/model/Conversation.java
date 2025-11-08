@@ -40,7 +40,7 @@ public class Conversation {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
-    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @ManyToMany(cascade = {CascadeType.MERGE})
     @JoinTable(name = "conversation_contacts",
             joinColumns = @JoinColumn(name = "conversation_id"),
             inverseJoinColumns = @JoinColumn(name = "contact_id"))

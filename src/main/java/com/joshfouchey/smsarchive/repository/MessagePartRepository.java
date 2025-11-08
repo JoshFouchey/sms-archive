@@ -18,7 +18,7 @@ public interface MessagePartRepository extends JpaRepository<MessagePart, Long> 
     Page<MessagePart> findAllImages(@Param("user") User user, Pageable pageable);
 
 
-    @Query("SELECT p FROM MessagePart p JOIN p.message m JOIN m.contact c WHERE p.contentType LIKE 'image/%' AND c.id = :contactId AND m.user = :user ORDER BY p.id DESC")
+    @Query("SELECT p FROM MessagePart p JOIN p.message m JOIN m.conversation conv JOIN conv.participants c WHERE p.contentType LIKE 'image/%' AND c.id = :contactId AND m.user = :user ORDER BY p.id DESC")
     Page<MessagePart> findImagesByContactId(@Param("contactId") Long contactId, @Param("user") User user, Pageable pageable);
 
     @Query("select count(p) from MessagePart p where p.contentType like 'image/%' and p.message.user = :user")
@@ -28,6 +28,6 @@ public interface MessagePartRepository extends JpaRepository<MessagePart, Long> 
     @Query("SELECT p FROM MessagePart p WHERE p.contentType LIKE 'image/%' AND p.filePath IS NOT NULL AND p.message.user = :user ORDER BY p.id ASC")
     List<MessagePart> findAllImagePartsByUser(@Param("user") User user);
 
-    @Query("SELECT p FROM MessagePart p JOIN p.message m JOIN m.contact c WHERE p.contentType LIKE 'image/%' AND p.filePath IS NOT NULL AND c.id = :contactId AND m.user = :user ORDER BY p.id ASC")
+    @Query("SELECT p FROM MessagePart p JOIN p.message m JOIN m.conversation conv JOIN conv.participants c WHERE p.contentType LIKE 'image/%' AND p.filePath IS NOT NULL AND c.id = :contactId AND m.user = :user ORDER BY p.id ASC")
     List<MessagePart> findImagePartsByContactId(@Param("contactId") Long contactId, @Param("user") User user);
 }

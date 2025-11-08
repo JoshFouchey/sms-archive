@@ -172,12 +172,13 @@ class ImportServiceTest {
             String key2 = service.computeDuplicateKeyForTest(m);
             assertEquals(key1, key2, "Body trimming should not change duplicate key");
 
-            // With a contact id, key should change
-            Contact c = Contact.builder().id(42L).number("5551234567").normalizedNumber("5551234567").build();
-            m.setContact(c);
+            // With a conversation id, key should change
+            com.joshfouchey.smsarchive.model.Conversation conv = new com.joshfouchey.smsarchive.model.Conversation();
+            conv.setId(42L);
+            m.setConversation(conv);
             String key3 = service.computeDuplicateKeyForTest(m);
             assertNotEquals(key1, key3);
-            assertTrue(key3.startsWith("42|"), "Contact id should prefix the key");
+            assertTrue(key3.startsWith("42|"), "Conversation id should prefix the key");
         }
 
         @Test
@@ -190,7 +191,9 @@ class ImportServiceTest {
                 if (c.getId() == null) c.setId(1L);
                 return c;
             });
-            when(messageRepository.existsDuplicate(any(), any(), anyInt(), any(), any())).thenReturn(false);
+            // Mock the conversation-based duplicate checks
+            when(messageRepository.existsByConversationAndTimestampAndBody(any(), any(), any())).thenReturn(false);
+            when(messageRepository.existsByTimestampAndBody(any(), any())).thenReturn(false);
             // Capture saved messages count
             final java.util.concurrent.atomic.AtomicInteger saved = new java.util.concurrent.atomic.AtomicInteger();
             doAnswer(inv -> {
@@ -289,11 +292,17 @@ class ImportServiceTest {
         }
 
         @Test
-        void duplicateKeyTrimsBodyAndUsesContactIdOrNull() {
+        void duplicateKeyTrimsBodyAndUsesConversationIdOrNull() {
             // Use a distinct number not present in streamed XML fixtures to avoid unique constraint collisions
             Contact contact = contactRepository.save(Contact.builder().number("+15550000001").normalizedNumber("5550000001").name("TestPerson").user(testUser).build());
+            com.joshfouchey.smsarchive.model.Conversation conv = new com.joshfouchey.smsarchive.model.Conversation();
+            conv.setUser(testUser);
+            conv.setName("Test Conversation");
+            conv.getParticipants().add(contact);
+            conv = conversationRepository.save(conv);
+
             Message msg = new Message();
-            msg.setContact(contact);
+            msg.setConversation(conv);
             msg.setUser(testUser);
             msg.setBody("  Hello World  ");
             msg.setTimestamp(Instant.ofEpochMilli(123456789L));
@@ -302,11 +311,11 @@ class ImportServiceTest {
             msg.setProtocol(MessageProtocol.SMS);
             String key = importService.computeDuplicateKeyForTest(msg);
             assertThat(key)
-                .startsWith(contact.getId().toString() + "|")
+                .startsWith(conv.getId().toString() + "|")
                 .contains("Hello World")
                 .endsWith("Hello World");
             Message msg2 = new Message();
-            msg2.setContact(contact);
+            msg2.setConversation(conv);
             msg2.setBody(null);
             msg2.setTimestamp(Instant.ofEpochMilli(123456789L));
             msg2.setMsgBox(1);
@@ -315,7 +324,7 @@ class ImportServiceTest {
             String key2 = importService.computeDuplicateKeyForTest(msg2);
             assertThat(key2).endsWith("|");
             Message msg3 = new Message();
-            msg3.setContact(null);
+            msg3.setConversation(null);
             msg3.setBody("Test");
             msg3.setTimestamp(Instant.ofEpochMilli(123456789L));
             msg3.setMsgBox(1);
@@ -410,6 +419,7 @@ class ImportServiceTest {
         }
 
         @Test
+        @Transactional
         @DisplayName("SMS messages are assigned to conversations after contact resolution")
         void smsMessagesAreAssignedToConversations() throws Exception {
             // Create XML with SMS messages between two contacts
@@ -448,18 +458,22 @@ class ImportServiceTest {
             assertThat(allMessages).allMatch(msg -> msg.getConversation().getId() != null,
                     "All conversations should have non-null IDs");
 
-            // Verify messages are grouped correctly by contact
+            // Verify messages are grouped correctly by contact through conversations
             var aliceContact = contactRepository.findByUserAndNormalizedNumber(testUser, "15551234567")
                     .orElseThrow(() -> new AssertionError("Alice contact should exist"));
             long aliceMessageCount = allMessages.stream()
-                    .filter(msg -> msg.getContact() != null && msg.getContact().getId().equals(aliceContact.getId()))
+                    .filter(msg -> msg.getConversation() != null &&
+                        msg.getConversation().getParticipants().stream()
+                            .anyMatch(c -> c.getId().equals(aliceContact.getId())))
                     .count();
             assertThat(aliceMessageCount).isEqualTo(3);
 
             var bobContact = contactRepository.findByUserAndNormalizedNumber(testUser, "15559876543")
                     .orElseThrow(() -> new AssertionError("Bob contact should exist"));
             long bobMessageCount = allMessages.stream()
-                    .filter(msg -> msg.getContact() != null && msg.getContact().getId().equals(bobContact.getId()))
+                    .filter(msg -> msg.getConversation() != null &&
+                        msg.getConversation().getParticipants().stream()
+                            .anyMatch(c -> c.getId().equals(bobContact.getId())))
                     .count();
             assertThat(bobMessageCount).isEqualTo(2);
         }
@@ -532,12 +546,14 @@ class ImportServiceTest {
 
             Contact aliceContact = aliceContacts.get(0);
 
-            // Verify all messages are associated with the same contact
+            // Verify all messages are associated with conversations containing Alice
             var aliceMessages = allMessages.stream()
-                    .filter(msg -> msg.getContact() != null && msg.getContact().getId().equals(aliceContact.getId()))
+                    .filter(msg -> msg.getConversation() != null &&
+                        msg.getConversation().getParticipants().stream()
+                            .anyMatch(c -> c.getId().equals(aliceContact.getId())))
                     .toList();
             assertThat(aliceMessages).hasSize(4)
-                    .describedAs("All 4 messages should be associated with Alice's contact");
+                    .describedAs("All 4 messages should be in conversations with Alice");
 
             // THE KEY ASSERTION: All messages from Alice should be in the SAME conversation
             var conversationIds = aliceMessages.stream()

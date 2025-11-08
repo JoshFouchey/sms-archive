@@ -22,7 +22,8 @@ class SchemaMigrationTest extends EnhancedPostgresTestContainer {
     void essentialIndexesConstraintsAndTriggersExist() {
         Set<String> indexes = jdbc.query("SELECT indexname FROM pg_indexes WHERE tablename='messages'", (rs, i) -> rs.getString(1))
                 .stream().collect(Collectors.toSet());
-        assertThat(indexes).contains("ux_messages_dedupe", "ix_messages_dedupe_prefix", "idx_messages_body_fts");
+        // Check for conversation-based duplicate detection index (replaced old contact-based indexes)
+        assertThat(indexes).contains("idx_messages_dedupe_prefix", "idx_messages_body_fts");
 
         Set<String> constraints = jdbc.query("SELECT conname FROM pg_constraint WHERE conrelid='messages'::regclass", (rs,i)->rs.getString(1))
                 .stream().collect(Collectors.toSet());

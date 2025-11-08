@@ -35,16 +35,15 @@ public class GroupChatImportIntegrationTest extends EnhancedPostgresTestContaine
     private com.joshfouchey.smsarchive.model.User testUser;
 
     @BeforeEach
+    @Transactional
     void setup() {
         messagePartRepository.deleteAll();
         messageRepository.deleteAll();
         conversationRepository.deleteAll();
         contactRepository.deleteAll();
         userRepository.deleteAll();
-        testUser = new com.joshfouchey.smsarchive.model.User();
-        testUser.setUsername("testuser");
-        testUser.setPasswordHash("$2a$10$dummyhash");
-        testUser = userRepository.save(testUser);
+        // Don't create user here - let TestOverridesConfig create it during import
+        // to avoid duplicate key constraint violation
     }
 
     @Test
@@ -59,6 +58,9 @@ public class GroupChatImportIntegrationTest extends EnhancedPostgresTestContaine
         var progress = importService.getProgress(jobId);
         Assertions.assertThat(progress.getStatus()).isEqualTo("COMPLETED");
         Assertions.assertThat(progress.getImportedMessages()).isGreaterThan(0);
+
+        // Fetch the user that was created by TestOverridesConfig during import
+        testUser = userRepository.findByUsername("testuser").orElseThrow();
 
         // Verify conversations were created
         var allConversations = conversationRepository.findAllByUserOrderByLastMessage(testUser);
@@ -95,6 +97,25 @@ public class GroupChatImportIntegrationTest extends EnhancedPostgresTestContaine
         Assertions.assertThat(mmsMessagesWithoutConversation)
                 .as("All MMS messages should have a conversation assigned")
                 .isEqualTo(0);
+
+        // CRITICAL: Verify that group chat names are NOT created as contacts
+        // Group chat names like "Neighborhood Group" should ONLY be in Conversation.name, not as Contact records
+        var allContacts = contactRepository.findAll();
+        var groupNameContacts = allContacts.stream()
+                .filter(c -> c.getName() != null &&
+                    (c.getName().contains("Group") || c.getName().contains("Team") || c.getName().contains("Vacation")))
+                .toList();
+        Assertions.assertThat(groupNameContacts)
+                .as("Group chat names should NOT be created as contacts - they should only be in Conversation.name")
+                .isEmpty();
+
+        // Verify that group conversations DO have the proper names
+        var groupConvosWithNames = groupConvos.stream()
+                .filter(c -> c.getName() != null && !c.getName().isBlank())
+                .toList();
+        Assertions.assertThat(groupConvosWithNames)
+                .as("Group conversations should have names set")
+                .isNotEmpty();
     }
 }
 

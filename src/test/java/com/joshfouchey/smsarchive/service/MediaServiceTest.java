@@ -34,6 +34,7 @@ class MediaServiceTest extends EnhancedPostgresTestContainer {
     @Autowired private MessageRepository messageRepository;
     @Autowired private MessagePartRepository messagePartRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private com.joshfouchey.smsarchive.repository.ConversationRepository conversationRepository;
 
     private Long contact1Id;
     private Long contact2Id;
@@ -83,6 +84,13 @@ class MediaServiceTest extends EnhancedPostgresTestContainer {
     }
 
     private Message baseMessage(Contact contact, String sender, String recipient, Instant ts, MessageProtocol protocol, MessageDirection dir, String body) {
+        // Create conversation with the contact as participant
+        Conversation conv = new Conversation();
+        conv.setUser(testUser);
+        conv.setName(contact.getName());
+        conv.getParticipants().add(contact);
+        conv = conversationRepository.save(conv);
+
         Message m = new Message();
         m.setProtocol(protocol);
         m.setDirection(dir);
@@ -90,7 +98,7 @@ class MediaServiceTest extends EnhancedPostgresTestContainer {
         if (dir == MessageDirection.INBOUND) {
             m.setSenderContact(contact);
         }
-        m.setContact(contact);
+        m.setConversation(conv);
         m.setUser(testUser);
         m.setTimestamp(ts);
         m.setBody(body);
@@ -130,7 +138,10 @@ class MediaServiceTest extends EnhancedPostgresTestContainer {
     void filter_contact1_returnsTwoImages() {
         var page = mediaService.getImages(contact1Id, 0, 10);
         assertThat(page.getTotalElements()).isEqualTo(2);
-        assertThat(page.getContent()).allMatch(p -> p.getMessage().getContact().getId().equals(contact1Id));
+        assertThat(page.getContent()).allMatch(p ->
+            p.getMessage().getConversation() != null &&
+            p.getMessage().getConversation().getParticipants().stream()
+                .anyMatch(c -> c.getId().equals(contact1Id)));
     }
 
     @Test
@@ -138,7 +149,10 @@ class MediaServiceTest extends EnhancedPostgresTestContainer {
     void filter_contact2_returnsOneImage() {
         var page = mediaService.getImages(contact2Id, 0, 10);
         assertThat(page.getTotalElements()).isEqualTo(1);
-        assertThat(page.getContent()).allMatch(p -> p.getMessage().getContact().getId().equals(contact2Id));
+        assertThat(page.getContent()).allMatch(p ->
+            p.getMessage().getConversation() != null &&
+            p.getMessage().getConversation().getParticipants().stream()
+                .anyMatch(c -> c.getId().equals(contact2Id)));
     }
 
     @Test

@@ -322,14 +322,20 @@ public class ImportService {
                     String addrVal = attr(r, "address");
                     String addrType = attr(r, "type");
 
-                    // Only add participants that represent the counterparty, not the user
-                    // For INBOUND (msg_box=1): FROM (137) is the counterparty
-                    // For OUTBOUND (msg_box=2): TO (151) is the counterparty
+                    // Expanded participant detection logic:
+                    // Inbound (msg_box=1):
+                    //   type 137 = sender, type 130 = other participants
+                    // Outbound (msg_box=2):
+                    //   type 151 = recipients
                     boolean shouldAddParticipant = false;
-                    if (ctx.cur.getDirection() == MessageDirection.INBOUND && ADDR_TYPE_FROM.equals(addrType)) {
-                        shouldAddParticipant = true;
-                    } else if (ctx.cur.getDirection() == MessageDirection.OUTBOUND && ADDR_TYPE_TO.equals(addrType)) {
-                        shouldAddParticipant = true;
+                    if (ctx.cur.getDirection() == MessageDirection.INBOUND) {
+                        if (ADDR_TYPE_FROM.equals(addrType) || "130".equals(addrType)) {
+                            shouldAddParticipant = true;
+                        }
+                    } else if (ctx.cur.getDirection() == MessageDirection.OUTBOUND) {
+                        if (ADDR_TYPE_TO.equals(addrType)) {
+                            shouldAddParticipant = true;
+                        }
                     }
 
                     if (shouldAddParticipant && addrVal != null && !addrVal.isBlank() && !addrVal.equalsIgnoreCase(SENDER_ME)) {
@@ -351,7 +357,7 @@ public class ImportService {
                                             List<Message> batch) {
         String local = r.getLocalName();
         if (ctx.inMultipart && ctx.cur != null && (local.equals("mms") || local.equals("rcs"))) {
-            finalizeMultipart(ctx.cur, ctx.suggestedName, ctx.curParts, ctx.curMedia, ctx.textAgg);
+            finalizeMultipart(ctx.cur, ctx.suggestedName, ctx.curParts, ctx.curMedia, ctx.textAgg, ctx.participantNumbers);
             assignConversationForMultipart(ctx.cur, ctx.threadKey, ctx.participantNumbers, ctx.suggestedName); // new
             boolean dup = isDuplicateInRunOrDb(ctx.cur, seenKeys);
             if (dup) { progress.incDuplicateMessages(); }
@@ -368,21 +374,31 @@ public class ImportService {
 
     // Conversation assignment helpers
     private void assignConversationForSms(Message msg, String suggestedName) {
-        // For SMS, the contact field contains the counterparty
-        Contact counterparty = msg.getContact();
-        if (counterparty == null || counterparty.getNormalizedNumber() == null) {
-            log.debug("Skipping conversation assignment - no contact set");
+        String normalized = null;
+
+        // For inbound SMS: get normalized number from senderContact
+        if (msg.getSenderContact() != null) {
+            normalized = msg.getSenderContact().getNormalizedNumber();
+        } else {
+            // For outbound SMS: get normalized number from metadata
+            Map<String, Object> meta = msg.getMetadata();
+            if (meta != null && meta.containsKey("_normalizedNumber")) {
+                normalized = (String) meta.get("_normalizedNumber");
+            }
+        }
+
+        if (normalized == null || normalized.isBlank()) {
+            log.debug("Skipping conversation assignment - no normalized number available");
             return;
         }
-        String normalized = counterparty.getNormalizedNumber();
         if (normalized.equals(UNKNOWN_NORMALIZED)) {
             log.debug("Skipping conversation assignment - cannot resolve address");
             return; // skip if cannot resolve
         }
 
         // Enhanced logging to diagnose normalization consistency
-        log.debug("Assigning SMS to conversation for normalized: {}, contact.number: {}, suggestedName: {}",
-                  normalized, counterparty.getNumber(), suggestedName);
+        log.debug("Assigning SMS to conversation for normalized: {}, suggestedName: {}",
+                  normalized, suggestedName);
 
         User user = threadLocalImportUser.get();
         if (user == null) user = currentUserProvider.getCurrentUser();
@@ -398,6 +414,15 @@ public class ImportService {
         }
         msg.setConversation(convo);
         log.debug("Assigned message to conversation ID: {}", convo.getId());
+
+        // Clean up temporary normalized number from metadata
+        Map<String, Object> meta = msg.getMetadata();
+        if (meta != null) {
+            meta.remove("_normalizedNumber");
+            if (meta.isEmpty()) {
+                msg.setMetadata(null);
+            }
+        }
     }
 
     private void assignConversationForMultipart(Message msg, String threadKey, Set<String> participantNumbers, String suggestedName) {
@@ -414,21 +439,11 @@ public class ImportService {
         if (participantNumbers.size() == 1) {
             String normalizedFromAddr = participantNumbers.iterator().next();
 
-            // Enhanced logging: Check if the contact's normalized number matches what we got from addr
-            Contact contact = msg.getContact();
-            if (contact != null && contact.getNormalizedNumber() != null) {
-                String normalizedFromContact = contact.getNormalizedNumber();
-                log.debug("Assigning MMS to conversation - normalized from <addr>: {}, normalized from contact: {}, match: {}, suggestedName: {}",
-                          normalizedFromAddr, normalizedFromContact, normalizedFromAddr.equals(normalizedFromContact), suggestedName);
+            log.debug("Assigning MMS to 1:1 conversation - normalized: {}, suggestedName: {}",
+                      normalizedFromAddr, suggestedName);
 
-                // Use the contact's normalized number for consistency with SMS messages
-                // This ensures both SMS and MMS from the same contact use the same normalized number
-                convo = conversationService.findOrCreateOneToOneForUser(user, normalizedFromContact, suggestedName);
-            } else {
-                log.debug("Assigning MMS to conversation - using normalized from <addr>: {} (no contact available), suggestedName: {}",
-                          normalizedFromAddr, suggestedName);
-                convo = conversationService.findOrCreateOneToOneForUser(user, normalizedFromAddr, suggestedName);
-            }
+            // For 1:1 MMS, create conversation with single participant
+            convo = conversationService.findOrCreateOneToOneForUser(user, normalizedFromAddr, suggestedName);
         } else {
             log.debug("Assigning MMS to group conversation - participants: {}, threadKey: {}, suggestedName: {}",
                       participantNumbers, threadKey, suggestedName);
@@ -503,14 +518,24 @@ public class ImportService {
         }
     }
 
-    private void finalizeMultipart(Message cur, String suggestedName, List<MessagePart> curParts, List<Map<String,Object>> curMedia, StringBuilder textAgg) {
+    private void finalizeMultipart(Message cur, String suggestedName, List<MessagePart> curParts, List<Map<String,Object>> curMedia, StringBuilder textAgg, Set<String> participantNumbers) {
         if (StringUtils.isBlank(cur.getBody()) && textAgg != null && !textAgg.isEmpty()) {
             cur.setBody(textAgg.toString().trim());
         }
         if (curMedia != null && !curMedia.isEmpty()) cur.setMedia(Map.of("parts", curMedia));
         cur.setParts(curParts);
-        finalizeStreamingContact(cur, suggestedName);
-        // After contact is resolved relocate any parts saved under _nocontact
+
+        // Heuristic group detection: if we collected >1 participants treat as group.
+        // (Accurate participant collection now includes INBOUND type 130 + 137 and OUTBOUND 151.)
+        boolean isGroup = participantNumbers != null && participantNumbers.size() > 1;
+
+        if (isGroup) {
+            finalizeGroupMessageContact(cur);
+        } else {
+            finalizeStreamingContact(cur, suggestedName);
+        }
+
+        // After contact is resolved relocate any parts saved under _nocontact / _noconversation
         relocatePartsToContactDir(cur);
     }
 
@@ -523,9 +548,9 @@ public class ImportService {
     }
     private String buildDuplicateKey(Message msg) {
         String bodyNorm = msg.getBody() == null ? "" : msg.getBody().trim();
-        Long contactId = msg.getContact() == null ? null : msg.getContact().getId();
-        String contactStr = (contactId == null) ? "null" : contactId.toString();
-        return contactStr + "|" + msg.getTimestamp() + "|" + msg.getMsgBox() + "|" + msg.getProtocol() + "|" + bodyNorm;
+        Long conversationId = msg.getConversation() == null ? null : msg.getConversation().getId();
+        String conversationStr = (conversationId == null) ? "null" : conversationId.toString();
+        return conversationStr + "|" + msg.getTimestamp() + "|" + msg.getMsgBox() + "|" + msg.getProtocol() + "|" + bodyNorm;
     }
 
     private void flushStreamingIfNeeded(List<Message> batch, ImportProgress progress) { if (batch.size() >= streamBatchSize) flushStreamingBatch(batch, progress); }
@@ -568,6 +593,55 @@ public class ImportService {
             }
         }
     }
+    private void finalizeGroupMessageContact(Message msg) {
+        // For group messages, conversation tracks participants via conversation_contacts
+        // We only need to identify the senderContact for this specific message
+        Map<String, Object> meta = msg.getMetadata();
+        String tempSender = meta != null ? (String) meta.get("_tempSender") : null;
+        String tempAddress = meta != null ? (String) meta.get("_tempAddress") : null;
+
+        // Prefer ThreadLocal user (async import) fallback to provider
+        User user = threadLocalImportUser.get();
+        if (user == null) {
+            user = currentUserProvider.getCurrentUser();
+        }
+        msg.setUser(user);
+
+        // For group messages, the sender is whoever sent this specific message
+        String senderAddress = null;
+        if (msg.getDirection() == MessageDirection.INBOUND) {
+            // Inbound group message: tempSender is the participant who sent it
+            senderAddress = tempSender != null ? tempSender : tempAddress;
+        }
+        // For outbound, the current user sent it, so senderContact stays null
+
+        log.debug("finalizeGroupMessageContact - direction: {}, senderAddress: {}",
+                  msg.getDirection(), senderAddress);
+
+        // Set senderContact to the actual sender (null if current user sent it)
+        if (senderAddress != null && !senderAddress.isBlank()) {
+            Contact sender = resolveContact(user, senderAddress, null);
+            msg.setSenderContact(sender);
+            log.debug("finalizeGroupMessageContact - resolved sender: id={}, number={}, normalized={}",
+                      sender != null ? sender.getId() : null,
+                      sender != null ? sender.getNumber() : null,
+                      sender != null ? sender.getNormalizedNumber() : null);
+        } else {
+            msg.setSenderContact(null);
+        }
+
+
+        // Clean up temporary metadata
+        if (meta != null) {
+            meta.remove("_tempSender");
+            meta.remove("_tempRecipient");
+            meta.remove("_tempAddress");
+            if (meta.isEmpty()) {
+                msg.setMetadata(null);
+            }
+        }
+    }
+
     private void finalizeStreamingContact(Message msg, String suggestedName) {
         // Get temporary addresses from metadata
         Map<String, Object> meta = msg.getMetadata();
@@ -609,9 +683,8 @@ public class ImportService {
 
         log.debug("finalizeStreamingContact - counterparty: {}, suggestedName: {}", counterparty, suggestedName);
 
-        // Resolve the primary contact (the counterparty)
+        // Resolve the contact (counterparty) - conversation will track this as participant
         Contact contact = resolveContact(user, counterparty, suggestedName);
-        msg.setContact(contact);
 
         log.debug("finalizeStreamingContact - resolved contact: id={}, number={}, normalized={}",
                   contact != null ? contact.getId() : null,
@@ -625,14 +698,18 @@ public class ImportService {
             msg.setSenderContact(null); // Outbound or no sender = current user
         }
 
-        // Clean up temporary metadata
+        // Store only the normalized number for conversation assignment (not the full Contact object!)
+        // This prevents Jackson serialization errors when metadata is persisted as JSONB
+        if (contact != null && meta != null) {
+            meta.put("_normalizedNumber", contact.getNormalizedNumber());
+        }
+
+        // Clean up temporary metadata (but keep _normalizedNumber for conversation assignment)
         if (meta != null) {
             meta.remove("_tempSender");
             meta.remove("_tempRecipient");
             meta.remove("_tempAddress");
-            if (meta.isEmpty()) {
-                msg.setMetadata(null);
-            }
+            // Note: _normalizedNumber will be cleaned up after conversation assignment
         }
     }
     private MessagePart buildPartStreaming(XMLStreamReader r, Message msg, int idx) { MessagePart part = new MessagePart(); part.setMessage(msg); part.setSeq(parseInt(r.getAttributeValue(null, "seq"), idx)); part.setContentType(r.getAttributeValue(null, "ct")); part.setName(nullIfBlank(r.getAttributeValue(null, "name"))); part.setText(nullIfBlank(r.getAttributeValue(null, "text"))); String data = r.getAttributeValue(null, "data"); if (data != null && !data.isBlank()) { saveMediaPart(data, part).ifPresent(part::setFilePath); if (part.getFilePath() != null) { try { part.setSizeBytes(Files.size(Path.of(part.getFilePath()))); } catch (Exception ignored) {} } } return part; }
@@ -649,10 +726,11 @@ public class ImportService {
             if (user == null) {
                 try { user = currentUserProvider.getCurrentUser(); } catch (Exception ignored) {}
             }
-            String contactDirName = (message.getContact() != null && message.getContact().getId() != null)
-                    ? message.getContact().getId().toString()
-                    : "_nocontact";
-            Path dir = getMediaRoot().resolve(contactDirName);
+            // Use conversation ID for directory naming (all messages now have conversations)
+            String conversationDirName = (message.getConversation() != null && message.getConversation().getId() != null)
+                    ? message.getConversation().getId().toString()
+                    : "_noconversation";
+            Path dir = getMediaRoot().resolve(conversationDirName);
             Files.createDirectories(dir);
             byte[] dataBytes = Base64.getDecoder().decode(base64);
             String ext = guessExtension(part.getContentType(), part.getName());
@@ -724,22 +802,18 @@ public class ImportService {
     private boolean isDuplicate(Message msg) {
         try {
             String normalizedBody = msg.getBody() == null ? null : msg.getBody().trim();
-            if (postgresDialect && msg.getContact() != null && msg.getContact().getId() != null) {
-                return messageRepo.existsDuplicateHash(
-                        msg.getContact().getId(),
+
+            // All messages use conversation-based duplicate check now
+            if (msg.getConversation() != null && msg.getConversation().getId() != null) {
+                return messageRepo.existsByConversationAndTimestampAndBody(
+                        msg.getConversation(),
                         msg.getTimestamp(),
-                        msg.getMsgBox(),
-                        msg.getProtocol(),
                         normalizedBody
                 );
             }
-            return messageRepo.existsDuplicate(
-                    msg.getContact(),
-                    msg.getTimestamp(),
-                    msg.getMsgBox(),
-                    msg.getProtocol(),
-                    normalizedBody
-            );
+
+            // If no conversation yet, just check by timestamp and body (less precise but safe)
+            return messageRepo.existsByTimestampAndBody(msg.getTimestamp(), normalizedBody);
         } catch (Exception e) {
             log.warn("Duplicate check failed, proceeding to insert message: {}", e.getMessage());
             return false;
@@ -838,7 +912,21 @@ public class ImportService {
             trimmed.matches("^\\(.*unknown.*\\)$")) {
             return null;
         }
+        // Treat group-like labels as conversation-only, never contact names
+        if (isGroupLikeName(trimmed)) {
+            return null; // force use of number for contact name
+        }
         return trimmed;
+    }
+
+    private boolean isGroupLikeName(String s) {
+        String lower = s.toLowerCase(Locale.ROOT);
+        // Heuristic: contains one of these keywords and has >=2 words (likely not a single person's name)
+        if ((lower.contains("group") || lower.contains("team") || lower.contains("vacation") || lower.contains("chat"))
+                && lower.split("\\s+").length >= 2) {
+            return true;
+        }
+        return false;
     }
 
     @VisibleForTesting
@@ -857,9 +945,9 @@ public class ImportService {
     @VisibleForTesting String computeDuplicateKeyForTest(Message msg) { return buildDuplicateKey(msg); }
 
     private void relocatePartsToContactDir(Message msg) {
-        if (msg.getContact() == null || msg.getContact().getId() == null || msg.getParts() == null) return;
+        if (msg.getConversation() == null || msg.getConversation().getId() == null || msg.getParts() == null) return;
         Path baseRoot = getMediaRoot();
-        Path targetDir = baseRoot.resolve(msg.getContact().getId().toString());
+        Path targetDir = baseRoot.resolve(msg.getConversation().getId().toString());
         try { Files.createDirectories(targetDir); } catch (Exception e) { log.error("Failed creating target media dir {}", targetDir, e); return; }
         for (MessagePart part : msg.getParts()) {
             String fp = part.getFilePath();
@@ -867,7 +955,7 @@ public class ImportService {
             Path current = Paths.get(fp).normalize();
             Path parent = current.getParent();
             if (parent == null) continue;
-            if (!"_nocontact".equals(parent.getFileName().toString())) continue; // only relocate temp
+            if (!"_noconversation".equals(parent.getFileName().toString())) continue; // only relocate temp
             try {
                 Path newPath = targetDir.resolve(current.getFileName());
                 if (Files.exists(newPath)) {
@@ -899,9 +987,4 @@ public class ImportService {
         }
     }
 }
-
-
-
-
-
 

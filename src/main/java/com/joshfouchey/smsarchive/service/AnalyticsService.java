@@ -71,7 +71,10 @@ public class AnalyticsService {
         Instant start = startDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
         Instant endExclusive = endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
         StringBuilder sql = new StringBuilder("SELECT CAST(m.timestamp AS DATE) AS day_date, COUNT(*) AS count FROM messages m WHERE m.timestamp >= :start AND m.timestamp < :end AND m.user_id = :userId");
-        if (contactId != null) sql.append(" AND m.contact_id = :contactId");
+        if (contactId != null) {
+            // Filter by contact through conversation participants
+            sql.append(" AND m.conversation_id IN (SELECT cc.conversation_id FROM conversation_contacts cc WHERE cc.contact_id = :contactId)");
+        }
         sql.append(" GROUP BY day_date ORDER BY day_date");
         var query = entityManager.createNativeQuery(sql.toString())
                 .setParameter("start", start)

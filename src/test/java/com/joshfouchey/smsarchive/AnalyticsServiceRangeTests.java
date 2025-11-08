@@ -46,6 +46,8 @@ class AnalyticsServiceRangeTests extends EnhancedPostgresTestContainer {
     MessageRepository messageRepository;
     @Autowired
     UserRepository userRepository;
+    @Autowired
+    com.joshfouchey.smsarchive.repository.ConversationRepository conversationRepository;
 
     Contact contactA;
     Contact contactB;
@@ -75,8 +77,15 @@ class AnalyticsServiceRangeTests extends EnhancedPostgresTestContainer {
     }
 
     private void persistMessage(Contact c, LocalDate day) {
+        // Create conversation with the contact as participant
+        com.joshfouchey.smsarchive.model.Conversation conv = new com.joshfouchey.smsarchive.model.Conversation();
+        conv.setUser(testUser);
+        conv.setName(c.getName());
+        conv.getParticipants().add(c);
+        conv = conversationRepository.save(conv);
+
         Message m = new Message();
-        m.setContact(c);
+        m.setConversation(conv);
         m.setUser(testUser);
         m.setProtocol(MessageProtocol.SMS);
         m.setDirection(MessageDirection.INBOUND);

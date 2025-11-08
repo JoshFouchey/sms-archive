@@ -40,14 +40,13 @@ CREATE TABLE conversation_contacts (
     PRIMARY KEY (conversation_id, contact_id)
 );
 
--- 4. Messages (scoped per user, linked to contacts + optional conversation)
+-- 4. Messages (scoped per user, linked to conversation with participants)
 CREATE TABLE messages (
     id           BIGSERIAL PRIMARY KEY,
     user_id      UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     protocol     VARCHAR(10)  NOT NULL,              -- SMS|MMS|RCS
     direction    VARCHAR(10)  NOT NULL,              -- INBOUND|OUTBOUND
     sender_contact_id BIGINT  REFERENCES contacts(id) ON DELETE SET NULL,  -- Who sent (null = current user for OUTBOUND)
-    contact_id   BIGINT       NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
     conversation_id BIGINT    REFERENCES conversations(id) ON DELETE SET NULL,
     timestamp    TIMESTAMP    NOT NULL,
     body         TEXT,
@@ -61,6 +60,9 @@ CREATE TABLE messages (
     CONSTRAINT chk_messages_protocol  CHECK (protocol IN ('SMS','MMS','RCS')),
     CONSTRAINT chk_messages_direction CHECK (direction IN ('INBOUND','OUTBOUND'))
 );
+
+COMMENT ON COLUMN messages.conversation_id IS
+    'Links to conversation which tracks participants via conversation_contacts join table. All messages belong to a conversation (1:1 or group).';
 
 -- 5. Message parts (attachments/components)
 CREATE TABLE message_parts (
@@ -91,20 +93,15 @@ CREATE TRIGGER trg_conversations_updated_at BEFORE UPDATE ON conversations FOR E
 
 -- 8. Indexes (messages)
 CREATE INDEX idx_messages_timestamp       ON messages ("timestamp");
-CREATE INDEX idx_messages_contact         ON messages (contact_id);
 CREATE INDEX idx_messages_sender_contact  ON messages (sender_contact_id);
 CREATE INDEX idx_messages_direction       ON messages (direction);
 CREATE INDEX idx_messages_protocol        ON messages (protocol);
 CREATE INDEX idx_messages_user            ON messages (user_id);
 CREATE INDEX idx_messages_conversation    ON messages (conversation_id);
 CREATE INDEX idx_messages_body_fts        ON messages USING gin (to_tsvector('english', coalesce(body,'')));
+-- Composite index for duplicate detection (conversation-based instead of contact-based)
+CREATE INDEX idx_messages_dedupe_prefix   ON messages (conversation_id, "timestamp", msg_box, protocol);
 
--- Duplicate prevention + probing
-CREATE INDEX IF NOT EXISTS ix_messages_dedupe_prefix
-    ON messages (user_id, contact_id, "timestamp", msg_box, protocol);
-
-CREATE UNIQUE INDEX IF NOT EXISTS ux_messages_dedupe
-    ON messages (user_id, contact_id, "timestamp", msg_box, protocol, md5(lower(coalesce(body,''))));
 
 -- 9. Indexes (contacts)
 CREATE UNIQUE INDEX ux_contacts_user_normalized ON contacts (user_id, normalized_number);

@@ -13,7 +13,13 @@ public final class MessageMapper {
     private MessageMapper() {}
 
     public static MessageDto toDto(Message msg) {
-        Contact c = msg.getContact();
+        // Get primary contact from conversation participants (first participant for 1:1, null for groups)
+        Contact c = null;
+        if (msg.getConversation() != null && msg.getConversation().getParticipants() != null
+                && msg.getConversation().getParticipants().size() == 1) {
+            c = msg.getConversation().getParticipants().iterator().next();
+        }
+
         Contact sender = msg.getSenderContact();
         List<MessagePartDto> parts = msg.getParts() == null ? List.of() : msg.getParts().stream()
                 .map(p -> toPartDto(msg, p))

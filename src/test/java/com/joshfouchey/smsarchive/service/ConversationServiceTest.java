@@ -81,7 +81,6 @@ class ConversationServiceTest extends EnhancedPostgresTestContainer {
         com.joshfouchey.smsarchive.model.Contact contact = c.getParticipants().iterator().next();
         com.joshfouchey.smsarchive.model.Message m1 = new com.joshfouchey.smsarchive.model.Message();
         m1.setUser(user);
-        m1.setContact(contact);
         m1.setConversation(c);
         m1.setTimestamp(Instant.now());
         m1.setProtocol(com.joshfouchey.smsarchive.model.MessageProtocol.SMS);
@@ -95,7 +94,6 @@ class ConversationServiceTest extends EnhancedPostgresTestContainer {
         m1.getParts().add(p1);
         com.joshfouchey.smsarchive.model.Message m2 = new com.joshfouchey.smsarchive.model.Message();
         m2.setUser(user);
-        m2.setContact(contact);
         m2.setConversation(c);
         m2.setTimestamp(Instant.now());
         m2.setProtocol(com.joshfouchey.smsarchive.model.MessageProtocol.MMS);

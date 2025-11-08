@@ -15,12 +15,11 @@ import java.util.Map;
 @Table(name = "messages",
         indexes = {
                 @Index(name = "ix_messages_timestamp", columnList = "timestamp"),
-                @Index(name = "ix_messages_contact", columnList = "contact_id"),
                 @Index(name = "ix_messages_sender_contact", columnList = "sender_contact_id"),
                 @Index(name = "ix_messages_user", columnList = "user_id"),
+                @Index(name = "idx_messages_conversation", columnList = "conversation_id"),
                 // Composite prefix index used by duplicate check BEFORE body comparison
-                @Index(name = "ix_messages_dedupe_prefix", columnList = "contact_id,timestamp,msg_box,protocol"),
-                @Index(name = "idx_messages_conversation", columnList = "conversation_id")
+                @Index(name = "ix_messages_dedupe_prefix", columnList = "conversation_id,timestamp,msg_box,protocol")
         })
 @Getter
 @Setter
@@ -43,17 +42,15 @@ public class Message {
     @JoinColumn(name = "sender_contact_id")
     private Contact senderContact;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "contact_id")
-    private Contact contact;
-
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
 
+    // All messages belong to a conversation (1:1 or group)
+    // Conversation tracks participants via conversation_contacts join table
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "conversation_id")
-    private Conversation conversation; // nullable for legacy single-contact messages
+    private Conversation conversation;
 
     @Column(nullable = false)
     private Instant timestamp;

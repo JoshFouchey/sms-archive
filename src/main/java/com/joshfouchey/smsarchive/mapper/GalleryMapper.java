@@ -11,7 +11,14 @@ public final class GalleryMapper {
 
     public static GalleryImageDto toDto(MessagePart part) {
         Message message = part.getMessage();
-        Contact contact = message != null ? message.getContact() : null;
+
+        // Get contact from conversation participants (first participant for 1:1, null for groups)
+        Contact contact = null;
+        if (message != null && message.getConversation() != null
+                && message.getConversation().getParticipants() != null
+                && message.getConversation().getParticipants().size() == 1) {
+            contact = message.getConversation().getParticipants().iterator().next();
+        }
 
         return new GalleryImageDto(
                 part.getId(),
