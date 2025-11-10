@@ -22,6 +22,23 @@ spring:
 smsarchive:
   media:
     root: ${SMSARCHIVE_MEDIA_ROOT:./media/messages}
+  import:
+    directory:
+      # Enable/disable the import directory watcher
+      enabled: ${SMSARCHIVE_IMPORT_DIRECTORY_ENABLED:false}
+      # Path to the directory to monitor for XML files
+      path: ${SMSARCHIVE_IMPORT_DIRECTORY_PATH:./import-drop}
+      # How often to scan for new files (in seconds). Default: 300 (5 minutes)
+      # Set higher if you rarely use this feature to reduce overhead
+      scanIntervalSeconds: ${SMSARCHIVE_IMPORT_DIRECTORY_SCAN_INTERVAL:300}
+      # Delete files immediately after import starts (true) or move to processed/ (false)
+      deleteAfterImport: ${SMSARCHIVE_IMPORT_DIRECTORY_DELETE_AFTER_IMPORT:false}
+      # How many days to keep processed files before auto-cleanup (only if deleteAfterImport=false)
+      # Set to 0 to disable auto-cleanup
+      retentionDays: ${SMSARCHIVE_IMPORT_DIRECTORY_RETENTION_DAYS:7}
+      # Minimum age (in seconds) before a file is considered ready to import
+      # This ensures the file is fully copied/written before processing
+      fileAgeThresholdSeconds: ${SMSARCHIVE_IMPORT_DIRECTORY_FILE_AGE_THRESHOLD:30}
 
 logging:
   level:

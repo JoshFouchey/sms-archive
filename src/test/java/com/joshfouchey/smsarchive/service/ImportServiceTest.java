@@ -8,6 +8,7 @@ import com.joshfouchey.smsarchive.model.MessageProtocol;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessagePartRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
+import com.joshfouchey.smsarchive.repository.UserRepository;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.*;
 import org.mockito.Mockito;
@@ -43,7 +44,8 @@ class ImportServiceTest {
         private ContactRepository contactRepository;
         private CurrentUserProvider currentUserProvider;
         private ThumbnailService thumbnailService;
-        private ConversationService conversationService; // new mock
+        private ConversationService conversationService;
+        private UserRepository userRepository;
 
         @BeforeEach
         void setup() {
@@ -51,6 +53,8 @@ class ImportServiceTest {
             contactRepository = Mockito.mock(ContactRepository.class);
             currentUserProvider = Mockito.mock(CurrentUserProvider.class);
             thumbnailService = Mockito.mock(ThumbnailService.class);
+            conversationService = Mockito.mock(ConversationService.class);
+            userRepository = Mockito.mock(UserRepository.class);
             conversationService = Mockito.mock(ConversationService.class);
 
             // Mock the current user
@@ -80,7 +84,7 @@ class ImportServiceTest {
                 return convo;
             });
 
-            service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService));
+            service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService, userRepository));
             doReturn(Path.of("test-media-root")).when(service).getMediaRoot(); // Mock media root
         }
 

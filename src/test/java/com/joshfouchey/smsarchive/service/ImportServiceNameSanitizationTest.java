@@ -3,6 +3,7 @@ package com.joshfouchey.smsarchive.service;
 import com.joshfouchey.smsarchive.model.Conversation;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
+import com.joshfouchey.smsarchive.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,7 @@ class ImportServiceNameSanitizationTest {
         MessageRepository messageRepository = Mockito.mock(MessageRepository.class);
         ContactRepository contactRepository = Mockito.mock(ContactRepository.class);
         ThumbnailService thumbnailService = Mockito.mock(ThumbnailService.class);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
         ConversationService conversationService = Mockito.mock(ConversationService.class);
         currentUserProvider = Mockito.mock(CurrentUserProvider.class);
         com.joshfouchey.smsarchive.model.User testUser = new com.joshfouchey.smsarchive.model.User();
@@ -42,7 +44,7 @@ class ImportServiceNameSanitizationTest {
         // minimal conversation stubs (not used directly but constructor requires service)
         when(conversationService.findOrCreateOneToOneForUser(testUser, "123", "Bob"))
                 .thenReturn(Conversation.builder().id(1L).user(testUser).name("Bob").build());
-        service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService));
+        service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService, userRepository));
         doReturn(Path.of("test-media-root")).when(service).getMediaRoot();
         sanitizeMethod = ImportService.class.getDeclaredMethod("sanitizeContactName", String.class);
         sanitizeMethod.setAccessible(true);

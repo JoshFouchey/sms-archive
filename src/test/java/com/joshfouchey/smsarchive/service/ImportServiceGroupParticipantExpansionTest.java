@@ -4,6 +4,7 @@ import com.joshfouchey.smsarchive.model.Conversation;
 import com.joshfouchey.smsarchive.model.User;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
+import com.joshfouchey.smsarchive.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,7 @@ class ImportServiceGroupParticipantExpansionTest {
     private ContactRepository contactRepository;
     private CurrentUserProvider currentUserProvider;
     private ThumbnailService thumbnailService;
+    private UserRepository userRepository;
     private ConversationService conversationService;
 
     private final List<Set<String>> capturedParticipantSets = new ArrayList<>();
@@ -40,6 +42,7 @@ class ImportServiceGroupParticipantExpansionTest {
         messageRepository = Mockito.mock(MessageRepository.class);
         contactRepository = Mockito.mock(ContactRepository.class);
         currentUserProvider = Mockito.mock(CurrentUserProvider.class);
+        userRepository = Mockito.mock(UserRepository.class);
         thumbnailService = Mockito.mock(ThumbnailService.class);
         conversationService = Mockito.mock(ConversationService.class);
 
@@ -91,10 +94,10 @@ class ImportServiceGroupParticipantExpansionTest {
         when(conversationService.save(any(Conversation.class))).thenAnswer(inv -> inv.getArgument(0));
 
         when(messageRepository.existsByConversationAndTimestampAndBody(any(), any(), any())).thenReturn(false);
-        when(messageRepository.existsByTimestampAndBody(any(), any())).thenReturn(false);
+        service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService, userRepository));
         doAnswer(inv -> null).when(messageRepository).saveAll(anyList());
 
-        service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService));
+        service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService, userRepository));
         doReturn(Path.of("test-media-root")).when(service).getMediaRoot();
         Files.createDirectories(Path.of("test-media-root"));
     }

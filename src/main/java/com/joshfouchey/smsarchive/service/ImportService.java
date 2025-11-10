@@ -3,6 +3,8 @@ package com.joshfouchey.smsarchive.service;
 import com.joshfouchey.smsarchive.model.*;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
+import com.joshfouchey.smsarchive.repository.UserRepository;
+import com.joshfouchey.smsarchive.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import lombok.Getter;
@@ -68,6 +70,7 @@ public class ImportService {
     private final ContactRepository contactRepo;
     private final ThumbnailService thumbnailService;
     private final ConversationService conversationService; // new dependency
+    private final UserRepository userRepository;
     private TaskExecutor importTaskExecutor; // executor for async jobs (optional)
     private final CurrentUserProvider currentUserProvider;
     // ThreadLocal to hold the user for async import tasks (SecurityContext not propagated)
@@ -89,6 +92,7 @@ public class ImportService {
     Path getMediaRoot() {
         return Paths.get(mediaRoot);
     }
+
     @PostConstruct
     private void logMediaRootAtStartup() {
         // Absolute path helps confirm volume mounts
@@ -98,12 +102,13 @@ public class ImportService {
 
     public ImportService(MessageRepository messageRepo, ContactRepository contactRepo,
                          CurrentUserProvider currentUserProvider, ThumbnailService thumbnailService,
-                         ConversationService conversationService) {
+                         ConversationService conversationService, UserRepository userRepository) {
         this.messageRepo = messageRepo;
         this.contactRepo = contactRepo;
         this.currentUserProvider = currentUserProvider;
         this.thumbnailService = thumbnailService;
         this.conversationService = conversationService;
+        this.userRepository = userRepository;
     }
 
     // Remove multi-arg constructors added earlier
@@ -160,6 +165,50 @@ public class ImportService {
         }
         return jobId;
     }
+
+    /**
+     * Start import for a specific user by username (used by ImportDirectoryWatcher).
+     * This method does not require an authenticated security context.
+     */
+    @CacheEvict(value = "analyticsDashboard", allEntries = true)
+    public UUID startImportAsyncForUser(Path xmlPath, String username) throws Exception {
+        ensureMediaHelper();
+
+        // Look up user by username
+        User importUser = userRepository.findByUsername(username)
+            .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+
+        UUID jobId = UUID.randomUUID();
+        long size = Files.size(xmlPath);
+        ImportProgress progress = new ImportProgress(jobId, size);
+        progressMap.put(jobId, progress);
+
+        Runnable task = () -> {
+            threadLocalImportUser.set(importUser);
+            try {
+                runStreamingImportAsync(jobId, xmlPath);
+            } finally {
+                threadLocalImportUser.remove();
+            }
+        };
+
+        if (importInline) {
+            task.run();
+            return jobId;
+        }
+
+        if (importTaskExecutor != null) {
+            importTaskExecutor.execute(task);
+        } else {
+            // Fallback: create a dedicated thread
+            Thread t = new Thread(task, "import-worker-" + username + "-" + jobId);
+            t.setDaemon(true);
+            t.start();
+        }
+
+        return jobId;
+    }
+
     public ImportProgress getProgress(UUID id) { return progressMap.get(id); }
 
     // Utility helpers

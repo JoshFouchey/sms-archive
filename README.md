@@ -14,6 +14,7 @@ Experimental - schema, importer, and API surface likely to change.
 - Optional SQLite usage (test/import staging) present via `sqlite-jdbc`.
 - Java 25 toolchain build (Gradle) with Spring Boot 3.5.6.
 - Node 22.20.0 & Vue frontend scaffolding (assumed).
+- **Import Directory Watcher** - Drop large XML files directly on the server to bypass upload limits. See [IMPORT_DIRECTORY.md](IMPORT_DIRECTORY.md) for details.
 
 ## Roadmap (abridged)
 - Full field mapping documentation.
