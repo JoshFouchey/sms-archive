@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/sms_archive}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db:5432/sms_archive}
     username: ${SPRING_DATASOURCE_USERNAME:sms_user}
     password: ${SPRING_DATASOURCE_PASSWORD:sms_pass}
     driver-class-name: org.postgresql.Driver
