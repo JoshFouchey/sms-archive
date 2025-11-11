@@ -7,9 +7,10 @@ RUN_UID=10110
 RUN_GID=10110
 RUN_USER=appuser
 RUN_GROUP=appgroup
-DB_HOST="${DB_HOST:-db}"  # optional override
-DB_PORT="${DB_PORT_CONTAINER:-5432}"  # internal container port (not host mapped)
+DB_HOST="${DB_HOST:-db}"
+DB_PORT="${DB_PORT_CONTAINER:-5432}"
 MAX_WAIT_SECONDS="${DB_WAIT_MAX_SECONDS:-60}"
+DB_USER_ENV="${SPRING_DATASOURCE_USERNAME:-sms_user}"
 
 log() { echo "[entrypoint] $*"; }
 
@@ -33,20 +34,39 @@ ensure_media_dir() {
 
 wait_for_db() {
   log "Waiting for Postgres at ${DB_HOST}:${DB_PORT} (max ${MAX_WAIT_SECONDS}s)"
-  local start_ts end_ts
-  start_ts=$(date +%s)
-  while true; do
-    if nc -z -w 1 "${DB_HOST}" "${DB_PORT}" 2>/dev/null; then
-      log "Postgres reachable"
-      return 0
+  command -v nc >/dev/null 2>&1 || log "nc not found (will rely on pg_isready)"
+  command -v pg_isready >/dev/null 2>&1 || log "pg_isready not found (will rely on nc)"
+  local start_ts=$(date +%s)
+  local elapsed=0
+  while (( elapsed < MAX_WAIT_SECONDS )); do
+    # DNS resolution diagnostic
+    if getent hosts "${DB_HOST}" >/dev/null 2>&1; then
+      :
+    else
+      log "DNS: host '${DB_HOST}' not yet resolvable"
     fi
-    end_ts=$(date +%s)
-    if (( end_ts - start_ts >= MAX_WAIT_SECONDS )); then
-      log "Timed out waiting for Postgres after ${MAX_WAIT_SECONDS}s"
-      return 1
+
+    # Try pg_isready first if available
+    if command -v pg_isready >/dev/null 2>&1; then
+      if pg_isready -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER_ENV}" >/dev/null 2>&1; then
+        log "Postgres reachable (pg_isready)"
+        return 0
+      fi
     fi
+
+    # Fallback: nc simple TCP check
+    if command -v nc >/dev/null 2>&1; then
+      if nc -z -w 1 "${DB_HOST}" "${DB_PORT}" >/dev/null 2>&1; then
+        log "Postgres reachable (nc)"
+        return 0
+      fi
+    fi
+
     sleep 2
+    elapsed=$(( $(date +%s) - start_ts ))
   done
+  log "Timed out waiting for Postgres after ${MAX_WAIT_SECONDS}s"
+  return 1
 }
 
 if [ "$(id -u)" = "0" ]; then
