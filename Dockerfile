@@ -23,9 +23,9 @@ RUN ./gradlew --no-daemon clean bootJar -x test
 FROM eclipse-temurin:25-jre
 ENV APP_HOME=/app \
     JAVA_OPTS="" \
-    DB_URL="jdbc:postgresql://db:5432/sms_archive" \
-    DB_USER="sms_user" \
-    DB_PASS="sms_pass" \
+    SPRING_DATASOURCE_URL="jdbc:postgresql://db:5432/sms_archive" \
+    SPRING_DATASOURCE_USERNAME="sms_user" \
+    SPRING_DATASOURCE_PASSWORD="sms_pass" \
     SPRING_PROFILES_ACTIVE="" \
     SMSARCHIVE_MEDIA_ROOT="/app/media/messages"
 WORKDIR ${APP_HOME}
