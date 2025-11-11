@@ -30,8 +30,8 @@ ENV APP_HOME=/app \
     SMSARCHIVE_MEDIA_ROOT="/app/media/messages"
 WORKDIR ${APP_HOME}
 
-# Install wget + gosu (for privilege drop) before creating user
-RUN apt-get update && apt-get install -y wget gosu && rm -rf /var/lib/apt/lists/*
+# Install wget + gosu + netcat for health/wait scripts
+RUN apt-get update && apt-get install -y wget gosu netcat-openbsd && rm -rf /var/lib/apt/lists/*
 
 # Copy the built jar
 COPY --from=build /workspace/build/libs/*SNAPSHOT.jar app.jar

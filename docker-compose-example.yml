@@ -1,5 +1,3 @@
-version: "3.9"
-
 # Expected directory layout on host (server):
 # /opt/stacks/sms-archive/
 #   ├── postgres/              (DB_DATA_HOST_PATH)

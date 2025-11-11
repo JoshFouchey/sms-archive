@@ -7,6 +7,9 @@ RUN_UID=10110
 RUN_GID=10110
 RUN_USER=appuser
 RUN_GROUP=appgroup
+DB_HOST="${DB_HOST:-db}"  # optional override
+DB_PORT="${DB_PORT_CONTAINER:-5432}"  # internal container port (not host mapped)
+MAX_WAIT_SECONDS="${DB_WAIT_MAX_SECONDS:-60}"
 
 log() { echo "[entrypoint] $*"; }
 
@@ -28,12 +31,30 @@ ensure_media_dir() {
   find "$MEDIA_DIR" -type f -exec chmod 664 {} + || true
 }
 
+wait_for_db() {
+  log "Waiting for Postgres at ${DB_HOST}:${DB_PORT} (max ${MAX_WAIT_SECONDS}s)"
+  local start_ts end_ts
+  start_ts=$(date +%s)
+  while true; do
+    if nc -z -w 1 "${DB_HOST}" "${DB_PORT}" 2>/dev/null; then
+      log "Postgres reachable"
+      return 0
+    fi
+    end_ts=$(date +%s)
+    if (( end_ts - start_ts >= MAX_WAIT_SECONDS )); then
+      log "Timed out waiting for Postgres after ${MAX_WAIT_SECONDS}s"
+      return 1
+    fi
+    sleep 2
+  done
+}
+
 if [ "$(id -u)" = "0" ]; then
   ensure_media_dir
+  wait_for_db || exit 1
   log "Dropping privileges to ${RUN_USER}:${RUN_GROUP}"
   exec gosu ${RUN_USER}:${RUN_GROUP} java ${JAVA_OPTS} -jar "${APP_JAR}"
 else
-  # Already non-root (e.g., alternative run mode)
+  wait_for_db || exit 1
   exec java ${JAVA_OPTS} -jar "${APP_JAR}"
 fi
-
