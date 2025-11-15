@@ -66,6 +66,7 @@ services:
       SMSARCHIVE_IMPORT_DIRECTORY_FILE_AGE_THRESHOLD: ${SMSARCHIVE_IMPORT_DIRECTORY_FILE_AGE_THRESHOLD:-30}
       DB_WAIT_MAX_SECONDS: 120
       TZ: ${TZ}
+      JAVA_TOOL_OPTIONS: "-Djdk.xml.maxGeneralEntitySizeLimit=${XML_MAX_GENERAL_ENTITY_SIZE:-5000000} -Djdk.xml.totalEntitySizeLimit=${XML_TOTAL_ENTITY_SIZE_LIMIT:-0} -Djdk.xml.entityExpansionLimit=${XML_ENTITY_EXPANSION_LIMIT:-0}"
     depends_on:
       db:
         condition: service_healthy

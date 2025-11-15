@@ -299,5 +299,48 @@ When keeping processed files, old files are automatically deleted:
 - Files are processed using the same import service as web uploads
 - The directory should NOT be exposed via web server
 
+## Large XML Imports & Parser Size Limits
 
-   ls -la /opt/sms-archive/import-drop/
+When importing very large backup files (multi-GB) you may encounter:
+```
+ParseError: length of entity XML is 100,001 that exceeds the 100,000 limit set by jdk.xml.maxGeneralEntitySizeLimit
+```
+This exception aborts the current import, so any messages after the failing node are skipped.
+
+### Solution
+Increase JAXP XML parser limits via environment variables (preferred) or JVM options.
+
+Add to `.env` (example values):
+```bash
+XML_MAX_GENERAL_ENTITY_SIZE=5000000        # allow larger text / CDATA nodes
+XML_TOTAL_ENTITY_SIZE_LIMIT=0              # unlimited total entity size
+XML_ENTITY_EXPANSION_LIMIT=0               # unlimited entity expansions
+```
+Compose automatically injects these using `JAVA_TOOL_OPTIONS`. Defaults are applied in code if not set.
+
+### Re-Import Procedure After Raising Limits
+1. Back up current database (optional):
+   ```bash
+   docker compose exec db pg_dump -U $DB_USER $DB_NAME | gzip > sms-archive-pre-reimport.sql.gz
+   ```
+2. Ensure limits are active:
+   ```bash
+   docker compose exec app printenv | grep XML_MAX_GENERAL
+   docker compose exec app java -XshowSettings:properties -version 2>&1 | grep jdk.xml.maxGeneralEntitySizeLimit
+   ```
+3. Drop the original large XML file again (or just the missing recent range).
+4. Trigger immediate scan (if using watcher):
+   ```bash
+   curl -X POST http://localhost:${APP_PORT}/api/import-directory/scan-now
+   ```
+5. Monitor logs for any new ParseError; if none, import completes.
+
+### Duplicate Handling
+Previously imported messages are skipped based on existing dedupe logic; logs will show duplicate counts if enabled. Only missing tail messages should be added.
+
+### Recommended Values
+- Start with 5,000,000. If still hitting limits, raise progressively (e.g. 10,000,000). Avoid unlimited for maxGeneral unless necessary.
+
+### Caveats
+- Unlimited entity sizes (`0`) can increase memory usage if a single text node is extremely large. Monitor container memory during import.
+- If you encounter OutOfMemoryError, reduce limits or split the XML export into multiple smaller files.
