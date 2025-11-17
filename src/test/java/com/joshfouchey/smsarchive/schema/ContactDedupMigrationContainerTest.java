@@ -2,6 +2,8 @@ package com.joshfouchey.smsarchive.schema;
 
 import com.joshfouchey.smsarchive.config.EnhancedPostgresTestContainer;
 import com.joshfouchey.smsarchive.model.User;
+import com.joshfouchey.smsarchive.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
-import static java.time.LocalTime.now;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
@@ -20,6 +21,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ContactDedupMigrationContainerTest extends EnhancedPostgresTestContainer {
 
     @Autowired JdbcTemplate jdbc;
+    @Autowired UserRepository userRepository;
+    @Autowired EntityManager entityManager;
 
     @Test
     @Transactional
@@ -28,7 +31,9 @@ class ContactDedupMigrationContainerTest extends EnhancedPostgresTestContainer {
         User u = new User();
         u.setId(UUID.randomUUID());
         u.setUsername("dedupuser");
-        jdbc.update("INSERT INTO users(id, username, password_hash, created_at, updated_at) VALUES (?,?,?,?,now())", u.getId(), u.getUsername(), "x", now());
+        u.setPasswordHash("x");
+        userRepository.save(u);
+        entityManager.flush(); // Ensure user is in DB before JDBC ops
 
         jdbc.execute("DROP INDEX IF EXISTS ux_contacts_user_normalized");
         jdbc.update("INSERT INTO contacts(user_id, number, normalized_number) VALUES (?,?,?)", u.getId(), "(555)123-4567", "5551234567");
@@ -37,9 +42,9 @@ class ContactDedupMigrationContainerTest extends EnhancedPostgresTestContainer {
         Integer before = jdbc.queryForObject("SELECT COUNT(*) FROM contacts WHERE user_id = ?", Integer.class, u.getId());
         assertThat(before).isEqualTo(2);
 
-        Long loserId = jdbc.queryForObject("SELECT id FROM contacts WHERE normalized_number='5551234567'", Long.class);
-        Long winnerId = jdbc.queryForObject("SELECT id FROM contacts WHERE normalized_number='15551234567'", Long.class);
-        jdbc.update("INSERT INTO messages(protocol, timestamp, msg_box, direction, user_id, sender_contact_id) VALUES (0, now(), 1, 'INBOUND', ?, ?)", u.getId(), loserId);
+        Long loserId = jdbc.queryForObject("SELECT id FROM contacts WHERE user_id = ? AND normalized_number='5551234567'", Long.class, u.getId());
+        Long winnerId = jdbc.queryForObject("SELECT id FROM contacts WHERE user_id = ? AND normalized_number='15551234567'", Long.class, u.getId());
+        jdbc.update("INSERT INTO messages(protocol, timestamp, msg_box, direction, user_id, sender_contact_id) VALUES ('SMS', now(), 1, 'INBOUND', ?, ?)", u.getId(), loserId);
 
         jdbc.update("UPDATE messages SET sender_contact_id = ? WHERE sender_contact_id = ?", winnerId, loserId);
         jdbc.update("DELETE FROM contacts WHERE id = ?", loserId);

@@ -72,6 +72,7 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
     systemProperty 'spring.profiles.active', System.getProperty('spring.profiles.active', 'test')
+    jvmArgs += ['-XX:+EnableDynamicAgentLoading']
 }
 
 configurations.all { resolutionStrategy { force 'org.apache.commons:commons-compress:1.26.1' } }
