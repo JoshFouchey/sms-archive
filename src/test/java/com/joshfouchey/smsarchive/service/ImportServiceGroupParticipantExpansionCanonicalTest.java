@@ -22,11 +22,9 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Verifies participant expansion logic for mixed inbound/outbound group messages.
- * Ensures inbound collection includes type 130 participants and outbound collection uses type 151.
+ * Same scenario as ImportServiceGroupParticipantExpansionTest but asserts canonical 11-digit normalization.
  */
-class ImportServiceGroupParticipantExpansionTest {
-
+class ImportServiceGroupParticipantExpansionCanonicalTest {
     private ImportService service;
     private MessageRepository messageRepository;
     private ContactRepository contactRepository;
@@ -64,7 +62,7 @@ class ImportServiceGroupParticipantExpansionTest {
                     @SuppressWarnings("unchecked") Set<String> participants = inv.getArgument(2);
                     capturedParticipantSets.add(new LinkedHashSet<>(participants));
                     Conversation conv = new Conversation();
-                    conv.setId(100L + capturedParticipantSets.size());
+                    conv.setId(200L + capturedParticipantSets.size());
                     conv.setUser(inv.getArgument(0));
                     conv.setThreadKey(inv.getArgument(1));
                     conv.setName(inv.getArgument(3));
@@ -85,17 +83,14 @@ class ImportServiceGroupParticipantExpansionTest {
                 .thenAnswer(inv -> {
                     String norm = inv.getArgument(1);
                     Conversation conv = new Conversation();
-                    conv.setId(1L);
+                    conv.setId(2L);
                     conv.setUser(inv.getArgument(0));
                     conv.setName(norm);
                     return conv;
                 });
 
         when(conversationService.save(any(Conversation.class))).thenAnswer(inv -> inv.getArgument(0));
-
         when(messageRepository.existsByConversationAndTimestampAndBody(any(), any(), any())).thenReturn(false);
-        service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService, userRepository));
-        doAnswer(inv -> null).when(messageRepository).saveAll(anyList());
 
         service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService, userRepository));
         doReturn(Path.of("test-media-root")).when(service).getMediaRoot();
@@ -103,8 +98,8 @@ class ImportServiceGroupParticipantExpansionTest {
     }
 
     @Test
-    @DisplayName("Inbound + Outbound group messages collect participants (includes type 130)")
-    void mixedInboundOutboundGroupParticipantExpansion() throws Exception {
+    @DisplayName("Group participant normalization produces canonical 11-digit numbers")
+    void canonicalGroupParticipants() throws Exception {
         String xml = "<root>" +
                 "<mms date=\"0\" msg_box=\"1\" contact_name=\"Test Group\" address=\"thread123\">" +
                 "  <addr address=\"1234567890\" type=\"137\"/>" +
@@ -140,10 +135,10 @@ class ImportServiceGroupParticipantExpansionTest {
         Set<String> inboundParticipants = capturedParticipantSets.get(0);
         Set<String> outboundParticipants = capturedParticipantSets.get(1);
 
-        assertThat(inboundParticipants).containsExactlyInAnyOrder("1234567890", "1112223333");
+        assertThat(inboundParticipants).containsExactlyInAnyOrder("11234567890", "11112223333");
         assertTrue(!inboundParticipants.contains("me"));
-        assertThat(outboundParticipants).containsExactlyInAnyOrder("1112223333", "9998887777");
-        assertTrue(!outboundParticipants.contains("1234567890"));
+        assertThat(outboundParticipants).containsExactlyInAnyOrder("11112223333", "19998887777");
+        assertTrue(!outboundParticipants.contains("11234567890"));
     }
 }
 

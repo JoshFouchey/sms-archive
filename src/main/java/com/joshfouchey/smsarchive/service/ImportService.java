@@ -576,7 +576,16 @@ public class ImportService {
         if (number == null || number.isBlank()) {
             return UNKNOWN_NORMALIZED;
         }
-        return number.replaceAll("\\D", "");
+        String digits = number.replaceAll("\\D", "");
+        if (digits.isEmpty()) return UNKNOWN_NORMALIZED;
+        // NANP canonicalization: always 11 digits with leading 1
+        if (digits.length() == 10) {
+            return "1" + digits; // add leading country code
+        }
+        if (digits.length() == 11 && digits.startsWith("1")) {
+            return digits; // already canonical
+        }
+        return digits; // fallback for non-NANP or other lengths
     }
 
     @VisibleForTesting
