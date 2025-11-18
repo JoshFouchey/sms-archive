@@ -24,6 +24,10 @@ public class User {
     @Column(name = "password_hash", nullable = false, length = 100)
     private String passwordHash;
 
+    public void setUsername(String username) {
+        this.username = username != null ? username.trim().toLowerCase() : null;
+    }
+
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
 

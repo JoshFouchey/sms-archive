@@ -31,11 +31,14 @@ public class AuthController {
         if (req.username() == null || req.username().isBlank() || req.password() == null || req.password().length() < 6) {
             return ResponseEntity.badRequest().body(Map.of("error","Invalid username or password"));
         }
-        if (userRepository.existsByUsername(req.username())) {
+
+        String normalizedUsername = req.username().trim().toLowerCase();
+
+        if (userRepository.existsByUsername(normalizedUsername)) {
             return ResponseEntity.badRequest().body(Map.of("error","Username already taken"));
         }
         User u = new User();
-        u.setUsername(req.username());
+        u.setUsername(normalizedUsername);
         u.setPasswordHash(passwordEncoder.encode(req.password()));
         userRepository.save(u);
         return ResponseEntity.ok(tokenService.generateTokens(u));
@@ -43,7 +46,9 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AuthRequest req) {
-        return userRepository.findByUsername(req.username())
+        String normalizedUsername = req.username() != null ? req.username().trim().toLowerCase() : "";
+
+        return userRepository.findByUsername(normalizedUsername)
                 .filter(u -> passwordEncoder.matches(req.password(), u.getPasswordHash()))
                 .<ResponseEntity<?>>map(u -> ResponseEntity.ok(tokenService.generateTokens(u)))
                 .orElseGet(() -> ResponseEntity.status(401).body(Map.of("error","Invalid credentials")));

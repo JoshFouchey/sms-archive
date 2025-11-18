@@ -48,8 +48,8 @@ class UserIsolationTest extends EnhancedPostgresTestContainer {
         userRepo.deleteAll();
         tokenA = mapper.readTree(mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(Map.of("username","uA","password","password123")))).andReturn().getResponse().getContentAsString()).get("accessToken").asText();
         tokenB = mapper.readTree(mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(Map.of("username","uB","password","password123")))).andReturn().getResponse().getContentAsString()).get("accessToken").asText();
-        userA = userRepo.findByUsername("uA").orElseThrow();
-        userB = userRepo.findByUsername("uB").orElseThrow();
+        userA = userRepo.findByUsername("ua").orElseThrow(); // usernames are normalized to lowercase
+        userB = userRepo.findByUsername("ub").orElseThrow(); // usernames are normalized to lowercase
         contactA = new Contact();
         contactA.setUser(userA);
         contactA.setNumber("+15551234567");

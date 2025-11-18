@@ -62,4 +62,36 @@ class AuthIntegrationTest extends EnhancedPostgresTestContainer {
         mockMvc.perform(get("/api/messages/contacts").header("Authorization","Bearer "+token))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void caseInsensitiveUsername() throws Exception {
+        // Register with lowercase
+        Map<String,String> reg = Map.of("username","caseuser","password","password123");
+        mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(reg)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").exists());
+
+        // Try to register with different case - should fail as duplicate
+        Map<String,String> regUpper = Map.of("username","CaseUser","password","password123");
+        mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(regUpper)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Username already taken"));
+
+        // Login with mixed case - should succeed
+        Map<String,String> loginMixed = Map.of("username","CaseUser","password","password123");
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(loginMixed)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").exists());
+
+        // Login with uppercase - should succeed
+        Map<String,String> loginUpper = Map.of("username","CASEUSER","password","password123");
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(loginUpper)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").exists());
+
+        // Verify username is stored in lowercase
+        var user = userRepository.findByUsername("caseuser");
+        assert user.isPresent();
+        assert user.get().getUsername().equals("caseuser");
+    }
 }
