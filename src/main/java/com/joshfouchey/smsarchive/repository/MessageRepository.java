@@ -58,13 +58,18 @@ ORDER BY MAX(m.timestamp) DESC
     List<ContactSummaryDto> findAllContactSummaries(@Param("user") com.joshfouchey.smsarchive.model.User user);
 
     @Query("""
-SELECT new com.joshfouchey.smsarchive.dto.TopContactDto(c.id, COALESCE(c.name, c.number), COUNT(m))
+SELECT new com.joshfouchey.smsarchive.dto.TopContactDto(
+    c.id, 
+    COALESCE(c.name, c.number), 
+    COUNT(m.id)
+)
 FROM Message m 
-JOIN m.conversation conv 
-JOIN conv.participants c
-WHERE m.timestamp >= :since AND m.user = :user
+JOIN m.senderContact c
+WHERE m.timestamp >= :since 
+  AND m.user = :user
+  AND m.direction = com.joshfouchey.smsarchive.model.MessageDirection.INBOUND
 GROUP BY c.id, c.name, c.number
-ORDER BY COUNT(m) DESC
+ORDER BY COUNT(m.id) DESC
 """)
     List<com.joshfouchey.smsarchive.dto.TopContactDto> findTopContactsSince(@Param("since") Instant since, @Param("user") com.joshfouchey.smsarchive.model.User user);
 
