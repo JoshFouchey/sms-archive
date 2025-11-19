@@ -67,8 +67,9 @@ server {
   add_header X-Content-Type-Options nosniff always;
   add_header Referrer-Policy no-referrer-when-downgrade always;
   add_header X-XSS-Protection "1; mode=block" always;
-  # Templated CSP - set CSP_CONNECT_SRC at runtime (space-separated list like: "https://api-messages.joshfouchey.win wss://api-messages.joshfouchey.win")
-  add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ${CSP_CONNECT_SRC}; media-src 'self' data: blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" always;
+  # Relaxed CSP for development - allows inline styles and scripts needed for Tailwind CSS and Vue
+  # Note: CSP_CONNECT_SRC can be set at runtime for additional connect-src origins
+  add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' ${CSP_CONNECT_SRC}; media-src 'self' data: blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" always;
   add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
   add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 }

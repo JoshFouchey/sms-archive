@@ -1,14 +1,8 @@
 import axios from 'axios';
-// Use the var you actually pass at build time (VITE_API_BASE).
-// Fallback only in dev to localhost; in prod require it.
-const API_BASE =
-    (import.meta.env.VITE_API_BASE ?? '').trim()
-    || (import.meta.env.DEV ? 'http://localhost:8080' : '');
-
-// Optional: throw if missing in production to avoid silent localhost usage.
-if (!API_BASE) {
-    throw new Error('VITE_API_BASE not defined');
-}
+// Use VITE_API_BASE if set, otherwise empty string for relative URLs
+// Empty string means API calls will be relative to current origin
+// e.g., if app is at http://localhost:8071, API calls go to http://localhost:8071/api
+const API_BASE = (import.meta.env.VITE_API_BASE ?? '').trim();
 
 export { API_BASE };
 
