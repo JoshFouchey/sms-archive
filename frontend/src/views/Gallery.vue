@@ -1,84 +1,142 @@
 <template>
-  <div class="p-4 sm:p-6 max-w-7xl mx-auto">
+  <div class="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
     <Toast />
     <ConfirmDialog />
-    <h1 class="text-2xl font-bold mb-4 text-gray-800">Image Gallery</h1>
 
-    <!-- Contact Filter Dropdown -->
-    <div class="flex flex-col sm:flex-row sm:space-x-2 mb-6 space-y-2 sm:space-y-0">
-      <Select
-        v-model="selectedContactId"
-        :options="contactOptions"
-        optionLabel="label"
-        optionValue="value"
-        placeholder="Filter by contact..."
-        filter
-        :filterFields="['label']"
-        showClear
-        class="flex-1"
-        @change="onContactChange"
-      />
-      <Button
-          :label="loading ? 'Searching...' : 'Search'"
-          icon="pi pi-search"
-          severity="success"
-          @click="reloadImages"
-          :disabled="loading"
-      />
+    <!-- Header Section -->
+    <div class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 rounded-2xl shadow-lg p-6 text-white">
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 class="text-4xl font-bold mb-2 flex items-center gap-3">
+            <i class="pi pi-images"></i>
+            Image Gallery
+          </h1>
+          <p class="text-blue-100 dark:text-blue-200">Browse and manage your message attachments</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
+            <div class="flex items-center gap-2">
+              <i class="pi pi-image text-lg"></i>
+              <div class="text-left">
+                <p class="text-xs text-blue-100">Total Images</p>
+                <p class="text-2xl font-bold">{{ images.length }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 border border-gray-200 dark:border-gray-700">
+      <div class="flex flex-col sm:flex-row gap-3">
+        <div class="flex-1">
+          <label class="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300 uppercase tracking-wide block">
+            <i class="pi pi-filter text-xs mr-1"></i>
+            Filter by Contact
+          </label>
+          <Select
+            v-model="selectedContactId"
+            :options="contactOptions"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="All Contacts"
+            filter
+            :filterFields="['label']"
+            showClear
+            class="w-full"
+            @change="onContactChange"
+          />
+        </div>
+        <div class="flex items-end">
+          <Button
+            :label="loading ? 'Loading...' : 'Search'"
+            icon="pi pi-search"
+            severity="success"
+            @click="reloadImages"
+            :disabled="loading"
+            :loading="loading"
+            class="w-full sm:w-auto shadow-sm"
+          />
+        </div>
+      </div>
     </div>
 
     <!-- Image Grid (responsive columns) -->
     <div
         v-if="images.length"
-        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"
+        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
     >
       <div
           v-for="(img, index) in images"
           :key="img.id"
-          class="relative overflow-hidden rounded-lg shadow-sm group cursor-pointer bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          class="relative overflow-hidden rounded-xl shadow-md hover:shadow-2xl group cursor-pointer bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 focus:outline-none focus:ring-4 focus:ring-blue-500 transition-all duration-300 hover:scale-105"
           role="button"
           tabindex="0"
           @click="openImage(index, $event)"
           @keydown.enter.prevent="openImage(index, $event)"
           @keydown.space.prevent="openImage(index, $event)"
       >
-        <!-- square container fallback: .aspect-square may require Tailwind aspect-ratio plugin.
-             We include inline style fallback using a wrapper class below. -->
-        <div class="aspect-square w-full">
+        <!-- square container fallback -->
+        <div class="aspect-square w-full relative">
           <img
               :src="getThumbnailUrl(img)"
               :alt="getAlt(img)"
-              class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+              class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
               loading="lazy"
               @error="onThumbError($event, img)"
           />
+          <!-- Overlay on hover -->
+          <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
+            <div class="text-white text-xs font-medium">
+              <i class="pi pi-eye mr-1"></i>
+              View
+            </div>
+          </div>
         </div>
 
         <button
             @click.stop="requestDelete(img.id)"
-            class="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition"
-        >✕</button>
+            class="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white w-8 h-8 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center shadow-lg hover:scale-110 z-10"
+            title="Delete image"
+        >
+          <i class="pi pi-trash text-sm"></i>
+        </button>
       </div>
       <!-- Inline spinner when loading more pages -->
-      <div v-if="loading" class="col-span-full flex justify-center my-4">
-        <ProgressSpinner style="width:32px; height:32px" strokeWidth="6" />
+      <div v-if="loading" class="col-span-full flex justify-center my-8">
+        <div class="text-center">
+          <ProgressSpinner style="width:48px; height:48px" strokeWidth="4" class="text-blue-600" />
+          <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">Loading more images...</p>
+        </div>
       </div>
     </div>
 
     <!-- Skeletons when initial load -->
-    <div v-else-if="loading" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-      <div v-for="n in skeletonCount" :key="'skeleton-'+n" class="aspect-square w-full rounded-lg skeleton"></div>
+    <div v-else-if="loading" class="space-y-4">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 border border-gray-200 dark:border-gray-700">
+        <div class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+          <i class="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400"></i>
+          <span class="font-medium">Loading gallery...</span>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+        <div v-for="n in skeletonCount" :key="'skeleton-'+n" class="aspect-square w-full rounded-xl skeleton shadow-md"></div>
+      </div>
     </div>
 
     <!-- No Results -->
-    <PrimeMessage
-        v-else
-        severity="warn"
-        :closable="false"
-        class="mt-4 text-center"
-    >
-      No results found.
-    </PrimeMessage>
+    <div v-else class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-8 border border-gray-200 dark:border-gray-700 text-center">
+      <div class="flex flex-col items-center gap-4">
+        <div class="bg-yellow-100 dark:bg-yellow-900/30 p-4 rounded-full">
+          <i class="pi pi-image text-4xl text-yellow-600 dark:text-yellow-400"></i>
+        </div>
+        <div>
+          <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">No Images Found</h3>
+          <p class="text-gray-600 dark:text-gray-400">Try adjusting your filter or import some messages with images</p>
+        </div>
+      </div>
+    </div>
 
     <!-- Infinite scroll sentinel -->
     <div ref="sentinel" class="h-10"></div>
@@ -324,12 +382,18 @@ onUnmounted(() => {
 });
 </script>
 
-<style>
+<style scoped>
 .skeleton {
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 37%, #f0f0f0 63%);
   background-size: 400% 100%;
   animation: shimmer 1.4s ease infinite;
 }
+
+.dark .skeleton {
+  background: linear-gradient(90deg, #374151 25%, #4b5563 37%, #374151 63%);
+  background-size: 400% 100%;
+}
+
 @keyframes shimmer {
   0% { background-position: 100% 0; }
   100% { background-position: 0 0; }

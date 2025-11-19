@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "primeicons/primeicons.css";
 
 /* Base font + dark mode handling */
 :root {

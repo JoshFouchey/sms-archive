@@ -1,87 +1,214 @@
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center gap-4 flex-wrap">
-      <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Dashboard</h1>
-      <Button label="Refresh" icon="pi pi-refresh" size="small" @click="refreshDashboard" :loading="loading" />
-      <RouterLink to="/import" class="inline-flex">
-        <Button label="Import Messages" icon="pi pi-upload" size="small" severity="help" />
-      </RouterLink>
-      <span v-if="lastRefreshed" class="text-xs text-gray-500 dark:text-gray-400">Last updated: {{ lastRefreshed }}</span>
+  <div class="space-y-8">
+    <!-- Header Section -->
+    <div class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 rounded-2xl shadow-lg p-6 text-white">
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 class="text-4xl font-bold mb-2 flex items-center gap-3">
+            <i class="pi pi-chart-bar"></i>
+            Dashboard
+          </h1>
+          <p class="text-blue-100 dark:text-blue-200">View your messaging analytics and insights</p>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <Button
+            label="Refresh"
+            icon="pi pi-refresh"
+            size="small"
+            @click="refreshDashboard"
+            :loading="loading"
+            class="bg-white text-blue-600 hover:bg-blue-50 border-2 border-white font-semibold shadow-md hover:shadow-lg transition-all"
+          />
+          <RouterLink to="/import" class="inline-flex">
+            <Button
+              label="Import Messages"
+              icon="pi pi-upload"
+              size="small"
+              class="bg-white text-blue-600 hover:bg-blue-50 border-2 border-white font-semibold shadow-md hover:shadow-lg transition-all"
+            />
+          </RouterLink>
+        </div>
+      </div>
+      <div v-if="lastRefreshed" class="mt-4 text-sm text-blue-100 dark:text-blue-200 flex items-center gap-2">
+        <i class="pi pi-clock text-xs"></i>
+        <span>Last updated: {{ lastRefreshed }}</span>
+      </div>
     </div>
 
     <!-- Summary Cards -->
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <Card class="shadow">
-        <template #title>Total Contacts</template>
+    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <!-- Total Contacts Card -->
+      <Card class="shadow-lg hover:shadow-xl transition-all duration-300 border-t-4 border-t-blue-500 hover:scale-105">
         <template #content>
-          <p class="text-4xl font-semibold">{{ summary?.totalContacts ?? '–' }}</p>
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Total Contacts</p>
+              <p class="text-5xl font-bold text-gray-900 dark:text-gray-100">{{ summary?.totalContacts ?? '–' }}</p>
+            </div>
+            <div class="bg-blue-100 dark:bg-blue-900/30 p-4 rounded-2xl">
+              <i class="pi pi-users text-3xl text-blue-600 dark:text-blue-400"></i>
+            </div>
+          </div>
         </template>
       </Card>
-      <Card class="shadow">
-        <template #title>Total Messages</template>
+
+      <!-- Total Messages Card -->
+      <Card class="shadow-lg hover:shadow-xl transition-all duration-300 border-t-4 border-t-green-500 hover:scale-105">
         <template #content>
-          <p class="text-4xl font-semibold">{{ summary?.totalMessages ?? '–' }}</p>
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Total Messages</p>
+              <p class="text-5xl font-bold text-gray-900 dark:text-gray-100">{{ summary?.totalMessages ?? '–' }}</p>
+            </div>
+            <div class="bg-green-100 dark:bg-green-900/30 p-4 rounded-2xl">
+              <i class="pi pi-comments text-3xl text-green-600 dark:text-green-400"></i>
+            </div>
+          </div>
         </template>
       </Card>
-      <Card class="shadow">
-        <template #title>Total Images</template>
+
+      <!-- Total Images Card -->
+      <Card class="shadow-lg hover:shadow-xl transition-all duration-300 border-t-4 border-t-cyan-500 hover:scale-105">
         <template #content>
-          <p class="text-4xl font-semibold">{{ summary?.totalImages ?? '–' }}</p>
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Total Images</p>
+              <p class="text-5xl font-bold text-gray-900 dark:text-gray-100">{{ summary?.totalImages ?? '–' }}</p>
+            </div>
+            <div class="bg-cyan-100 dark:bg-cyan-900/30 p-4 rounded-2xl">
+              <i class="pi pi-images text-3xl text-cyan-600 dark:text-cyan-400"></i>
+            </div>
+          </div>
         </template>
       </Card>
     </div>
 
     <!-- Dashboard Panels -->
-    <Accordion v-if="dashboard" :value="[]" multiple>
+    <Accordion v-if="dashboard" :value="['0', '1']" multiple class="shadow-lg rounded-xl overflow-hidden">
       <!-- Top Contacts -->
       <AccordionPanel value="0">
-        <AccordionHeader>Top Contacts</AccordionHeader>
-        <AccordionContent>
-          <DataTable :value="dashboard.topContacts" size="small" :rows="10" :paginator="dashboard.topContacts.length > 10">
-            <Column field="displayName" header="Contact" />
-            <Column field="messageCount" header="Messages" />
+        <AccordionHeader class="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          <div class="flex items-center gap-2">
+            <i class="pi pi-star-fill text-yellow-500"></i>
+            <span class="font-semibold">Top Contacts</span>
+          </div>
+        </AccordionHeader>
+        <AccordionContent class="bg-gray-50 dark:bg-gray-900/50">
+          <DataTable
+            :value="dashboard.topContacts"
+            size="small"
+            :rows="10"
+            :paginator="dashboard.topContacts.length > 10"
+            class="rounded-lg overflow-hidden"
+            stripedRows
+          >
+            <Column field="displayName" header="Contact" class="font-medium" />
+            <Column field="messageCount" header="Messages" class="text-right">
+              <template #body="{ data }">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
+                  {{ data.messageCount }}
+                </span>
+              </template>
+            </Column>
           </DataTable>
         </AccordionContent>
       </AccordionPanel>
 
       <!-- Messages Per Day -->
       <AccordionPanel value="1">
-        <AccordionHeader>Messages Per Day</AccordionHeader>
-        <AccordionContent>
-          <div class="flex flex-col gap-4">
-            <div class="flex flex-wrap items-end gap-4 justify-between">
+        <AccordionHeader class="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          <div class="flex items-center gap-2">
+            <i class="pi pi-chart-line text-green-500"></i>
+            <span class="font-semibold">Messages Per Day</span>
+          </div>
+        </AccordionHeader>
+        <AccordionContent class="bg-gray-50 dark:bg-gray-900/50">
+          <div class="flex flex-col gap-6">
+            <!-- Controls Section with better styling -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
               <div class="flex flex-wrap items-end gap-4">
-                <div class="flex flex-col">
-                  <label class="text-xs font-medium mb-1">Start Date</label>
-                  <Calendar v-model="startDate" dateFormat="yy-mm-dd" :maxDate="endDate" @update:modelValue="onRangeChange" />
+                <div class="flex flex-col flex-1 min-w-[140px]">
+                  <label class="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300 uppercase tracking-wide">Start Date</label>
+                  <Calendar v-model="startDate" dateFormat="yy-mm-dd" :maxDate="endDate" @update:modelValue="onRangeChange" class="w-full" />
                 </div>
-                <div class="flex flex-col">
-                  <label class="text-xs font-medium mb-1">End Date</label>
-                  <Calendar v-model="endDate" dateFormat="yy-mm-dd" :minDate="startDate" @update:modelValue="onRangeChange" />
+                <div class="flex flex-col flex-1 min-w-[140px]">
+                  <label class="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300 uppercase tracking-wide">End Date</label>
+                  <Calendar v-model="endDate" dateFormat="yy-mm-dd" :minDate="startDate" @update:modelValue="onRangeChange" class="w-full" />
                 </div>
-                <div class="flex flex-col min-w-48">
-                  <label class="text-xs font-medium mb-1">Contact</label>
-                  <Dropdown :options="contactOptions" optionLabel="label" optionValue="value" v-model="selectedContactId" placeholder="All Contacts" class="min-w-48" @change="onRangeChange" />
+                <div class="flex flex-col flex-1 min-w-[180px]">
+                  <label class="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300 uppercase tracking-wide">Contact</label>
+                  <Select
+                    :options="contactOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                    v-model="selectedContactId"
+                    placeholder="All Contacts"
+                    filter
+                    :filterFields="['label']"
+                    showClear
+                    class="w-full"
+                    @change="onRangeChange"
+                  />
                 </div>
-                <div class="flex flex-col">
-                  <label class="text-xs font-medium mb-1 invisible">Refresh</label>
-                  <Button label="Apply" size="small" icon="pi pi-check" :disabled="loading" @click="fetchDashboard" />
-                </div>
+                <Button
+                  label="Apply"
+                  size="small"
+                  icon="pi pi-check"
+                  :disabled="loading"
+                  @click="fetchDashboard"
+                  severity="success"
+                  class="shadow-sm"
+                />
               </div>
-              <div class="text-sm text-gray-600 dark:text-gray-300 flex gap-4" v-if="messagesPerDayChartData">
-                <span>Total: <strong>{{ messagesPerPeriodTotal }}</strong></span>
-                <span>Avg/Day: <strong>{{ averageMessagesPerDay }}</strong></span>
-                <span>Days: <strong>{{ dayCount }}</strong></span>
+
+              <!-- Stats Row -->
+              <div class="flex flex-wrap gap-6 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700" v-if="messagesPerDayChartData">
+                <div class="flex items-center gap-2">
+                  <div class="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
+                    <i class="pi pi-hashtag text-blue-600 dark:text-blue-400"></i>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total</p>
+                    <p class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ messagesPerPeriodTotal }}</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="bg-green-100 dark:bg-green-900/30 p-2 rounded-lg">
+                    <i class="pi pi-chart-bar text-green-600 dark:text-green-400"></i>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Avg/Day</p>
+                    <p class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ averageMessagesPerDay }}</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="bg-cyan-100 dark:bg-cyan-900/30 p-2 rounded-lg">
+                    <i class="pi pi-calendar text-cyan-600 dark:text-cyan-400"></i>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Days</p>
+                    <p class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ dayCount }}</p>
+                  </div>
+                </div>
               </div>
             </div>
-            <Chart type="bar" :data="messagesPerDayChartData" :options="messagesPerDayChartOptions" class="w-full h-72" />
+
+            <!-- Chart Section -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+              <Chart type="bar" :data="messagesPerDayChartData" :options="messagesPerDayChartOptions" class="w-full h-80" />
+            </div>
           </div>
         </AccordionContent>
       </AccordionPanel>
     </Accordion>
 
-    <div v-if="loading && !dashboard" class="text-sm text-gray-500">Loading dashboard...</div>
-    <PrimeMessage v-if="error" severity="error">{{ error }}</PrimeMessage>
+    <div v-if="loading && !dashboard" class="flex items-center justify-center p-12">
+      <div class="text-center">
+        <i class="pi pi-spin pi-spinner text-4xl text-blue-600 dark:text-blue-400 mb-4"></i>
+        <p class="text-gray-600 dark:text-gray-400">Loading dashboard...</p>
+      </div>
+    </div>
+    <PrimeMessage v-if="error" severity="error" class="shadow-lg">{{ error }}</PrimeMessage>
   </div>
 </template>
 
@@ -100,7 +227,7 @@ import PrimeMessage from 'primevue/message';
 import Button from 'primevue/button';
 import { RouterLink } from 'vue-router';
 import Calendar from 'primevue/calendar';
-import Dropdown from 'primevue/dropdown';
+import Select from 'primevue/select';
 
 const dashboard = ref<AnalyticsDashboardDto | null>(null);
 const summary = computed<AnalyticsSummary | null>(() => dashboard.value?.summary ?? null);

@@ -3,148 +3,221 @@
     <!-- Contacts panel - hidden on mobile when conversation is selected -->
     <aside
       :class="[
-        'w-full md:w-1/3 md:max-w-sm border-r border-gray-200 dark:border-slate-700 bg-gray-50/90 dark:bg-slate-900/70 backdrop-blur p-4 overflow-y-auto',
-        selectedConversation ? 'hidden md:block' : 'block'
+        'w-full md:w-1/3 md:max-w-sm border-r border-gray-200 dark:border-slate-700 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-slate-900 dark:to-slate-950 backdrop-blur overflow-y-auto flex flex-col',
+        selectedConversation ? 'hidden md:flex' : 'flex'
       ]"
     >
-      <h2 class="text-lg font-semibold mb-4 tracking-tight text-gray-700 dark:text-gray-200">
-        Conversations
-      </h2>
+      <!-- Sidebar Header -->
+      <div class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 p-4 shadow-md">
+        <div class="flex items-center gap-3">
+          <div class="bg-white/20 backdrop-blur-sm p-2.5 rounded-xl">
+            <i class="pi pi-comments text-2xl text-white"></i>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold text-white tracking-tight">
+              Conversations
+            </h2>
+            <p class="text-xs text-blue-100 dark:text-blue-200">{{ conversations.length }} total</p>
+          </div>
+        </div>
+      </div>
 
-      <div v-if="contactsLoading" class="text-sm text-gray-500 dark:text-gray-400">Loading conversations...</div>
-      <div v-else-if="contactsError" class="text-sm text-red-600 dark:text-red-400">{{ contactsError }}</div>
-      <div v-else-if="!conversations.length" class="text-sm text-gray-500 dark:text-gray-400">No conversations.</div>
+      <!-- Conversations List -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-2">
+
+      <div v-if="contactsLoading" class="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
+        <i class="pi pi-spin pi-spinner text-3xl text-blue-600 dark:text-blue-400 mb-2"></i>
+        <span class="text-sm">Loading conversations...</span>
+      </div>
+      <div v-else-if="contactsError" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-sm text-red-600 dark:text-red-400">
+        <i class="pi pi-exclamation-circle mr-2"></i>{{ contactsError }}
+      </div>
+      <div v-else-if="!conversations.length" class="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
+        <i class="pi pi-inbox text-4xl mb-2"></i>
+        <span class="text-sm">No conversations yet</span>
+      </div>
 
       <div
         v-for="conversation in conversations"
         :key="conversation.id"
         @click="selectConversation(conversation)"
         :class="[
-          'group mb-3 p-4 md:p-3 rounded-lg border cursor-pointer transition-colors duration-150 flex flex-col gap-1 min-h-[72px] md:min-h-0',
+          'group p-4 rounded-xl border cursor-pointer transition-all duration-200 flex flex-col gap-1.5 shadow-sm hover:shadow-md',
           selectedConversation?.id === conversation.id
-            ? 'accent-bg accent-border text-white shadow-sm'
-            : 'bg-white/90 dark:bg-slate-800/80 border-gray-200 dark:border-slate-700 hover:accent-muted-bg dark:hover:bg-slate-700/70 active:scale-[0.98]'
+            ? 'bg-gradient-to-br from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 border-blue-500 text-white scale-[1.02]'
+            : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-slate-700 active:scale-[0.98]'
         ]"
       >
-        <div class="flex justify-between items-center">
-          <h3 :class="['font-medium truncate text-base md:text-sm', selectedConversation?.id === conversation.id ? 'text-white' : 'text-gray-800 dark:text-gray-100']">
-            {{ conversation.name }}
-            <span v-if="conversation.participantCount > 2" class="text-xs opacity-70 ml-1">({{ conversation.participantCount }})</span>
-          </h3>
-          <span
-            v-if="conversation.lastMessageHasImage"
-            :class="[
-              'text-sm',
+        <div class="flex justify-between items-start gap-2">
+          <div class="flex items-center gap-2 flex-1 min-w-0">
+            <div :class="[
+              'w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold shrink-0',
               selectedConversation?.id === conversation.id
-                ? 'accent-soft-text'
-                : 'text-gray-400 dark:text-gray-500 group-hover:accent-text'
-            ]"
-          >📷</span>
+                ? 'bg-white/20 text-white'
+                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+            ]">
+              {{ conversation.name.charAt(0).toUpperCase() }}
+            </div>
+            <div class="flex-1 min-w-0">
+              <h3 :class="[
+                'font-semibold truncate text-sm flex items-center gap-1.5',
+                selectedConversation?.id === conversation.id ? 'text-white' : 'text-gray-900 dark:text-gray-100'
+              ]">
+                {{ conversation.name }}
+                <span v-if="conversation.participantCount > 2" :class="[
+                  'text-xs px-1.5 py-0.5 rounded-full font-medium',
+                  selectedConversation?.id === conversation.id
+                    ? 'bg-white/20 text-white'
+                    : 'bg-gray-200 dark:bg-slate-700 text-gray-600 dark:text-gray-400'
+                ]">
+                  {{ conversation.participantCount }}
+                </span>
+              </h3>
+              <p :class="[
+                'text-xs truncate mt-0.5',
+                selectedConversation?.id === conversation.id ? 'text-blue-100' : 'text-gray-600 dark:text-gray-400'
+              ]">
+                {{ conversation.lastMessagePreview }}
+              </p>
+            </div>
+          </div>
+          <div class="flex flex-col items-end gap-1 shrink-0">
+            <span :class="[
+              'text-[10px] uppercase tracking-wider font-medium',
+              selectedConversation?.id === conversation.id ? 'text-blue-100' : 'text-gray-500 dark:text-gray-500'
+            ]">
+              {{ formatDate(conversation.lastMessageAt) }}
+            </span>
+            <span
+              v-if="conversation.lastMessageHasImage"
+              :class="[
+                'text-lg',
+                selectedConversation?.id === conversation.id ? 'opacity-80' : 'opacity-60'
+              ]"
+            >📷</span>
+          </div>
         </div>
-        <p
-          class="text-xs truncate"
-          :class="selectedConversation?.id === conversation.id ? 'accent-soft-text' : 'text-gray-600 dark:text-gray-400'"
-        >{{ conversation.lastMessagePreview }}</p>
-        <p
-          class="text-[10px] uppercase tracking-wide"
-          :class="selectedConversation?.id === conversation.id ? 'accent-subtle-text' : 'text-gray-400 dark:text-gray-500'"
-        >{{ formatDate(conversation.lastMessageAt) }}</p>
+      </div>
       </div>
     </aside>
 
     <!-- Conversation panel - hidden on mobile when no conversation selected -->
     <main
       :class="[
-        'flex-1 flex flex-col p-3 md:p-4 bg-white/70 dark:bg-slate-900/60 backdrop-blur',
+        'flex-1 flex flex-col bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900',
         !selectedConversation ? 'hidden md:flex' : 'flex'
       ]"
     >
       <!-- Header with back button on mobile -->
-      <div class="flex items-center gap-2 mb-2">
+      <div class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 p-4 shadow-md flex items-center gap-3">
         <button
           v-if="selectedConversation"
           @click="clearConversation"
-          class="md:hidden flex items-center justify-center w-10 h-10 rounded-lg bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 active:scale-95 transition-all"
+          class="md:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm active:scale-95 transition-all"
           aria-label="Back to conversations"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-          </svg>
+          <i class="pi pi-arrow-left text-white"></i>
         </button>
-        <h2 class="text-lg md:text-xl font-semibold tracking-tight text-gray-700 dark:text-gray-200 flex-1 truncate">
-          <span v-if="selectedConversation?.participantCount && selectedConversation.participantCount > 2">Group:</span>
-          <span v-else>Conversation with </span>
-          <span class="accent-text">{{ selectedConversation?.name || '...' }}</span>
-        </h2>
-        <!-- Delete conversation button (desktop + mobile when conversation selected) -->
+        <div class="flex-1 min-w-0">
+          <h2 class="text-xl font-bold text-white tracking-tight truncate flex items-center gap-2">
+            <span v-if="selectedConversation?.participantCount && selectedConversation.participantCount > 2">
+              <i class="pi pi-users text-lg"></i>
+            </span>
+            {{ selectedConversation?.name || 'Select a conversation' }}
+          </h2>
+          <p v-if="selectedConversation" class="text-xs text-blue-100 dark:text-blue-200 mt-0.5">
+            <span v-if="selectedConversation.participantCount > 2">
+              {{ selectedConversation.participantCount }} participants
+            </span>
+            <span v-else>1-on-1 conversation</span>
+          </p>
+        </div>
+        <!-- Delete conversation button -->
         <button
           v-if="selectedConversation"
           @click="openDeleteConversationModal(selectedConversation)"
-          class="flex items-center justify-center w-10 h-10 rounded-lg bg-red-500/90 hover:bg-red-600 text-white active:scale-95 transition focus:outline-none focus:ring-2 focus:ring-red-400"
+          class="flex items-center justify-center w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 border-2 border-white/30 hover:border-white/50 text-white backdrop-blur-sm active:scale-95 transition-all group"
           aria-label="Delete conversation"
           title="Delete conversation"
         >
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M8 6V4h8v2m1 0v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V6h10z" />
-          </svg>
+          <i class="pi pi-trash group-hover:scale-110 transition-transform"></i>
         </button>
       </div>
 
       <!-- Status messages (outside scroll container) -->
-      <div v-if="!selectedConversation && !messagesLoading" class="mt-4 text-sm text-gray-500 dark:text-gray-500 italic">
-        Select a conversation to view messages.
+      <div v-if="!selectedConversation && !messagesLoading" class="flex-1 flex items-center justify-center p-8">
+        <div class="text-center">
+          <div class="bg-blue-100 dark:bg-blue-900/30 p-6 rounded-full inline-flex mb-4">
+            <i class="pi pi-comments text-5xl text-blue-600 dark:text-blue-400"></i>
+          </div>
+          <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">No Conversation Selected</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400">Choose a conversation from the sidebar to view messages</p>
+        </div>
       </div>
 
       <!-- Scrollable messages container -->
-      <div v-if="selectedConversation" ref="messageContainer" class="flex-1 overflow-y-auto mt-2 pr-1 -mr-3 md:mr-0" @scroll="handleScroll">
+      <div v-if="selectedConversation" ref="messageContainer" class="flex-1 overflow-y-auto p-4 space-y-3" @scroll="handleScroll">
         <!-- Older loader / end marker at top -->
-        <div class="flex justify-center my-2">
-          <span v-if="olderLoading" class="text-[11px] text-gray-400 dark:text-gray-500">Loading older messages...</span>
-          <span v-else-if="!hasMoreOlder && messages.length" class="text-[11px] text-gray-400 dark:text-gray-500">Beginning of history</span>
+        <div class="flex justify-center my-3">
+          <div v-if="olderLoading" class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+            <i class="pi pi-spin pi-spinner text-sm"></i>
+            <span class="text-xs font-medium">Loading older messages...</span>
+          </div>
+          <div v-else-if="!hasMoreOlder && messages.length" class="bg-gray-200 dark:bg-slate-700 px-3 py-1.5 rounded-full">
+            <span class="text-xs text-gray-600 dark:text-gray-400 font-medium">Beginning of conversation</span>
+          </div>
         </div>
 
         <!-- Main loading state (initial) -->
-        <div v-if="messagesLoading" class="text-sm text-gray-500 dark:text-gray-400">Loading messages...</div>
-        <div v-else-if="messagesError" class="text-sm text-red-600 dark:text-red-400">{{ messagesError }}</div>
-        <div v-else-if="!messages.length" class="text-sm text-gray-500 dark:text-gray-400">No messages.</div>
+        <div v-if="messagesLoading" class="flex flex-col items-center justify-center py-12">
+          <i class="pi pi-spin pi-spinner text-4xl text-blue-600 dark:text-blue-400 mb-3"></i>
+          <span class="text-sm text-gray-600 dark:text-gray-400">Loading messages...</span>
+        </div>
+        <div v-else-if="messagesError" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-sm text-red-600 dark:text-red-400">
+          <i class="pi pi-exclamation-circle mr-2"></i>{{ messagesError }}
+        </div>
+        <div v-else-if="!messages.length" class="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
+          <i class="pi pi-inbox text-5xl mb-3"></i>
+          <span class="text-sm font-medium">No messages in this conversation</span>
+        </div>
 
         <!-- Messages list -->
         <div
           v-for="msg in messages"
           :key="msg.id"
-          class="mb-3 flex flex-col"
+          class="flex flex-col"
           :class="msg.isMe ? 'items-end' : 'items-start'"
         >
           <template v-if="!msg.reaction">
             <!-- Sender name for group messages with color dot indicator -->
             <div
               v-if="!msg.isMe && selectedConversation?.participantCount && selectedConversation.participantCount > 2 && msg.senderName"
-              class="text-xs mb-1 ml-2 flex items-center gap-1.5"
+              class="text-xs mb-1.5 ml-3 flex items-center gap-1.5"
             >
               <span
                 class="w-2 h-2 rounded-full inline-block"
                 :class="getParticipantColor(msg.senderIdentifier)"
               ></span>
-              <span class="text-gray-500 dark:text-gray-400">{{ msg.senderName }}</span>
+              <span class="text-gray-600 dark:text-gray-400 font-medium">{{ msg.senderName }}</span>
             </div>
             <div class="relative">
               <div
                 :class="[
-                  'relative max-w-[78%] md:max-w-[85%] rounded-lg px-3 py-2 shadow-sm text-sm leading-snug space-y-2',
+                  'relative max-w-[78%] md:max-w-[85%] rounded-2xl px-4 py-2.5 shadow-md text-sm leading-relaxed space-y-2 transition-all hover:shadow-lg',
                   msg.isMe
-                    ? 'accent-bg text-white'
+                    ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white'
                     : (selectedConversation?.participantCount && selectedConversation.participantCount > 2
                         ? getParticipantColor(msg.senderIdentifier)
-                        : 'bg-gray-200 text-gray-900 dark:bg-slate-700 dark:text-gray-100')
+                        : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-700')
                 ]"
               >
                 <div v-if="msg.body && msg.body !== '[media]'">{{ msg.body }}</div>
-                <!-- Image thumbnails (outer wrapper changed from button to div to avoid nested button) -->
+                <!-- Image thumbnails -->
                 <div v-if="msg.images && msg.images.length" class="flex flex-wrap gap-2">
                   <div
                     v-for="img in msg.images"
                     :key="img.id"
-                    class="relative group cursor-pointer overflow-hidden rounded-md bg-black/10 dark:bg-black/30 focus:outline-none focus:ring-2 focus:ring-accent/70"
+                    class="relative group cursor-pointer overflow-hidden rounded-xl bg-black/10 dark:bg-black/30 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all hover:scale-105"
                     :class="img.isSingle ? 'w-48 h-48' : 'w-32 h-32'"
                     role="button"
                     tabindex="0"
@@ -155,18 +228,20 @@
                     <img
                       :src="img.thumbUrl"
                       :alt="img.contentType || 'preview'"
-                      class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                      class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110"
                       loading="lazy"
                       @error="onThumbError($event, img)"
                     />
                     <button
                       type="button"
                       @click.stop="deleteImage(img.id)"
-                      class="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition text-xs"
+                      class="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white w-7 h-7 rounded-full opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center shadow-lg"
                       aria-label="Delete image"
                       title="Delete image"
-                    >✕</button>
-                    <div v-if="img.error" class="absolute inset-0 flex items-center justify-center text-[10px] bg-black/40 text-white">Image</div>
+                    >
+                      <i class="pi pi-trash text-xs"></i>
+                    </button>
+                    <div v-if="img.error" class="absolute inset-0 flex items-center justify-center text-xs bg-black/40 text-white">Image</div>
                   </div>
                 </div>
                 <!-- Reactions overlay -->
@@ -178,18 +253,18 @@
                   <li
                     v-for="(r, idx) in getGroupedReactions(msg.id)"
                     :key="idx"
-                    class="bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-full px-2 py-0.5 text-xs shadow-sm flex items-center gap-1"
+                    class="bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-full px-2.5 py-1 text-xs shadow-md flex items-center gap-1"
                     :title="r.tooltip"
                     :aria-label="r.count > 1 ? r.emoji + ' reaction count ' + r.count : r.emoji + ' reaction'"
                   >
                     <span aria-hidden="true">{{ r.emoji }}</span>
-                    <span v-if="r.count > 1" class="text-[10px] font-semibold" aria-hidden="true">{{ r.count }}</span>
+                    <span v-if="r.count > 1" class="text-[10px] font-bold" aria-hidden="true">{{ r.count }}</span>
                   </li>
                 </ul>
               </div>
               <span
-                class="mt-1 text-[10px] tracking-wide uppercase block"
-                :class="msg.isMe ? 'accent-dark-text' : 'text-gray-400 dark:text-gray-500'"
+                class="mt-1.5 text-[10px] tracking-wide uppercase block px-1"
+                :class="msg.isMe ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'"
               >{{ formatDateTime(msg.timestamp) }}</span>
             </div>
           </template>
@@ -220,44 +295,61 @@
       aria-labelledby="delete-conversation-title"
     >
       <!-- Backdrop -->
-      <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="cancelDeleteConversation" aria-hidden="true"></div>
+      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="cancelDeleteConversation" aria-hidden="true"></div>
       <!-- Modal panel -->
       <div
-        class="relative w-full max-w-sm md:max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 flex flex-col overflow-hidden animate-fadeIn"
+        class="relative w-full max-w-sm md:max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 flex flex-col overflow-hidden animate-fadeIn"
       >
-        <div class="px-5 pt-5 pb-3">
-          <h3 id="delete-conversation-title" class="text-lg font-semibold tracking-tight text-gray-800 dark:text-gray-100 flex items-center gap-2">
-            <svg class="w-5 h-5 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M8 6V4h8v2m1 0v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V6h10z" />
-            </svg>
-            Delete Conversation
-          </h3>
-          <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
-            This will permanently delete all messages in <strong class="font-medium">{{ conversationPendingDelete?.name }}</strong>.
-            <span class="block mt-1">Images associated with this conversation will also be removed. This action cannot be undone.</span>
-          </p>
+        <!-- Icon Header -->
+        <div class="flex items-center justify-center pt-6 pb-4">
+          <div class="bg-red-100 dark:bg-red-900/30 p-4 rounded-full">
+            <i class="pi pi-exclamation-triangle text-4xl text-red-600 dark:text-red-400"></i>
+          </div>
         </div>
-        <div class="px-5 pb-5 flex flex-col md:flex-row gap-3 md:gap-2">
-          <button
-            @click="confirmDeleteConversation"
-            :disabled="deletingConversation"
-            class="w-full md:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-sm font-medium px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-400 active:scale-[0.97]"
-          >
-            <span v-if="!deletingConversation">Delete</span>
-            <span v-else class="inline-flex items-center gap-1">
-              <svg class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <circle cx="12" cy="12" r="10" stroke-width="4" class="opacity-25"></circle>
-                <path d="M4 12a8 8 0 0 1 8-8" stroke-width="4" class="opacity-75" stroke-linecap="round"></path>
-              </svg>
-              Deleting...
-            </span>
-          </button>
+
+        <!-- Content -->
+        <div class="px-6 pb-4 text-center">
+          <h3 id="delete-conversation-title" class="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100 mb-2">
+            Delete Conversation?
+          </h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            This will permanently delete all messages in
+          </p>
+          <p class="text-base font-semibold text-gray-900 dark:text-gray-100 mt-1 mb-3">
+            {{ conversationPendingDelete?.name }}
+          </p>
+          <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 text-left">
+            <div class="flex gap-2">
+              <i class="pi pi-info-circle text-yellow-600 dark:text-yellow-400 text-sm mt-0.5 shrink-0"></i>
+              <p class="text-xs text-gray-700 dark:text-gray-300">
+                All messages and associated images will be permanently removed. This action cannot be undone.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="px-6 pb-6 flex flex-col-reverse sm:flex-row gap-3">
           <button
             @click="cancelDeleteConversation"
             :disabled="deletingConversation"
-            class="w-full md:w-auto inline-flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-50 text-gray-800 dark:text-gray-100 text-sm font-medium px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-gray-400 active:scale-[0.97]"
+            class="flex-1 inline-flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-50 text-gray-900 dark:text-gray-100 text-sm font-semibold px-5 py-3 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-slate-600 active:scale-[0.98] transition-all"
           >
             Cancel
+          </button>
+          <button
+            @click="confirmDeleteConversation"
+            :disabled="deletingConversation"
+            class="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-sm font-semibold px-5 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 active:scale-[0.98] transition-all shadow-lg hover:shadow-xl"
+          >
+            <span v-if="!deletingConversation" class="flex items-center gap-2">
+              <i class="pi pi-trash"></i>
+              Delete
+            </span>
+            <span v-else class="inline-flex items-center gap-2">
+              <i class="pi pi-spin pi-spinner"></i>
+              Deleting...
+            </span>
           </button>
         </div>
       </div>

@@ -1,90 +1,156 @@
 <template>
-  <div class="flex flex-col gap-6">
-    <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-      <h1 class="text-2xl font-semibold tracking-tight text-gray-800 dark:text-gray-100">Contacts</h1>
-      <div class="flex items-center gap-2 w-full md:w-auto">
-        <input
-          v-model="filter"
-          type="text"
-          placeholder="Filter by name or number..."
-          class="flex-1 md:flex-none px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60"
-        />
-        <button
-          v-if="filter"
-          @click="filter = ''"
-          class="px-3 py-2 rounded-lg bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 text-sm font-medium"
-        >Clear</button>
+  <div class="space-y-6">
+    <!-- Header Section -->
+    <div class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 rounded-2xl shadow-lg p-6 text-white">
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 class="text-4xl font-bold mb-2 flex items-center gap-3">
+            <i class="pi pi-users"></i>
+            Contacts
+          </h1>
+          <p class="text-blue-100 dark:text-blue-200">Manage and edit your contact names</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
+            <div class="flex items-center gap-2">
+              <i class="pi pi-user text-lg"></i>
+              <div class="text-left">
+                <p class="text-xs text-blue-100">Total Contacts</p>
+                <p class="text-2xl font-bold">{{ contacts.length }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </header>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 border border-gray-200 dark:border-gray-700">
+      <div class="flex items-center gap-3">
+        <div class="flex-1">
+          <label class="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300 uppercase tracking-wide block">
+            <i class="pi pi-search text-xs mr-1"></i>
+            Filter Contacts
+          </label>
+          <input
+            v-model="filter"
+            type="text"
+            placeholder="Search by name or number..."
+            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          />
+        </div>
+        <div class="flex items-end">
+          <button
+            v-if="filter"
+            @click="filter = ''"
+            class="px-4 py-2.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-semibold transition-all shadow-sm hover:shadow-md"
+          >
+            <i class="pi pi-times mr-1"></i>
+            Clear
+          </button>
+        </div>
+      </div>
+      <div v-if="filter" class="mt-3 text-sm text-gray-600 dark:text-gray-400">
+        <span class="font-medium">{{ filteredContacts.length }}</span> contact{{ filteredContacts.length === 1 ? '' : 's' }} found
+      </div>
+    </div>
 
     <section>
-      <div v-if="loading" class="text-sm text-gray-500 dark:text-gray-400">Loading contacts...</div>
-      <div v-else-if="error" class="text-sm text-red-600 dark:text-red-400">{{ error }}</div>
-      <div v-else-if="!filteredContacts.length" class="text-sm text-gray-500 dark:text-gray-400">No contacts found.</div>
+      <div v-if="loading" class="flex flex-col items-center justify-center py-12 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
+        <i class="pi pi-spin pi-spinner text-4xl text-blue-600 dark:text-blue-400 mb-3"></i>
+        <span class="text-sm text-gray-600 dark:text-gray-400 font-medium">Loading contacts...</span>
+      </div>
+      <div v-else-if="error" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 text-center shadow-md">
+        <i class="pi pi-exclamation-circle text-3xl text-red-600 dark:text-red-400 mb-2"></i>
+        <p class="text-sm text-red-600 dark:text-red-400">{{ error }}</p>
+      </div>
+      <div v-else-if="!filteredContacts.length" class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-8 border border-gray-200 dark:border-gray-700 text-center">
+        <div class="flex flex-col items-center gap-4">
+          <div class="bg-blue-100 dark:bg-blue-900/30 p-4 rounded-full">
+            <i class="pi pi-users text-4xl text-blue-600 dark:text-blue-400"></i>
+          </div>
+          <div>
+            <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">No Contacts Found</h3>
+            <p class="text-gray-600 dark:text-gray-400">{{ filter ? 'Try adjusting your search filter' : 'Import some messages to see contacts here' }}</p>
+          </div>
+        </div>
+      </div>
 
-      <div v-else class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+      <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <div
           v-for="c in filteredContacts"
           :key="c.id"
-          class="group relative rounded-xl border border-gray-200 dark:border-slate-700 bg-white/90 dark:bg-slate-800/80 backdrop-blur p-4 flex flex-col shadow-sm hover:shadow-md transition"
+          class="group relative rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 backdrop-blur p-5 flex flex-col shadow-md hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
         >
-          <div class="flex items-start justify-between gap-2 mb-2">
+          <!-- Avatar Circle -->
+          <div class="flex items-start gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-white text-xl font-bold shrink-0 shadow-md">
+              {{ (c.name || c.number).charAt(0).toUpperCase() }}
+            </div>
             <div class="flex-1 min-w-0">
-              <p class="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Name</p>
+              <p class="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-semibold mb-1">Contact Name</p>
               <div v-if="!isEditing(c.id)" class="flex items-center gap-2">
-                <span class="font-medium text-sm truncate" :class="c.name ? 'text-gray-800 dark:text-gray-100' : 'italic text-gray-400 dark:text-gray-500'">
+                <span class="font-semibold text-base truncate" :class="c.name ? 'text-gray-900 dark:text-gray-100' : 'italic text-gray-400 dark:text-gray-500'">
                   {{ c.name || 'Unnamed' }}
                 </span>
                 <button
                   @click="startEdit(c)"
-                  class="opacity-60 group-hover:opacity-100 p-1 rounded hover:bg-gray-100 dark:hover:bg-slate-700 active:scale-95"
+                  class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 active:scale-95 transition-all"
                   aria-label="Edit name"
                   title="Edit name"
                 >
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.862 4.487l2.651 2.651M7.5 17.25l9.362-9.362M5.25 19.5h13.5" />
-                  </svg>
+                  <i class="pi pi-pencil text-sm"></i>
                 </button>
               </div>
-              <div v-else class="flex items-center gap-2">
+              <div v-else class="flex flex-col gap-2">
                 <input
                   ref="editInputEl"
                   v-model="editName"
                   type="text"
-                  class="flex-1 px-2 py-1 text-sm rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-accent/60"
+                  class="px-3 py-2 text-sm rounded-lg border-2 border-blue-500 dark:border-blue-400 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                   :placeholder="originalName || 'Enter name'"
                   @keyup.enter="saveEdit(c)"
                   @keyup.esc="cancelEdit()"
                 />
-                <button
-                  @click="saveEdit(c)"
-                  :disabled="saving"
-                  class="px-2 py-1 rounded bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-xs font-medium flex items-center gap-1"
-                  aria-label="Save"
-                >
-                  <span v-if="!saving">Save</span>
-                  <span v-else class="flex items-center gap-1">
-                    <svg class="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <circle cx="12" cy="12" r="10" stroke-width="4" class="opacity-25"></circle>
-                      <path d="M4 12a8 8 0 0 1 8-8" stroke-width="4" class="opacity-75" stroke-linecap="round"></path>
-                    </svg>
-                    ...
-                  </span>
-                </button>
-                <button
-                  @click="cancelEdit()"
-                  :disabled="saving"
-                  class="px-2 py-1 rounded bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-100 text-xs font-medium"
-                  aria-label="Cancel"
-                >Cancel</button>
+                <div class="flex gap-2">
+                  <button
+                    @click="saveEdit(c)"
+                    :disabled="saving"
+                    class="flex-1 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                    aria-label="Save"
+                  >
+                    <i v-if="!saving" class="pi pi-check"></i>
+                    <i v-else class="pi pi-spin pi-spinner"></i>
+                    <span>{{ saving ? 'Saving...' : 'Save' }}</span>
+                  </button>
+                  <button
+                    @click="cancelEdit()"
+                    :disabled="saving"
+                    class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-100 text-xs font-semibold active:scale-95 transition-all"
+                    aria-label="Cancel"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="mt-auto space-y-1">
-            <p class="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Number</p>
-            <p class="text-sm font-mono text-gray-700 dark:text-gray-200 break-all">{{ c.number }}</p>
-            <p class="text-[10px] text-gray-400 dark:text-gray-500">Normalized: {{ c.normalizedNumber }}</p>
+          <!-- Phone Number Section -->
+          <div class="mt-auto pt-4 border-t border-gray-200 dark:border-slate-700 space-y-2">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-semibold mb-1">
+                <i class="pi pi-phone text-xs mr-1"></i>
+                Phone Number
+              </p>
+              <p class="text-sm font-mono text-gray-800 dark:text-gray-200 break-all bg-gray-50 dark:bg-slate-900/50 px-3 py-2 rounded-lg">
+                {{ c.number }}
+              </p>
+            </div>
+            <div>
+              <p class="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">Normalized</p>
+              <p class="text-xs font-mono text-gray-500 dark:text-gray-400">{{ c.normalizedNumber }}</p>
+            </div>
           </div>
         </div>
       </div>
