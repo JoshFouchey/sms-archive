@@ -23,16 +23,30 @@
       </div>
       <div class="flex flex-col gap-1">
         <label for="contactFilter" class="text-sm font-medium">Filter by contact</label>
-        <select
+        <Select
           id="contactFilter"
-          v-model.number="selectedContactId"
-          class="rounded border px-3 py-2.5 md:py-2 text-base dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          v-model="selectedContact"
+          :options="contacts"
+          filter
+          :filterFields="['name', 'number']"
+          placeholder="All contacts"
+          class="w-full"
+          :showClear="true"
         >
-          <option :value="null">All contacts</option>
-          <option v-for="c in contacts" :key="c.id" :value="c.id">
-            {{ c.name ? c.name : c.number }}
-          </option>
-        </select>
+          <template #value="slotProps">
+            <div v-if="slotProps.value">
+              {{ slotProps.value.name || slotProps.value.number }}
+            </div>
+            <span v-else>
+              {{ slotProps.placeholder }}
+            </span>
+          </template>
+          <template #option="slotProps">
+            <div>
+              {{ slotProps.option.name || slotProps.option.number }}
+            </div>
+          </template>
+        </Select>
       </div>
       <div class="flex gap-2">
         <button
@@ -115,6 +129,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import Select from 'primevue/select';
 import {
   getDistinctContacts,
   searchByText,
@@ -124,7 +139,7 @@ import {
 
 const contacts = ref<Contact[]>([]);
 const searchText = ref('');
-const selectedContactId = ref<number | null>(null);
+const selectedContact = ref<Contact | null>(null);
 
 const results = ref<Message[]>([]);
 const loading = ref(false);
@@ -159,7 +174,7 @@ async function performSearch() {
 
 function clearSearch() {
   searchText.value = '';
-  selectedContactId.value = null;
+  selectedContact.value = null;
   results.value = [];
   error.value = null;
   touched.value = false;
@@ -177,9 +192,8 @@ function matchContact(msg: Message, c: Contact): boolean {
 }
 
 const filteredResults = computed(() => {
-  if (!selectedContactId.value) return results.value;
-  const c = contacts.value.find((c) => c.id === selectedContactId.value);
-  if (!c) return [];
+  if (!selectedContact.value) return results.value;
+  const c = selectedContact.value;
   return results.value.filter((m) => matchContact(m, c));
 });
 

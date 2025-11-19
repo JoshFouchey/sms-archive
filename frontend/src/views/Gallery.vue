@@ -6,12 +6,14 @@
 
     <!-- Contact Filter Dropdown -->
     <div class="flex flex-col sm:flex-row sm:space-x-2 mb-6 space-y-2 sm:space-y-0">
-      <Dropdown
+      <Select
         v-model="selectedContactId"
         :options="contactOptions"
         optionLabel="label"
         optionValue="value"
         placeholder="Filter by contact..."
+        filter
+        :filterFields="['label']"
         showClear
         class="flex-1"
         @change="onContactChange"
@@ -98,7 +100,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from "vue";
 import Button from "primevue/button";
-import Dropdown from "primevue/dropdown";
+import Select from "primevue/select";
 import PrimeMessage from "primevue/message";
 import ProgressSpinner from "primevue/progressspinner";
 import Toast from "primevue/toast";
