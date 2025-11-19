@@ -1,5 +1,6 @@
 package com.joshfouchey.smsarchive.service;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.joshfouchey.smsarchive.model.*;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
@@ -600,15 +601,18 @@ public class ImportService {
     }
     @VisibleForTesting String computeDuplicateKeyForTest(Message msg) { return buildDuplicateKey(msg); }
 
-    // ===== Progress Tracking (restored) =====
     public static class ImportProgress {
         @Getter
         private final UUID id;
         @Getter
         private final long totalBytes;
+        @JsonIgnore
         private final AtomicLong bytesRead = new AtomicLong(0);
+        @JsonIgnore
         private final AtomicLong processedMessages = new AtomicLong(0);
+        @JsonIgnore
         private final AtomicLong importedMessages = new AtomicLong(0);
+        @JsonIgnore
         private final AtomicLong duplicateMessagesAtomic = new AtomicLong(0);
         private volatile int duplicateMessages;
         @Getter
@@ -626,6 +630,13 @@ public class ImportService {
         public long getImportedMessages(){return importedMessages.get();}
         public long getDuplicateMessages(){return duplicateMessagesAtomic.get();}
         public int getDuplicateMessagesFinal(){return duplicateMessages;}
+
+        public int getPercentBytes() {
+            if (totalBytes <= 0) return 0;
+            long current = bytesRead.get();
+            if (current >= totalBytes) return 100;
+            return (int) ((current * 100) / totalBytes);
+        }
 
         void setStatus(String s){status=s;}
         void setError(String e){error=e;}
