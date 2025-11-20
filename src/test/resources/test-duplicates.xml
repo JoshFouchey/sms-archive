@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<smses count="5">
+  <sms protocol="0" address="5132254083" date="1444417958196" type="1" subject="null" body="Hi, this is Erin. Can you play at 7:10 tonight?" toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="1444417956000" sub_id="3" readable_date="Oct 9, 2015 3:12:38 PM" contact_name="Erin W2W Ajax" />
+  <sms protocol="0" address="5132254083" date="1444418917266" type="2" subject="null" body="Let me see what time my other team is playing at. " toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="0" sub_id="3" readable_date="Oct 9, 2015 3:28:37 PM" contact_name="Erin W2W Ajax" />
+  <sms protocol="0" address="5132254083" date="1444419185050" type="2" subject="null" body="Yeah that's cool. Not playing until 8. " toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="0" sub_id="3" readable_date="Oct 9, 2015 3:33:05 PM" contact_name="Erin W2W Ajax" />
+  <sms protocol="0" address="5132254083" date="1444422262979" type="1" subject="null" body="Thanks!" toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="1444422244000" sub_id="3" readable_date="Oct 9, 2015 4:24:22 PM" contact_name="Erin W2W Ajax" />
+  <sms protocol="0" address="5132254083" date="1449262857975" type="1" subject="null" body="Hey. We have a game at 8 tonight and we need a sub. I am waiting to hear from a friend but if he can't are you able to play?" toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="1449262856000" sub_id="3" readable_date="Dec 4, 2015 4:00:57 PM" contact_name="Erin W2W Ajax" />
+</smses>
+
