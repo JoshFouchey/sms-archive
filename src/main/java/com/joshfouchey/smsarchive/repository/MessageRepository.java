@@ -109,15 +109,22 @@ ORDER BY day_ts
     List<Message> findAllByConversationIdAndUser(@Param("conversationId") Long conversationId,
                                                  @Param("user") com.joshfouchey.smsarchive.model.User user);
 
-    // Duplicate checking for group messages (without contact)
-    @Query("select (count(m) > 0) from Message m where m.conversation = :conversation and m.timestamp = :ts and lower(coalesce(m.body,'')) = lower(coalesce(:body,''))")
+    // Duplicate checking for group messages (with conversation and user)
+    // Note: bodyNormalized is already lowercased and trimmed by the caller
+    @Query("select (count(m) > 0) from Message m where m.user = :user and m.conversation = :conversation and m.timestamp = :ts and m.msgBox = :msgBox and m.protocol = :protocol and lower(trim(coalesce(m.body,''))) = :body")
     boolean existsByConversationAndTimestampAndBody(@Param("conversation") com.joshfouchey.smsarchive.model.Conversation conversation,
                                                      @Param("ts") Instant timestamp,
-                                                     @Param("body") String bodyNormalized);
+                                                     @Param("body") String bodyNormalized,
+                                                     @Param("msgBox") Integer msgBox,
+                                                     @Param("protocol") com.joshfouchey.smsarchive.model.MessageProtocol protocol,
+                                                     @Param("user") com.joshfouchey.smsarchive.model.User user);
 
-    @Query("select (count(m) > 0) from Message m where m.timestamp = :ts and lower(coalesce(m.body,'')) = lower(coalesce(:body,''))")
+    @Query("select (count(m) > 0) from Message m where m.user = :user and m.timestamp = :ts and m.msgBox = :msgBox and m.protocol = :protocol and lower(trim(coalesce(m.body,''))) = :body")
     boolean existsByTimestampAndBody(@Param("ts") Instant timestamp,
-                                      @Param("body") String bodyNormalized);
+                                      @Param("body") String bodyNormalized,
+                                      @Param("msgBox") Integer msgBox,
+                                      @Param("protocol") com.joshfouchey.smsarchive.model.MessageProtocol protocol,
+                                      @Param("user") com.joshfouchey.smsarchive.model.User user);
 
     interface DayCountProjection { java.sql.Timestamp getDay_ts(); long getCount(); }
 }

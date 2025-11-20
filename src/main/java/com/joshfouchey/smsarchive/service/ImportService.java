@@ -261,7 +261,7 @@ public class ImportService {
     private void handleSms(Message cur, String suggestedName, ImportProgress progress, Set<String> seenKeys, List<Message> batch) {
         finalizeStreamingContact(cur, suggestedName);
         assignConversationForSms(cur, suggestedName); // Assign conversation after contact is resolved
-        boolean dup = isDuplicateInRunOrDb(cur, seenKeys);
+        boolean dup = isDuplicateInRunOrDb(cur, seenKeys, batch);
         if (dup) {
             progress.incDuplicateMessages();
         } else {
@@ -650,18 +650,78 @@ public class ImportService {
     }
 
     // ===== Duplicate & batch helpers (restored) =====
-    private boolean isDuplicateInRunOrDb(Message msg, Set<String> seenKeys) {
+    private boolean isDuplicateInRunOrDb(Message msg, Set<String> seenKeys, List<Message> currentBatch) {
         String key = buildDuplicateKey(msg);
-        if (seenKeys.contains(key)) return true;
+        // Check in-memory tracking first (fastest)
+        if (seenKeys.contains(key)) {
+            log.debug("Duplicate found in seenKeys: {}", key);
+            return true;
+        }
+        // Check current batch (before it's persisted)
+        if (isDuplicateInBatch(msg, currentBatch)) {
+            log.debug("Duplicate found in current batch: {}", key);
+            return true;
+        }
+        // Check database (most expensive)
         boolean dbDup = isDuplicate(msg);
+        if (dbDup) {
+            log.debug("Duplicate found in database: {}", key);
+        }
         if (!dbDup) seenKeys.add(key);
         return dbDup;
     }
+
+    private boolean isDuplicateInBatch(Message msg, List<Message> batch) {
+        if (batch == null || batch.isEmpty()) return false;
+        String bodyNorm = msg.getBody() == null ? "" : msg.getBody().trim().toLowerCase();
+        for (Message existing : batch) {
+            if (areMessagesDuplicate(msg, existing, bodyNorm)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean areMessagesDuplicate(Message msg1, Message msg2, String body1Normalized) {
+        // Compare timestamps
+        if (!msg1.getTimestamp().equals(msg2.getTimestamp())) {
+            return false;
+        }
+        // Compare bodies (case-insensitive, trimmed)
+        String body2Norm = msg2.getBody() == null ? "" : msg2.getBody().trim().toLowerCase();
+        if (!body1Normalized.equals(body2Norm)) {
+            return false;
+        }
+        // Compare user
+        UUID userId1 = msg1.getUser() != null ? msg1.getUser().getId() : null;
+        UUID userId2 = msg2.getUser() != null ? msg2.getUser().getId() : null;
+        if (userId1 != null && userId2 != null && !userId1.equals(userId2)) {
+            return false;
+        }
+        // Compare conversation if both are set
+        Long convId1 = msg1.getConversation() != null ? msg1.getConversation().getId() : null;
+        Long convId2 = msg2.getConversation() != null ? msg2.getConversation().getId() : null;
+        if (convId1 != null && convId2 != null && !convId1.equals(convId2)) {
+            return false;
+        }
+        // Compare direction/msgBox
+        if (msg1.getMsgBox() != msg2.getMsgBox()) {
+            return false;
+        }
+        // Compare protocol
+        if (msg1.getProtocol() != msg2.getProtocol()) {
+            return false;
+        }
+        return true;
+    }
+
     private String buildDuplicateKey(Message msg) {
-        String bodyNorm = msg.getBody() == null ? "" : msg.getBody().trim();
+        String bodyNorm = msg.getBody() == null ? "" : msg.getBody().trim().toLowerCase();
         Long conversationId = msg.getConversation() == null ? null : msg.getConversation().getId();
         String conversationStr = (conversationId == null) ? "null" : conversationId.toString();
-        return conversationStr + "|" + msg.getTimestamp() + "|" + msg.getMsgBox() + "|" + msg.getProtocol() + "|" + bodyNorm;
+        UUID userId = msg.getUser() != null ? msg.getUser().getId() : null;
+        String userStr = (userId == null) ? "null" : userId.toString();
+        return userStr + "|" + conversationStr + "|" + msg.getTimestamp() + "|" + msg.getMsgBox() + "|" + msg.getProtocol() + "|" + bodyNorm;
     }
     private void flushStreamingIfNeeded(List<Message> batch, ImportProgress progress) {
         if (batch.size() >= streamBatchSize) flushStreamingBatch(batch, progress);
@@ -674,11 +734,29 @@ public class ImportService {
 
     private boolean isDuplicate(Message msg) {
         try {
-            String normalizedBody = msg.getBody() == null ? null : msg.getBody().trim();
-            if (msg.getConversation() != null && msg.getConversation().getId() != null) {
-                return messageRepo.existsByConversationAndTimestampAndBody(msg.getConversation(), msg.getTimestamp(), normalizedBody);
+            String normalizedBody = msg.getBody() == null ? null : msg.getBody().trim().toLowerCase();
+            User user = msg.getUser();
+            if (user == null) {
+                log.warn("Message has no user set, cannot check for duplicates properly");
+                return false;
             }
-            return messageRepo.existsByTimestampAndBody(msg.getTimestamp(), normalizedBody);
+            if (msg.getConversation() != null && msg.getConversation().getId() != null) {
+                return messageRepo.existsByConversationAndTimestampAndBody(
+                    msg.getConversation(),
+                    msg.getTimestamp(),
+                    normalizedBody,
+                    msg.getMsgBox(),
+                    msg.getProtocol(),
+                    user
+                );
+            }
+            return messageRepo.existsByTimestampAndBody(
+                msg.getTimestamp(),
+                normalizedBody,
+                msg.getMsgBox(),
+                msg.getProtocol(),
+                user
+            );
         } catch (Exception e) {
             log.warn("Duplicate check failed, proceeding to insert message: {}", e.getMessage());
             return false;
@@ -854,7 +932,7 @@ public class ImportService {
         if (ctx.inMultipart && ctx.cur != null && ("mms".equals(local) || "rcs".equals(local))) {
             finalizeMultipart(ctx.cur, ctx.suggestedName, ctx.curParts, ctx.curMedia, ctx.textAgg, ctx.participantNumbers);
             assignConversationForMultipart(ctx.cur, ctx.threadKey, ctx.participantNumbers, ctx.suggestedName);
-            boolean dup = isDuplicateInRunOrDb(ctx.cur, seenKeys);
+            boolean dup = isDuplicateInRunOrDb(ctx.cur, seenKeys, batch);
             if (dup) { progress.incDuplicateMessages(); }
             else { batch.add(ctx.cur); progress.incImportedMessages(); }
             progress.incProcessedMessages();

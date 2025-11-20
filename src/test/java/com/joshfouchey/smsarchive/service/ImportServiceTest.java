@@ -1,10 +1,7 @@
 package com.joshfouchey.smsarchive.service;
 
 import com.joshfouchey.smsarchive.config.EnhancedPostgresTestContainer;
-import com.joshfouchey.smsarchive.model.Contact;
-import com.joshfouchey.smsarchive.model.Message;
-import com.joshfouchey.smsarchive.model.MessageDirection;
-import com.joshfouchey.smsarchive.model.MessageProtocol;
+import com.joshfouchey.smsarchive.model.*;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessagePartRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
@@ -182,7 +179,15 @@ class ImportServiceTest {
             m.setConversation(conv);
             String key3 = service.computeDuplicateKeyForTest(m);
             assertNotEquals(key1, key3);
-            assertTrue(key3.startsWith("42|"), "Conversation id should prefix the key");
+            assertTrue(key3.contains("|42|"), "Conversation id should be in the key");
+
+            // With a user, key should change
+            User user = new User();
+            user.setId(java.util.UUID.randomUUID());
+            m.setUser(user);
+            String key4 = service.computeDuplicateKeyForTest(m);
+            assertNotEquals(key1, key4);
+            assertTrue(key4.startsWith(user.getId().toString() + "|"), "User id should prefix the key");
         }
 
         @Test
@@ -196,8 +201,8 @@ class ImportServiceTest {
                 return c;
             });
             // Mock the conversation-based duplicate checks
-            when(messageRepository.existsByConversationAndTimestampAndBody(any(), any(), any())).thenReturn(false);
-            when(messageRepository.existsByTimestampAndBody(any(), any())).thenReturn(false);
+            when(messageRepository.existsByConversationAndTimestampAndBody(any(), any(), any(), any(), any(), any())).thenReturn(false);
+            when(messageRepository.existsByTimestampAndBody(any(), any(), any(), any(), any())).thenReturn(false);
             // Capture saved messages count
             final java.util.concurrent.atomic.AtomicInteger saved = new java.util.concurrent.atomic.AtomicInteger();
             doAnswer(inv -> {
@@ -315,11 +320,13 @@ class ImportServiceTest {
             msg.setProtocol(MessageProtocol.SMS);
             String key = importService.computeDuplicateKeyForTest(msg);
             assertThat(key)
-                .startsWith(conv.getId().toString() + "|")
-                .contains("Hello World")
-                .endsWith("Hello World");
+                .startsWith(testUser.getId().toString() + "|")
+                .contains(conv.getId().toString())
+                .contains("hello world")  // lowercase now since we normalize
+                .endsWith("hello world");
             Message msg2 = new Message();
             msg2.setConversation(conv);
+            msg2.setUser(testUser);
             msg2.setBody(null);
             msg2.setTimestamp(Instant.ofEpochMilli(123456789L));
             msg2.setMsgBox(1);

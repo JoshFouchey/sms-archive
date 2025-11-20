@@ -77,7 +77,8 @@ class ConversationReuseOrderTest {
             if (c.getId() == null) c.setId(500L + (long)(Math.random()*100));
             return c;
         });
-        when(messageRepository.existsByConversationAndTimestampAndBody(any(), any(), any())).thenReturn(false);
+        when(messageRepository.existsByConversationAndTimestampAndBody(any(), any(), any(), any(), any(), any())).thenReturn(false);
+        when(messageRepository.existsByTimestampAndBody(any(), any(), any(), any(), any())).thenReturn(false);
 
         service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService, userRepository));
         Files.createDirectories(Path.of("test-media-root"));

@@ -90,7 +90,8 @@ class ImportServiceGroupParticipantExpansionCanonicalTest {
                 });
 
         when(conversationService.save(any(Conversation.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(messageRepository.existsByConversationAndTimestampAndBody(any(), any(), any())).thenReturn(false);
+        when(messageRepository.existsByConversationAndTimestampAndBody(any(), any(), any(), any(), any(), any())).thenReturn(false);
+        when(messageRepository.existsByTimestampAndBody(any(), any(), any(), any(), any())).thenReturn(false);
 
         service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService, userRepository));
         doReturn(Path.of("test-media-root")).when(service).getMediaRoot();
