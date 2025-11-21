@@ -278,3 +278,38 @@ export async function updateContactName(id: number, name: string | null): Promis
     const res = await axios.put(`${API_BASE}/api/contacts/${id}`, { name });
     return res.data;
 }
+
+/* ==============================
+   Duplicate Cleanup
+============================== */
+
+export interface DuplicatePreview {
+    totalDuplicateGroups: number;
+    totalDuplicateMessages: number;
+    totalMessagesToKeep: number;
+    totalMessagesToDelete: number;
+    sampleGroups?: Array<{
+        key: string;
+        count: number;
+        messages: Array<{
+            id: number;
+            timestamp: string;
+            body: string;
+        }>;
+    }>;
+}
+
+export async function previewDuplicates(): Promise<DuplicatePreview> {
+    const res = await axios.get(`${API_BASE}/api/admin/cleanup/duplicates/preview`);
+    return res.data;
+}
+
+export async function removeDuplicates(): Promise<{
+    totalGroups: number;
+    totalDeleted: number;
+    totalKept: number;
+}> {
+    const res = await axios.delete(`${API_BASE}/api/admin/cleanup/duplicates`);
+    return res.data;
+}
+
