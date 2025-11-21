@@ -303,7 +303,7 @@
               <i class="pi pi-clone text-orange-600 dark:text-orange-400"></i>
               <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Duplicate Groups</span>
             </div>
-            <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ duplicatePreview.totalDuplicateGroups }}</p>
+            <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ duplicatePreview.duplicateGroups }}</p>
           </div>
 
           <!-- Total Duplicates -->
@@ -312,7 +312,7 @@
               <i class="pi pi-exclamation-triangle text-red-600 dark:text-red-400"></i>
               <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Total Duplicates</span>
             </div>
-            <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ duplicatePreview.totalDuplicateMessages }}</p>
+            <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ duplicatePreview.totalDuplicates }}</p>
           </div>
 
           <!-- To Keep -->
@@ -321,7 +321,7 @@
               <i class="pi pi-check-circle text-green-600 dark:text-green-400"></i>
               <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">To Keep</span>
             </div>
-            <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ duplicatePreview.totalMessagesToKeep }}</p>
+            <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ duplicatePreview.duplicateGroups }}</p>
           </div>
 
           <!-- To Delete -->
@@ -330,7 +330,7 @@
               <i class="pi pi-trash text-purple-600 dark:text-purple-400"></i>
               <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">To Delete</span>
             </div>
-            <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ duplicatePreview.totalMessagesToDelete }}</p>
+            <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ duplicatePreview.totalDuplicates - duplicatePreview.duplicateGroups }}</p>
           </div>
         </div>
 
@@ -353,32 +353,34 @@
                 </span>
               </div>
               <div class="space-y-2">
-                <div
-                  v-for="(msg, msgIdx) in group.messages.slice(0, 3)"
-                  :key="msg.id"
-                  class="text-sm bg-gray-50 dark:bg-gray-900/50 rounded p-2 border-l-2"
-                  :class="{
-                    'border-l-green-500': msgIdx === 0,
-                    'border-l-red-500': msgIdx > 0
-                  }"
-                >
-                  <div class="flex items-center gap-2 mb-1">
-                    <i :class="msgIdx === 0 ? 'pi pi-check text-green-600' : 'pi pi-times text-red-600'" class="text-xs"></i>
-                    <span class="font-mono text-xs text-gray-600 dark:text-gray-400">ID: {{ msg.id }}</span>
-                    <span class="text-xs text-gray-500 dark:text-gray-500">{{ new Date(msg.timestamp).toLocaleString() }}</span>
+                <div class="text-sm bg-gray-50 dark:bg-gray-900/50 rounded p-3 border-l-2 border-l-blue-500">
+                  <div class="flex items-center gap-2 mb-2">
+                    <i class="pi pi-calendar text-xs text-gray-500"></i>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ new Date(group.timestamp).toLocaleString() }}</span>
                   </div>
-                  <p class="text-gray-700 dark:text-gray-300 line-clamp-2">{{ msg.body || '(no body)' }}</p>
+                  <p class="text-gray-700 dark:text-gray-300 mb-2">{{ group.body || '(no body)' }}</p>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <div
+                      v-for="(id, idIdx) in group.ids"
+                      :key="id"
+                      class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-mono"
+                      :class="{
+                        'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400': idIdx === 0,
+                        'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400': idIdx > 0
+                      }"
+                    >
+                      <i :class="idIdx === 0 ? 'pi pi-check' : 'pi pi-times'" class="text-xs"></i>
+                      <span>ID: {{ id }}</span>
+                    </div>
+                  </div>
                 </div>
-                <p v-if="group.messages.length > 3" class="text-xs text-gray-500 dark:text-gray-400 italic pl-2">
-                  + {{ group.messages.length - 3 }} more...
-                </p>
               </div>
             </div>
           </div>
         </div>
 
         <!-- No Duplicates Message -->
-        <div v-if="duplicatePreview.totalDuplicateGroups === 0" class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-5">
+        <div v-if="duplicatePreview.duplicateGroups === 0" class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-5">
           <div class="flex items-center gap-3">
             <div class="bg-green-100 dark:bg-green-900/50 p-2 rounded-full">
               <i class="pi pi-check-circle text-2xl text-green-600 dark:text-green-400"></i>
@@ -391,14 +393,14 @@
         </div>
 
         <!-- Action Buttons -->
-        <div v-if="duplicatePreview.totalDuplicateGroups > 0" class="flex flex-col sm:flex-row gap-3">
+        <div v-if="duplicatePreview.duplicateGroups > 0" class="flex flex-col sm:flex-row gap-3">
           <button
             @click="confirmRemoveDuplicates"
             :disabled="removingDuplicates"
             class="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-xl disabled:opacity-50 transition-all font-semibold shadow-md hover:shadow-lg flex items-center justify-center gap-2"
           >
             <i :class="removingDuplicates ? 'pi pi-spin pi-spinner' : 'pi pi-trash'"></i>
-            <span>{{ removingDuplicates ? 'Removing...' : `Remove ${duplicatePreview.totalMessagesToDelete} Duplicates` }}</span>
+            <span>{{ removingDuplicates ? 'Removing...' : `Remove ${duplicatePreview.totalDuplicates - duplicatePreview.duplicateGroups} Duplicates` }}</span>
           </button>
           <button
             @click="resetDuplicatePreview"
@@ -531,7 +533,7 @@ function resetDuplicatePreview() {
 function confirmRemoveDuplicates() {
   if (!duplicatePreview.value) return;
 
-  const count = duplicatePreview.value.totalMessagesToDelete;
+  const count = duplicatePreview.value.totalDuplicates - duplicatePreview.value.duplicateGroups;
   const confirmed = confirm(
     `Are you sure you want to remove ${count} duplicate messages?\n\n` +
     `This action cannot be undone. Only the first occurrence of each duplicate will be kept.`

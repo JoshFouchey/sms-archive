@@ -284,18 +284,14 @@ export async function updateContactName(id: number, name: string | null): Promis
 ============================== */
 
 export interface DuplicatePreview {
-    totalDuplicateGroups: number;
-    totalDuplicateMessages: number;
-    totalMessagesToKeep: number;
-    totalMessagesToDelete: number;
+    duplicateGroups: number;
+    totalDuplicates: number;
+    totalMessages: number;
     sampleGroups?: Array<{
-        key: string;
         count: number;
-        messages: Array<{
-            id: number;
-            timestamp: string;
-            body: string;
-        }>;
+        ids: number[];
+        body: string;
+        timestamp: string;
     }>;
 }
 
