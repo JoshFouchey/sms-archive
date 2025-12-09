@@ -173,11 +173,121 @@
               </span>
             </div>
           </div>
+          <!-- Actions -->
+          <div class="flex items-start gap-2">
+            <button
+              class="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 hover:border-blue-500 text-blue-600 dark:text-blue-400 rounded-lg px-3 py-2 text-sm font-semibold shadow-sm hover:shadow-md"
+              @click="openContext(m)"
+              title="View messages around this hit"
+            >
+              <i class="pi pi-list mr-1"></i>
+              View context
+            </button>
+          </div>
         </div>
 
         <!-- Message body -->
         <div class="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <p class="text-sm text-gray-800 dark:text-gray-200 leading-relaxed break-words whitespace-pre-wrap">{{ m.body }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Context Modal -->
+    <div v-if="contextOpen" class="fixed inset-0 z-50 flex items-center justify-center">
+      <!-- Backdrop -->
+      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="closeContext"></div>
+      <!-- Dialog -->
+      <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 w-full max-w-3xl mx-4 overflow-hidden">
+        <!-- Modal Header (gradient like conversations) -->
+        <div class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 p-4 shadow-md flex items-center justify-between">
+          <h2 class="text-lg font-bold text-white tracking-tight">Message Context</h2>
+          <button class="flex items-center justify-center w-9 h-9 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm active:scale-95 transition-all" @click="closeContext" title="Close">
+            <i class="pi pi-times text-white"></i>
+          </button>
+        </div>
+        <!-- Modal Body -->
+        <div class="p-4 max-h-[70vh] overflow-auto bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
+          <div v-if="contextError" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-3">
+            <p class="text-sm text-red-700 dark:text-red-300">{{ contextError }}</p>
+          </div>
+          <div v-else-if="contextLoading" class="flex items-center justify-center py-8">
+            <i class="pi pi-spin pi-spinner text-3xl text-blue-600 dark:text-blue-400"></i>
+          </div>
+          <div v-else-if="contextData" class="space-y-3">
+            <!-- Before messages (older than center) -->
+            <div v-if="contextData.before.length" class="space-y-2">
+              <div class="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Earlier</div>
+              <div v-for="b in beforeChrono" :key="b.id" class="flex flex-col items-start">
+                <div
+                  :class="[
+                    'relative max-w-[90%] rounded-2xl px-4 py-2.5 shadow-md text-sm leading-relaxed space-y-1 transition-all',
+                    b.direction === 'OUTBOUND'
+                      ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white'
+                      : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-700'
+                  ]"
+                >
+                  <div v-if="b.body">{{ b.body }}</div>
+                </div>
+                <span class="mt-1.5 text-[10px] tracking-wide uppercase px-1" :class="b.direction === 'OUTBOUND' ? 'text-blue-600 dark:text-blue-400 self-end' : 'text-gray-400 dark:text-gray-500'">
+                  {{ formatDateTime(b.timestamp) }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Center message (highlight) -->
+            <div class="flex flex-col items-start">
+              <div
+                :class="[
+                  'relative max-w-[92%] rounded-2xl px-4 py-2.5 shadow-md text-sm leading-relaxed space-y-1 transition-all border-2',
+                  contextData.center.direction === 'OUTBOUND'
+                    ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white border-blue-300'
+                    : 'bg-blue-50 dark:bg-blue-900/20 text-gray-900 dark:text-gray-100 border-blue-300'
+                ]"
+              >
+                <div class="flex items-center gap-2 text-xs">
+                  <span class="text-blue-700 dark:text-blue-300 font-semibold">Search hit</span>
+                  <span class="flex items-center gap-1 text-blue-700 dark:text-blue-300"><i class="pi pi-clock text-[10px]"></i>{{ formatDateTime(contextData.center.timestamp) }}</span>
+                </div>
+                <div v-if="contextData.center.body" class="mt-1">{{ contextData.center.body }}</div>
+              </div>
+            </div>
+
+            <!-- After messages (newer than center) -->
+            <div v-if="contextData.after.length" class="space-y-2">
+              <div class="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Later</div>
+              <div v-for="a in contextData.after" :key="a.id" class="flex flex-col items-start">
+                <div
+                  :class="[
+                    'relative max-w-[90%] rounded-2xl px-4 py-2.5 shadow-md text-sm leading-relaxed space-y-1 transition-all',
+                    a.direction === 'OUTBOUND'
+                      ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white'
+                      : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-700'
+                  ]"
+                >
+                  <div v-if="a.body">{{ a.body }}</div>
+                </div>
+                <span class="mt-1.5 text-[10px] tracking-wide uppercase px-1" :class="a.direction === 'OUTBOUND' ? 'text-blue-600 dark:text-blue-400 self-end' : 'text-gray-400 dark:text-gray-500'">
+                  {{ formatDateTime(a.timestamp) }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Modal Footer -->
+        <div class="flex items-center justify-between p-4 border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <div class="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400" v-if="contextData">Conversation ID: {{ contextData.conversationId }}</div>
+          <div class="flex items-center gap-2">
+            <button class="px-3 py-2 text-sm rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-900 dark:text-gray-100" @click="closeContext">Close</button>
+            <RouterLink
+              v-if="contextData"
+              class="px-3 py-2 text-sm rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+              :to="{ name: 'messages', params: { id: contextData.conversationId } }"
+              title="Open conversation"
+            >
+              Open conversation
+            </RouterLink>
+          </div>
         </div>
       </div>
     </div>
@@ -187,11 +297,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import Select from 'primevue/select';
+import { RouterLink } from 'vue-router';
 import {
   getDistinctContacts,
   searchByText,
+  getMessageContext,
   type Contact,
   type Message,
+  type MessageContext,
 } from '../services/api';
 
 const contacts = ref<Contact[]>([]);
@@ -202,6 +315,12 @@ const results = ref<Message[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const touched = ref(false); // whether search attempted
+
+// Context modal state
+const contextOpen = ref(false);
+const contextLoading = ref(false);
+const contextError = ref<string | null>(null);
+const contextData = ref<MessageContext | null>(null);
 
 onMounted(async () => {
   try {
@@ -266,6 +385,28 @@ function formatDateTime(iso: string) {
     second: '2-digit',
   });
 }
+
+const beforeChrono = computed(() => {
+  // API returns "before" newest-first; reverse for chronological display
+  if (!contextData.value) return [] as Message[];
+  return [...contextData.value.before].reverse();
+});
+
+async function openContext(m: Message) {
+  contextOpen.value = true;
+  contextLoading.value = true;
+  contextError.value = null;
+  contextData.value = null;
+  try {
+    contextData.value = await getMessageContext(m.id, 25, 25);
+  } catch (e: any) {
+    contextError.value = e?.message || 'Failed to load message context';
+  } finally {
+    contextLoading.value = false;
+  }
+}
+
+function closeContext() {
+  contextOpen.value = false;
+}
 </script>
-
-

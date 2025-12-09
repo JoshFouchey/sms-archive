@@ -1,6 +1,7 @@
 package com.joshfouchey.smsarchive.service;
 
 import com.joshfouchey.smsarchive.dto.ContactSummaryDto;
+import com.joshfouchey.smsarchive.dto.MessageContextDto;
 import com.joshfouchey.smsarchive.dto.MessageDto;
 import com.joshfouchey.smsarchive.dto.PagedResponse;
 import com.joshfouchey.smsarchive.mapper.MessageMapper;
@@ -51,5 +52,24 @@ public class MessageService {
                 result.isFirst(),
                 result.isLast()
         );
+    }
+
+    @Transactional(readOnly = true)
+    public MessageContextDto getMessageContext(Long messageId, int before, int after) {
+        if (before < 0) before = 0; if (before > 500) before = 500;
+        if (after < 0) after = 0; if (after > 500) after = 500;
+        var user = currentUserProvider.getCurrentUser();
+        var centerEntity = messageRepository.findByIdAndUser(messageId, user);
+        if (centerEntity == null) { return null; }
+        var conversationId = centerEntity.getConversation().getId();
+        var centerTs = centerEntity.getTimestamp();
+        var beforePage = PageRequest.of(0, before);
+        var afterPage = PageRequest.of(0, after);
+        var beforeEntities = before == 0 ? List.<Message>of() : messageRepository.findBeforeInConversation(conversationId, centerTs, user, beforePage);
+        var afterEntities = after == 0 ? List.<Message>of() : messageRepository.findAfterInConversation(conversationId, centerTs, user, afterPage);
+        var centerDto = MessageMapper.toDto(centerEntity);
+        var beforeDtos = beforeEntities.stream().map(MessageMapper::toDto).toList();
+        var afterDtos = afterEntities.stream().map(MessageMapper::toDto).toList();
+        return new MessageContextDto(conversationId, centerDto, beforeDtos, afterDtos);
     }
 }

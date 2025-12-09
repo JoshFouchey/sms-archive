@@ -126,5 +126,20 @@ ORDER BY day_ts
                                       @Param("protocol") com.joshfouchey.smsarchive.model.MessageProtocol protocol,
                                       @Param("user") com.joshfouchey.smsarchive.model.User user);
 
+    @Query("select m from Message m where m.id = :id and m.user = :user")
+    Message findByIdAndUser(@Param("id") Long id, @Param("user") com.joshfouchey.smsarchive.model.User user);
+
+    @Query("select m from Message m where m.conversation.id = :conversationId and m.user = :user and m.timestamp < :centerTs order by m.timestamp desc")
+    List<Message> findBeforeInConversation(@Param("conversationId") Long conversationId,
+                                           @Param("centerTs") Instant centerTs,
+                                           @Param("user") com.joshfouchey.smsarchive.model.User user,
+                                           Pageable pageable);
+
+    @Query("select m from Message m where m.conversation.id = :conversationId and m.user = :user and m.timestamp > :centerTs order by m.timestamp asc")
+    List<Message> findAfterInConversation(@Param("conversationId") Long conversationId,
+                                          @Param("centerTs") Instant centerTs,
+                                          @Param("user") com.joshfouchey.smsarchive.model.User user,
+                                          Pageable pageable);
+
     interface DayCountProjection { java.sql.Timestamp getDay_ts(); long getCount(); }
 }

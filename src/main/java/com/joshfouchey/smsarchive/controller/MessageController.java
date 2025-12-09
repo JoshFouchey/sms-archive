@@ -1,6 +1,7 @@
 package com.joshfouchey.smsarchive.controller;
 
 import com.joshfouchey.smsarchive.dto.ContactSummaryDto;
+import com.joshfouchey.smsarchive.dto.MessageContextDto;
 import com.joshfouchey.smsarchive.dto.MessageDto;
 import com.joshfouchey.smsarchive.dto.PagedResponse;
 import com.joshfouchey.smsarchive.service.MessageService;
@@ -30,5 +31,12 @@ public class MessageController {
             @RequestParam(defaultValue = "50") int size,
             @RequestParam(defaultValue = "desc") String sort) {
         return messageService.getMessagesByContactId(contactId, page, size, sort);
+    }
+
+    @GetMapping("/{messageId}/context")
+    public MessageContextDto getMessageContext(@PathVariable("messageId") Long messageId,
+                                               @RequestParam(defaultValue = "25") int before,
+                                               @RequestParam(defaultValue = "25") int after) {
+        return messageService.getMessageContext(messageId, before, after);
     }
 }

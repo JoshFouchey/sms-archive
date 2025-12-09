@@ -309,3 +309,23 @@ export async function removeDuplicates(): Promise<{
     return res.data;
 }
 
+/* ==============================
+   Message Context
+============================== */
+
+export interface MessageContext {
+  conversationId: number;
+  center: Message;
+  before: Message[];
+  after: Message[];
+}
+
+export async function getMessageContext(
+  messageId: number,
+  before: number = 25,
+  after: number = 25
+): Promise<MessageContext> {
+  const params = { before, after };
+  const res = await axios.get(`${API_BASE}/api/messages/${messageId}/context`, { params });
+  return res.data;
+}
