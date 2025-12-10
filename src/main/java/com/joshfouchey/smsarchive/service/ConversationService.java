@@ -1,6 +1,7 @@
 package com.joshfouchey.smsarchive.service;
 
 import com.joshfouchey.smsarchive.dto.ConversationSummaryDto;
+import com.joshfouchey.smsarchive.dto.ConversationTimelineDto;
 import com.joshfouchey.smsarchive.dto.MessageDto;
 import com.joshfouchey.smsarchive.dto.PagedResponse;
 import com.joshfouchey.smsarchive.mapper.MessageMapper;
@@ -18,9 +19,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -84,6 +87,126 @@ public class ConversationService {
                 result.isFirst(),
                 result.isLast()
         );
+    }
+
+    @Transactional(readOnly = true)
+    public ConversationTimelineDto getConversationTimeline(Long conversationId) {
+        var user = currentUserProvider.getCurrentUser();
+
+        // Verify conversation belongs to user
+        Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
+                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+
+        List<MessageRepository.TimelineBucketProjection> buckets =
+                messageRepository.getConversationTimeline(conversationId, user.getId());
+
+        // Group by year
+        Map<Integer, List<MessageRepository.TimelineBucketProjection>> byYear = buckets.stream()
+                .collect(Collectors.groupingBy(MessageRepository.TimelineBucketProjection::getYear));
+
+        List<ConversationTimelineDto.YearBucket> years = byYear.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(yearEntry -> {
+                    int year = yearEntry.getKey();
+                    List<MessageRepository.TimelineBucketProjection> monthBuckets = yearEntry.getValue();
+
+                    long yearCount = monthBuckets.stream().mapToLong(MessageRepository.TimelineBucketProjection::getCount).sum();
+
+                    List<ConversationTimelineDto.MonthBucket> months = monthBuckets.stream()
+                            .sorted(Comparator.comparingInt(MessageRepository.TimelineBucketProjection::getMonth))
+                            .map(mb -> new ConversationTimelineDto.MonthBucket(
+                                    year,
+                                    mb.getMonth(),
+                                    mb.getCount(),
+                                    mb.getFirst_message_id(),
+                                    mb.getLast_message_id()
+                            ))
+                            .toList();
+
+                    return new ConversationTimelineDto.YearBucket(year, yearCount, months);
+                })
+                .toList();
+
+        return new ConversationTimelineDto(conversationId, years);
+    }
+
+    @Transactional(readOnly = true)
+    public PagedResponse<MessageDto> getConversationMessagesByDateRange(Long conversationId,
+                                                                        String dateFromStr,
+                                                                        String dateToStr,
+                                                                        int page,
+                                                                        int size,
+                                                                        String sortDir) {
+        if (size > 500) size = 500;
+        if (size < 1) size = 1;
+
+        var user = currentUserProvider.getCurrentUser();
+
+        // Verify conversation belongs to user
+        Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
+                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+
+        Instant dateFrom = parseDate(dateFromStr);
+        Instant dateTo = parseDate(dateToStr);
+
+        // If dateTo is null, set it to far future to get all messages after dateFrom
+        if (dateTo == null) {
+            dateTo = Instant.parse("2099-12-31T23:59:59Z");
+        }
+
+        Sort sort = Sort.by("timestamp");
+        sort = "asc".equalsIgnoreCase(sortDir) ? sort.ascending() : sort.descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<Message> result = messageRepository.findByConversationAndDateRange(
+                conversationId, dateFrom, dateTo, user, pageable);
+
+        List<MessageDto> content = result.getContent().stream()
+                .map(MessageMapper::toDto)
+                .toList();
+
+        return new PagedResponse<>(
+                content,
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages(),
+                result.isFirst(),
+                result.isLast()
+        );
+    }
+
+    private Instant parseDate(String dateStr) {
+        if (dateStr == null || dateStr.isBlank()) {
+            return null;
+        }
+        try {
+            // Try ISO instant first
+            return Instant.parse(dateStr);
+        } catch (Exception e) {
+            // Try local date (assumes UTC)
+            try {
+                LocalDate localDate = LocalDate.parse(dateStr);
+                return localDate.atStartOfDay(ZoneId.of("UTC")).toInstant();
+            } catch (Exception ex) {
+                throw new IllegalArgumentException("Invalid date format: " + dateStr);
+            }
+        }
+    }
+
+    /**
+     * Helper to construct month boundaries in UTC for a given year/month
+     */
+    private Instant getMonthStart(int year, int month) {
+        return LocalDate.of(year, month, 1)
+                .atStartOfDay(ZoneId.of("UTC"))
+                .toInstant();
+    }
+
+    private Instant getMonthEnd(int year, int month) {
+        LocalDate firstDayOfMonth = LocalDate.of(year, month, 1);
+        LocalDate firstDayOfNextMonth = firstDayOfMonth.plusMonths(1);
+        return firstDayOfNextMonth.atStartOfDay(ZoneId.of("UTC")).toInstant();
     }
 
     private ConversationSummaryDto toSummaryDto(Conversation conv) {

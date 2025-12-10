@@ -141,5 +141,40 @@ ORDER BY day_ts
                                           @Param("user") com.joshfouchey.smsarchive.model.User user,
                                           Pageable pageable);
 
+    // Timeline index queries for historical navigation
+    @Query(value = """
+SELECT EXTRACT(YEAR FROM m.timestamp) AS year,
+       EXTRACT(MONTH FROM m.timestamp) AS month,
+       COUNT(*) AS count,
+       MIN(m.id) AS first_message_id,
+       MAX(m.id) AS last_message_id,
+       MIN(m.timestamp) AS first_timestamp,
+       MAX(m.timestamp) AS last_timestamp
+FROM messages m
+WHERE m.conversation_id = :conversationId AND m.user_id = :userId
+GROUP BY year, month
+ORDER BY year, month
+""", nativeQuery = true)
+    List<TimelineBucketProjection> getConversationTimeline(@Param("conversationId") Long conversationId,
+                                                            @Param("userId") UUID userId);
+
+    // Date-range message queries for jump-to-date functionality
+    @Query("select m from Message m where m.conversation.id = :conversationId and m.user = :user and m.timestamp >= :dateFrom and m.timestamp <= :dateTo order by m.timestamp asc")
+    Page<Message> findByConversationAndDateRange(@Param("conversationId") Long conversationId,
+                                                  @Param("dateFrom") Instant dateFrom,
+                                                  @Param("dateTo") Instant dateTo,
+                                                  @Param("user") com.joshfouchey.smsarchive.model.User user,
+                                                  Pageable pageable);
+
     interface DayCountProjection { java.sql.Timestamp getDay_ts(); long getCount(); }
+
+    interface TimelineBucketProjection {
+        int getYear();
+        int getMonth();
+        long getCount();
+        Long getFirst_message_id();
+        Long getLast_message_id();
+        java.sql.Timestamp getFirst_timestamp();
+        java.sql.Timestamp getLast_timestamp();
+    }
 }
