@@ -33,22 +33,9 @@ WHERE id IN (
     WHERE rn > 1
 );
 
--- Add unique constraint to prevent duplicate messages
--- This will skip duplicates during merge operations
--- Note: We use conversation_id instead of contact_id for better grouping
--- Constraint checks: same conversation, body, timestamp, direction, and user
--- PostgreSQL doesn't support IF NOT EXISTS for ADD CONSTRAINT, so we use DO block
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'unique_message_per_conversation'
-    ) THEN
-        ALTER TABLE messages ADD CONSTRAINT unique_message_per_conversation
-            UNIQUE (conversation_id, body, timestamp, direction, user_id);
-    END IF;
-END $$;
-
--- Add comment explaining the constraint
-COMMENT ON CONSTRAINT unique_message_per_conversation ON messages IS
-    'Prevents duplicate messages in the same conversation. Used for merge deduplication.';
+-- Add unique index to prevent duplicate messages using MD5 hash of body
+-- This prevents btree index size limits (body can be very large)
+-- The index checks: same conversation, body hash, timestamp, direction, and user
+CREATE UNIQUE INDEX IF NOT EXISTS unique_message_per_conversation
+    ON messages (conversation_id, MD5(COALESCE(body, '')), timestamp, direction, user_id);
 
