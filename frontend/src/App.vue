@@ -44,7 +44,7 @@
     <Toast position="top-right" />
 
     <!-- Main -->
-    <main class="flex-1 p-4 sm:p-6 lg:p-8 w-full max-w-7xl mx-auto">
+    <main :class="mainClasses">
       <router-view />
     </main>
 
@@ -61,16 +61,35 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
+import { useRoute } from 'vue-router';
 import Menubar from "primevue/menubar";
 import Toast from "primevue/toast";
 import UserBadge from './components/UserBadge.vue';
 
+const route = useRoute();
+
 const items = [
   { label: "Dashboard", icon: "pi pi-home", route: "/" },
   { label: "Gallery", icon: "pi pi-images", route: "/gallery" },
-  { label: "Messages", icon: "pi pi-comments", route: "/messages" },
+  { label: "Messages", icon: "pi pi-comments", route: "/messages-historical" },
   { label: "Contacts", icon: "pi pi-user", route: "/contacts" },
   { label: "Search", icon: "pi pi-search", route: "/search" },
   { label: "Import", icon: "pi pi-upload", route: "/import" }
 ];
+
+// Check if we're on the historical messages page
+const isHistoricalPage = computed(() => {
+  return route.path.startsWith('/messages-historical');
+});
+
+// Compute main container classes based on route
+const mainClasses = computed(() => {
+  if (isHistoricalPage.value) {
+    // Full width, no padding for historical messages (it manages its own layout)
+    return 'flex-1 w-full';
+  }
+  // Wider layout with more breathing room for other pages
+  return 'flex-1 p-4 sm:p-6 lg:p-8 w-full max-w-[1920px] mx-auto';
+});
 </script>

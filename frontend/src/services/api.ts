@@ -1,6 +1,5 @@
 import axios from 'axios';
 // Use VITE_API_BASE if set, otherwise empty string for relative URLs
-// Empty string means API calls will be relative to current origin
 // e.g., if app is at http://localhost:8071, API calls go to http://localhost:8071/api
 const API_BASE = (import.meta.env.VITE_API_BASE ?? '').trim();
 
@@ -327,5 +326,56 @@ export async function getMessageContext(
 ): Promise<MessageContext> {
   const params = { before, after };
   const res = await axios.get(`${API_BASE}/api/messages/${messageId}/context`, { params });
+  return res.data;
+}
+
+/* ==============================
+   Conversation Timeline & Historical Navigation
+============================== */
+
+export interface ConversationTimeline {
+  conversationId: number;
+  years: YearBucket[];
+}
+
+export interface YearBucket {
+  year: number;
+  count: number;
+  months: MonthBucket[];
+}
+
+export interface MonthBucket {
+  year: number;
+  month: number; // 1-12
+  count: number;
+  firstMessageId: number | null;
+  lastMessageId: number | null;
+}
+
+/**
+ * Get conversation timeline index with year/month buckets and message counts
+ * Backend endpoint: GET /api/conversations/{conversationId}/timeline
+ */
+export async function getConversationTimeline(conversationId: number): Promise<ConversationTimeline> {
+  const res = await axios.get(`${API_BASE}/api/conversations/${conversationId}/timeline`);
+  return res.data;
+}
+
+/**
+ * Fetch messages by date range within a conversation
+ * Backend endpoint: GET /api/conversations/{conversationId}/messages?dateFrom=&dateTo=&page=&size=&sort=
+ */
+export async function getConversationMessagesByDateRange(
+  conversationId: number,
+  dateFrom: string | null,
+  dateTo: string | null,
+  page: number = 0,
+  size: number = 50,
+  sort: "asc" | "desc" = "asc"
+): Promise<PagedResponse<Message>> {
+  const params: any = { page, size, sort };
+  if (dateFrom) params.dateFrom = dateFrom;
+  if (dateTo) params.dateTo = dateTo;
+  const res = await axios.get(`${API_BASE}/api/conversations/${conversationId}/messages`, { params });
   return res.data;
 }
