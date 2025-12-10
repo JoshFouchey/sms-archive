@@ -94,23 +94,34 @@
           </div>
         </AccordionHeader>
         <AccordionContent class="bg-gray-50 dark:bg-gray-900/50">
-          <DataTable
-            :value="dashboard.topContacts"
-            size="small"
-            :rows="10"
-            :paginator="dashboard.topContacts.length > 10"
-            class="rounded-lg overflow-hidden"
-            stripedRows
-          >
-            <Column field="displayName" header="Contact" class="font-medium" />
-            <Column field="messageCount" header="Messages" class="text-right">
-              <template #body="{ data }">
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
-                  {{ data.messageCount }}
-                </span>
-              </template>
-            </Column>
-          </DataTable>
+          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 p-4">
+            <div
+              v-for="contact in dashboard.topContacts.slice(0, 12)"
+              :key="contact.contactId"
+              class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm hover:shadow-md transition-all border border-gray-200 dark:border-gray-700 group hover:scale-[1.02]"
+            >
+              <!-- Avatar & Contact Info -->
+              <div class="flex items-center gap-3">
+                <!-- Avatar -->
+                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-white text-lg font-bold shrink-0">
+                  {{ contact.displayName.charAt(0).toUpperCase() }}
+                </div>
+
+                <!-- Name & Count -->
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate mb-1">
+                    {{ contact.displayName }}
+                  </h3>
+                  <div class="flex items-baseline gap-1">
+                    <span class="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {{ contact.messageCount.toLocaleString() }}
+                    </span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">messages</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </AccordionContent>
       </AccordionPanel>
 
@@ -220,8 +231,6 @@ import Accordion from 'primevue/accordion';
 import AccordionPanel from 'primevue/accordionpanel';
 import AccordionHeader from 'primevue/accordionheader';
 import AccordionContent from 'primevue/accordioncontent';
-import DataTable from 'primevue/datatable';
-import Column from 'primevue/column';
 import Chart from 'primevue/chart';
 import PrimeMessage from 'primevue/message';
 import Button from 'primevue/button';
