@@ -17,6 +17,22 @@ CREATE INDEX IF NOT EXISTS idx_contacts_archived ON contacts(is_archived) WHERE 
 -- Create index for merged contacts lookup
 CREATE INDEX IF NOT EXISTS idx_contacts_merged_into ON contacts(merged_into_id) WHERE merged_into_id IS NOT NULL;
 
+-- Remove existing duplicate messages before adding unique constraint
+-- Keep the oldest message (lowest id) in each duplicate group
+DELETE FROM messages
+WHERE id IN (
+    SELECT id
+    FROM (
+        SELECT id,
+               ROW_NUMBER() OVER (
+                   PARTITION BY conversation_id, body, timestamp, direction, user_id
+                   ORDER BY id ASC
+               ) AS rn
+        FROM messages
+    ) AS duplicates
+    WHERE rn > 1
+);
+
 -- Add unique constraint to prevent duplicate messages
 -- This will skip duplicates during merge operations
 -- Note: We use conversation_id instead of contact_id for better grouping
