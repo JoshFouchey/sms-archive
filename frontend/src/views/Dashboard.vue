@@ -116,7 +116,7 @@
                     <span class="text-2xl font-bold text-blue-600 dark:text-blue-400">
                       {{ contact.messageCount.toLocaleString() }}
                     </span>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">messages</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">total</span>
                   </div>
                 </div>
               </div>
