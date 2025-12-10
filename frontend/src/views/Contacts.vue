@@ -152,16 +152,112 @@
               <p class="text-xs font-mono text-gray-500 dark:text-gray-400">{{ c.normalizedNumber }}</p>
             </div>
           </div>
+
+          <!-- Merge Button -->
+          <div class="mt-3">
+            <button
+              @click="openMergeDialog(c)"
+              class="w-full px-3 py-2 rounded-lg bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-800/40 text-purple-700 dark:text-purple-300 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-95"
+            >
+              <i class="pi pi-code-branch"></i>
+              Merge Contact
+            </button>
+          </div>
         </div>
       </div>
     </section>
+
+    <!-- Merge Dialog -->
+    <Dialog v-model:visible="mergeDialogOpen" modal header="Merge Contact" :style="{ width: '35rem' }" :breakpoints="{ '640px': '90vw' }">
+      <div class="space-y-4">
+        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <p class="text-sm text-blue-800 dark:text-blue-200 mb-2">
+            <i class="pi pi-info-circle mr-1"></i>
+            <strong>Merging:</strong>
+          </p>
+          <div class="flex items-center gap-2 ml-5">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-white text-sm font-bold">
+              {{ (contactToMerge?.name || contactToMerge?.number || '?').charAt(0).toUpperCase() }}
+            </div>
+            <span class="font-semibold text-blue-900 dark:text-blue-100">
+              {{ contactToMerge?.name || contactToMerge?.number }}
+            </span>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-sm font-semibold text-gray-700 dark:text-gray-300">
+            <i class="pi pi-arrow-right mr-1"></i>
+            Select target contact to merge into:
+          </label>
+          <Select
+            v-model="selectedMergeTarget"
+            :options="mergeTargetOptions"
+            optionLabel="label"
+            filter
+            :filterFields="['label']"
+            placeholder="Search and select contact..."
+            class="w-full"
+            :showClear="true"
+          >
+            <template #value="slotProps">
+              <div v-if="slotProps.value" class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-400 flex items-center justify-center text-white text-xs font-bold">
+                  {{ slotProps.value.label.charAt(0).toUpperCase() }}
+                </div>
+                <span>{{ slotProps.value.label }}</span>
+              </div>
+              <span v-else>{{ slotProps.placeholder }}</span>
+            </template>
+            <template #option="slotProps">
+              <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-400 flex items-center justify-center text-white text-xs font-bold">
+                  {{ slotProps.option.label.charAt(0).toUpperCase() }}
+                </div>
+                <span>{{ slotProps.option.label }}</span>
+              </div>
+            </template>
+          </Select>
+        </div>
+
+        <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+          <p class="text-xs text-yellow-800 dark:text-yellow-200">
+            <i class="pi pi-exclamation-triangle mr-1"></i>
+            <strong>Note:</strong> All messages from the first contact will be transferred to the target contact. Duplicates will be automatically skipped. The original contact will be archived.
+          </p>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <button
+            @click="closeMergeDialog"
+            :disabled="merging"
+            class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 text-gray-900 dark:text-gray-100 text-sm font-semibold transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            @click="performMerge"
+            :disabled="!selectedMergeTarget || merging"
+            class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white text-sm font-semibold transition-all flex items-center gap-2"
+          >
+            <i v-if="!merging" class="pi pi-code-branch"></i>
+            <i v-else class="pi pi-spin pi-spinner"></i>
+            <span>{{ merging ? 'Merging...' : 'Merge Contacts' }}</span>
+          </button>
+        </div>
+      </template>
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue';
-import { getDistinctContacts, updateContactName, type Contact } from '../services/api';
+import { getDistinctContacts, updateContactName, mergeContacts, type Contact } from '../services/api';
 import { useToast } from 'primevue/usetoast';
+import Dialog from 'primevue/dialog';
+import Select from 'primevue/select';
 
 const contacts = ref<Contact[]>([]);
 const loading = ref(true);
@@ -175,6 +271,12 @@ const originalName = ref<string | null>(null);
 const saving = ref(false);
 const toast = useToast();
 const editInputEl = ref<HTMLInputElement | null>(null);
+
+// Merge state
+const mergeDialogOpen = ref(false);
+const contactToMerge = ref<Contact | null>(null);
+const selectedMergeTarget = ref<{ value: number; label: string } | null>(null);
+const merging = ref(false);
 
 onMounted(async () => {
   try {
@@ -194,7 +296,67 @@ const filteredContacts = computed(() => {
   });
 });
 
+const mergeTargetOptions = computed(() => {
+  if (!contactToMerge.value) return [];
+  return contacts.value
+    .filter(c => c.id !== contactToMerge.value!.id)
+    .map(c => ({
+      value: c.id,
+      label: c.name || c.number
+    }));
+});
+
 function isEditing(id: number) { return editingId.value === id; }
+
+function openMergeDialog(contact: Contact) {
+  contactToMerge.value = contact;
+  selectedMergeTarget.value = null;
+  mergeDialogOpen.value = true;
+}
+
+function closeMergeDialog() {
+  mergeDialogOpen.value = false;
+  contactToMerge.value = null;
+  selectedMergeTarget.value = null;
+}
+
+async function performMerge() {
+  if (!contactToMerge.value || !selectedMergeTarget.value) return;
+
+  merging.value = true;
+  try {
+    const result = await mergeContacts(selectedMergeTarget.value.value, contactToMerge.value.id);
+
+    if (result.success) {
+      toast.add({
+        severity: 'success',
+        summary: 'Contacts Merged',
+        detail: `Transferred ${result.messagesTransferred} messages${result.duplicatesSkipped > 0 ? `, skipped ${result.duplicatesSkipped} duplicates` : ''}.`,
+        life: 5000
+      });
+
+      // Remove merged contact from list
+      contacts.value = contacts.value.filter(c => c.id !== contactToMerge.value!.id);
+      closeMergeDialog();
+    } else {
+      toast.add({
+        severity: 'error',
+        summary: 'Merge Failed',
+        detail: result.message || 'An error occurred',
+        life: 5000
+      });
+    }
+  } catch (e: any) {
+    toast.add({
+      severity: 'error',
+      summary: 'Merge Failed',
+      detail: e?.response?.data?.message || e?.message || 'Server error',
+      life: 5000
+    });
+  } finally {
+    merging.value = false;
+  }
+}
 
 function startEdit(c: Contact) {
   editingId.value = c.id;

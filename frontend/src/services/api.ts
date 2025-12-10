@@ -273,8 +273,25 @@ export async function searchByDateRange(start: string, end: string): Promise<Mes
    Contacts
 ============================== */
 
+export interface ContactMergeResult {
+    primaryContactId: number | null;
+    primaryContactName: string | null;
+    mergedContactId: number | null;
+    mergedContactName: string | null;
+    messagesTransferred: number;
+    duplicatesSkipped: number;
+    conversationsMerged: number;
+    success: boolean;
+    message: string;
+}
+
 export async function updateContactName(id: number, name: string | null): Promise<Contact> {
     const res = await axios.put(`${API_BASE}/api/contacts/${id}`, { name });
+    return res.data;
+}
+
+export async function mergeContacts(primaryId: number, mergeFromId: number): Promise<ContactMergeResult> {
+    const res = await axios.post(`${API_BASE}/api/contacts/${primaryId}/merge/${mergeFromId}`);
     return res.data;
 }
 

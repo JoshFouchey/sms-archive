@@ -22,4 +22,7 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
 
     @Query("select c from Conversation c where c.user = :user and c.threadKey = :threadKey")
     Optional<Conversation> findByThreadKey(@Param("user") User user, @Param("threadKey") String threadKey);
+
+    @Query("select c from Conversation c join c.participants p where p = :contact")
+    List<Conversation> findByParticipant(@Param("contact") com.joshfouchey.smsarchive.model.Contact contact);
 }
