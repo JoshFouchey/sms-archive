@@ -1,49 +1,50 @@
 BEGIN;
 
--- 1. Identify conversation groups that share the same participant set
-CREATE TEMP TABLE duplicate_conversation_groups AS
+-- 1. Build participant signatures for each conversation
+CREATE TEMP TABLE conversation_signatures AS
 SELECT 
-    array_agg(c.id ORDER BY c.id) AS conversation_ids,
-    COUNT(*) AS count
+    c.id AS conversation_id,
+    c.user_id,
+    STRING_AGG(cc.contact_id::text, ',' ORDER BY cc.contact_id) AS participant_signature
 FROM conversations c
-GROUP BY c.participant_hash
+JOIN conversation_contacts cc ON cc.conversation_id = c.id
+GROUP BY c.id, c.user_id;
+
+-- 2. Identify groups of conversations with identical participant sets
+CREATE TEMP TABLE duplicate_conversation_groups AS
+SELECT
+    MIN(conversation_id) AS canonical_id,
+    ARRAY_AGG(conversation_id ORDER BY conversation_id) AS all_ids,
+    COUNT(*) AS count
+FROM conversation_signatures
+GROUP BY user_id, participant_signature
 HAVING COUNT(*) > 1;
 
--- 2. Pick the lowest conversation_id in each group as the “canonical”
-CREATE TEMP TABLE canonical_conversations AS
-SELECT 
-    conversation_ids[1] AS canonical_id,
-    conversation_ids      AS all_ids
-FROM duplicate_conversation_groups;
-
--- 3. Merge messages from duplicates into their canonical conversation
---    Safe insert: skips duplicates using ON CONFLICT DO NOTHING
+-- 3. Merge messages from duplicates into canonical conversation
 INSERT INTO messages (conversation_id, body, "timestamp", direction, user_id, message_source_id)
-SELECT 
-    cc.canonical_id AS conversation_id,
+SELECT
+    dcg.canonical_id AS conversation_id,
     m.body,
     m."timestamp",
     m.direction,
     m.user_id,
     m.id AS message_source_id
-FROM canonical_conversations cc
-JOIN messages m 
-    ON m.conversation_id = ANY(cc.all_ids)
-WHERE m.conversation_id != cc.canonical_id
+FROM duplicate_conversation_groups dcg
+JOIN messages m ON m.conversation_id = ANY(dcg.all_ids)
+WHERE m.conversation_id != dcg.canonical_id
 ON CONFLICT ON CONSTRAINT unique_message_per_conversation DO NOTHING;
 
--- 4. Move attachments from duplicate messages
+-- 4. Update attachments to point to the new merged message IDs
 UPDATE attachments a
-SET message_id = new_messages.id
+SET message_id = new_m.id
 FROM messages src
-JOIN messages new_messages
-    ON new_messages.message_source_id = src.id
+JOIN messages new_m ON new_m.message_source_id = src.id
 WHERE a.message_id = src.id;
 
--- 5. Delete duplicate conversations (leave only canonical)
+-- 5. Delete all duplicate conversations except canonical
 DELETE FROM conversations c
-USING canonical_conversations cc
-WHERE c.id = ANY(cc.all_ids)
-  AND c.id != cc.canonical_id;
+USING duplicate_conversation_groups dcg
+WHERE c.id = ANY(dcg.all_ids)
+  AND c.id != dcg.canonical_id;
 
 COMMIT;
