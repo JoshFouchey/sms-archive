@@ -58,4 +58,22 @@ public class ConversationController {
             return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND).build();
         }
     }
+
+    /**
+     * Load ALL messages for a conversation (cached).
+     * Used for client-side search/filter operations.
+     */
+    @GetMapping("/{conversationId}/messages/all")
+    public List<MessageDto> getAllConversationMessages(@PathVariable Long conversationId) {
+        return conversationService.getAllConversationMessages(conversationId);
+    }
+
+    /**
+     * Get total message count for a conversation (cached).
+     */
+    @GetMapping("/{conversationId}/messages/count")
+    public java.util.Map<String, Long> getConversationMessageCount(@PathVariable Long conversationId) {
+        Long count = conversationService.getConversationMessageCount(conversationId);
+        return java.util.Map.of("count", count);
+    }
 }

@@ -15,7 +15,12 @@ public class CacheConfig {
     // Provide an explicit CacheManager; auto-config was not creating one in test profile, causing NoSuchBeanDefinition for CacheManager.
     @Bean
     public CacheManager cacheManager() {
-        CaffeineCacheManager mgr = new CaffeineCacheManager("analyticsDashboard", "distinctContacts");
+        CaffeineCacheManager mgr = new CaffeineCacheManager(
+                "analyticsDashboard",
+                "distinctContacts",
+                "conversationMessages",      // Cache full conversation message lists
+                "conversationMessageCount"   // Cache message counts
+        );
         mgr.setCaffeine(Caffeine.newBuilder()
                 .maximumSize(100)
                 .expireAfterWrite(Duration.ofHours(6))

@@ -74,85 +74,13 @@
     <!-- Main Content Area -->
     <main
       :class="[
-        'flex-1 flex bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900',
+        'flex-1 flex flex-col bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900',
         !selectedConversation ? 'hidden md:flex' : 'flex'
       ]"
     >
-      <!-- Backdrop for mobile timeline -->
-      <div
-        v-if="showTimeline && selectedConversation"
-        @click="showTimeline = false"
-        class="fixed inset-0 bg-black/50 z-30 lg:hidden"
-      ></div>
-
-      <!-- Timeline Sidebar (only when conversation selected) -->
-      <aside
-        v-if="selectedConversation"
-        :class="[
-          'w-72 border-r border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-y-auto flex-col',
-          showTimeline ? 'flex absolute lg:relative inset-y-0 left-0 z-40 lg:z-auto shadow-xl lg:shadow-none' : 'hidden lg:flex'
-        ]"
-      >
-        <!-- Timeline Header -->
-        <div class="bg-gradient-to-r from-purple-600 to-indigo-500 dark:from-purple-700 dark:to-indigo-600 p-3 shadow-md flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <i class="pi pi-calendar text-white text-lg"></i>
-            <h3 class="text-sm font-bold text-white">Timeline</h3>
-          </div>
-          <button @click="showTimeline = false" class="lg:hidden text-white hover:bg-white/20 rounded p-1">
-            <i class="pi pi-times"></i>
-          </button>
-        </div>
-
-        <!-- Timeline Loading -->
-        <div v-if="timelineLoading" class="flex items-center justify-center py-8">
-          <i class="pi pi-spin pi-spinner text-2xl text-purple-600 dark:text-purple-400"></i>
-        </div>
-
-        <!-- Timeline Content -->
-        <div v-else-if="timeline" class="p-3 space-y-2">
-          <div v-for="year in timeline.years" :key="year.year" class="border border-gray-200 dark:border-slate-700 rounded-lg overflow-hidden">
-            <!-- Year Header -->
-            <button
-              @click="toggleYear(year.year)"
-              class="w-full bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 px-3 py-2 flex items-center justify-between text-left transition-colors"
-            >
-              <div class="flex items-center gap-2">
-                <i :class="['pi text-xs transition-transform', expandedYears.has(year.year) ? 'pi-chevron-down' : 'pi-chevron-right']"></i>
-                <span class="font-bold text-sm">{{ year.year }}</span>
-              </div>
-              <span class="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full">
-                {{ year.count }}
-              </span>
-            </button>
-
-            <!-- Months List -->
-            <div v-if="expandedYears.has(year.year)" class="bg-white dark:bg-slate-800">
-              <button
-                v-for="month in year.months"
-                :key="`${year.year}-${month.month}`"
-                @click="jumpToMonth(month)"
-                class="w-full px-4 py-2 text-left hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-between group border-t border-gray-100 dark:border-slate-700"
-              >
-                <div class="flex items-center gap-2">
-                  <i class="pi pi-calendar text-xs text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400"></i>
-                  <span class="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                    {{ getMonthName(month.month) }}
-                  </span>
-                </div>
-                <span class="text-xs text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                  {{ month.count }}
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      <!-- Conversation View -->
-      <div class="flex-1 flex flex-col relative">
-        <!-- Header -->
-        <div class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 p-4 shadow-md flex items-center gap-3">
+      <!-- Header -->
+      <div class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 p-4 shadow-md">
+        <div class="flex items-center gap-3">
           <!-- Back button (mobile) -->
           <button
             v-if="selectedConversation"
@@ -162,123 +90,263 @@
             <i class="pi pi-arrow-left text-white"></i>
           </button>
 
-          <!-- Timeline toggle (mobile/tablet) -->
-          <button
-            v-if="selectedConversation"
-            @click="showTimeline = !showTimeline"
-            class="lg:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm active:scale-95 transition-all"
-          >
-            <i class="pi pi-calendar text-white"></i>
-          </button>
-
           <div class="flex-1 min-w-0">
             <h2 class="text-xl font-bold text-white tracking-tight truncate">
               {{ selectedConversation?.name || 'Select a conversation' }}
             </h2>
             <p v-if="selectedConversation" class="text-xs text-blue-100 dark:text-blue-200 mt-0.5">
-              {{ totalMessages }} messages
+              {{ isSearchActive ? `${filteredMessages.length} of ${totalMessages}` : totalMessages }} messages
             </p>
           </div>
         </div>
 
-        <!-- Empty State -->
-        <div v-if="!selectedConversation" class="flex-1 flex items-center justify-center p-8">
-          <div class="text-center">
-            <div class="bg-blue-100 dark:bg-blue-900/30 p-6 rounded-full inline-flex mb-4">
-              <i class="pi pi-comments text-5xl text-blue-600 dark:text-blue-400"></i>
+        <!-- Search Bar (only when conversation selected) -->
+        <div v-if="selectedConversation" class="mt-3 flex gap-2">
+          <div class="flex-1 relative">
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search messages..."
+              class="w-full px-4 py-2 pr-10 rounded-xl bg-white/20 backdrop-blur-sm text-white placeholder-white/70 border border-white/30 focus:bg-white/30 focus:border-white/50 focus:outline-none transition-all"
+              @keyup.enter="applySearch"
+            />
+            <i class="pi pi-search absolute right-3 top-1/2 -translate-y-1/2 text-white/70"></i>
+          </div>
+          <button
+            @click="toggleFilters"
+            :class="[
+              'px-4 py-2 rounded-xl backdrop-blur-sm border transition-all',
+              showFilters
+                ? 'bg-white/30 border-white/50'
+                : 'bg-white/20 border-white/30 hover:bg-white/30'
+            ]"
+            title="More filters"
+          >
+            <i class="pi pi-filter text-white"></i>
+          </button>
+          <button
+            @click="applySearch"
+            class="px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 transition-all"
+            title="Search"
+          >
+            <i class="pi pi-search text-white"></i>
+          </button>
+          <button
+            v-if="isSearchActive"
+            @click="clearSearch"
+            class="px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 transition-all"
+            title="Clear search"
+          >
+            <i class="pi pi-times text-white"></i>
+          </button>
+        </div>
+
+        <!-- Loading Status Indicators -->
+        <div v-if="selectedConversation && loadingInBackground" class="mt-3">
+          <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-3">
+            <div class="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+              <i class="pi pi-spin pi-spinner text-sm"></i>
+              <span class="text-sm font-medium">
+                Loading full history... ({{ messages.length.toLocaleString() }} / {{ totalMessages.toLocaleString() }} messages)
+              </span>
             </div>
-            <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">No Conversation Selected</h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400">Choose a conversation to view messages</p>
           </div>
         </div>
 
-        <!-- Messages Area -->
-        <div v-else class="flex-1 overflow-y-auto p-4 space-y-3">
-          <!-- Loading State -->
-          <div v-if="messagesLoading" class="flex flex-col items-center justify-center py-12">
-            <i class="pi pi-spin pi-spinner text-4xl text-blue-600 dark:text-blue-400 mb-3"></i>
-            <span class="text-sm text-gray-600 dark:text-gray-400">Loading messages...</span>
+        <div v-else-if="selectedConversation && fullyLoaded && messages.length > 200" class="mt-3">
+          <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl p-3">
+            <div class="flex items-center gap-2 text-green-700 dark:text-green-300">
+              <i class="pi pi-check-circle text-sm"></i>
+              <span class="text-sm font-medium">
+                ✓ All {{ messages.length.toLocaleString() }} messages loaded (search ready)
+              </span>
+            </div>
           </div>
+        </div>
 
-          <!-- Messages List -->
-          <div v-else-if="messages.length" class="space-y-3">
-            <!-- Top Sentinel for Infinite Scroll (Load Older) -->
-            <div ref="topSentinel" class="h-2"></div>
+        <!-- Warning when searching before fully loaded -->
+        <div v-if="selectedConversation && isSearchActive && !fullyLoaded" class="mt-3">
+          <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-3">
+            <div class="flex items-center gap-2 text-yellow-700 dark:text-yellow-300">
+              <i class="pi pi-exclamation-triangle text-sm"></i>
+              <span class="text-sm">
+                Searching {{ messages.length.toLocaleString() }} messages (still loading full history...)
+              </span>
+            </div>
+          </div>
+        </div>
 
-            <!-- Loading older indicator -->
-            <div v-if="olderLoading" class="flex items-center justify-center py-2">
-              <div class="bg-gray-200 dark:bg-slate-700 px-3 py-1.5 rounded-full text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                <i class="pi pi-spin pi-spinner text-xs"></i>
-                Loading older...
-              </div>
+        <!-- Advanced Filters (collapsible) -->
+        <div
+          v-if="selectedConversation && showFilters"
+          class="mt-3 p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 space-y-3"
+        >
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <!-- Date From -->
+            <div>
+              <label class="block text-xs text-white/90 mb-1.5 font-medium">From Date</label>
+              <input
+                v-model="dateFrom"
+                type="date"
+                class="w-full px-3 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:bg-white/30 focus:border-white/50 focus:outline-none transition-all text-sm"
+              />
             </div>
 
-            <!-- Sticky Current Date Indicator -->
-            <div
-              v-if="currentVisibleDate"
-              class="sticky top-0 z-10 flex justify-center py-2"
-            >
-              <div class="bg-purple-600 dark:bg-purple-700 text-white px-4 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm">
-                {{ formatDateIndicator(currentVisibleDate) }}
-              </div>
+            <!-- Date To -->
+            <div>
+              <label class="block text-xs text-white/90 mb-1.5 font-medium">To Date</label>
+              <input
+                v-model="dateTo"
+                type="date"
+                class="w-full px-3 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:bg-white/30 focus:border-white/50 focus:outline-none transition-all text-sm"
+              />
             </div>
 
-            <div
-              v-for="msg in messages"
-              :key="msg.id"
-              :data-timestamp="msg.timestamp"
-              :data-message-id="msg.id"
-              class="message-item flex"
-              :class="msg.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'"
-            >
-              <div
-                :class="[
-                  'max-w-[85%] rounded-2xl px-4 py-2.5 shadow-md text-sm leading-relaxed transition-all hover:shadow-lg',
-                  msg.direction === 'OUTBOUND'
-                    ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white'
-                    : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-700'
-                ]"
+            <!-- Sender Filter -->
+            <div>
+              <label class="block text-xs text-white/90 mb-1.5 font-medium">Sender</label>
+              <select
+                v-model="selectedSender"
+                class="w-full px-3 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:bg-white/30 focus:border-white/50 focus:outline-none transition-all text-sm"
               >
-                <div v-if="msg.body">{{ msg.body }}</div>
-                <div class="text-[10px] mt-1 opacity-75">{{ formatTime(msg.timestamp) }}</div>
-              </div>
+                <option value="" class="bg-slate-700">All Senders</option>
+                <option
+                  v-for="sender in uniqueSenders"
+                  :key="sender"
+                  :value="sender"
+                  class="bg-slate-700"
+                >
+                  {{ sender }}
+                </option>
+              </select>
             </div>
-
-            <!-- Loading newer indicator -->
-            <div v-if="newerLoading" class="flex items-center justify-center py-2">
-              <div class="bg-gray-200 dark:bg-slate-700 px-3 py-1.5 rounded-full text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                <i class="pi pi-spin pi-spinner text-xs"></i>
-                Loading newer...
-              </div>
-            </div>
-
-            <!-- Bottom Sentinel for Infinite Scroll (Load Newer) -->
-            <div ref="bottomSentinel" class="h-2"></div>
-          </div>
-
-          <!-- No messages -->
-          <div v-else class="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
-            <i class="pi pi-inbox text-5xl mb-3"></i>
-            <span class="text-sm font-medium">No messages in this conversation</span>
           </div>
         </div>
       </div>
+
+      <!-- Empty State -->
+      <div v-if="!selectedConversation" class="flex-1 flex items-center justify-center p-8">
+        <div class="text-center">
+          <div class="bg-blue-100 dark:bg-blue-900/30 p-6 rounded-full inline-flex mb-4">
+            <i class="pi pi-comments text-5xl text-blue-600 dark:text-blue-400"></i>
+          </div>
+          <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">No Conversation Selected</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400">Choose a conversation to view messages</p>
+        </div>
+      </div>
+
+      <!-- Messages Area -->
+      <div v-else ref="messagesContainer" class="flex-1 overflow-y-auto p-4 space-y-3" @scroll="handleScroll">
+        <!-- Loading State -->
+        <div v-if="messagesLoading" class="flex flex-col items-center justify-center py-12">
+          <i class="pi pi-spin pi-spinner text-4xl text-blue-600 dark:text-blue-400 mb-3"></i>
+          <span class="text-sm text-gray-600 dark:text-gray-400">Loading messages...</span>
+        </div>
+
+        <!-- Messages List -->
+        <div v-else-if="filteredMessages.length" class="space-y-3">
+          <!-- Active search/filter indicator -->
+          <div v-if="isSearchActive" class="flex items-center justify-center py-2">
+            <div class="bg-blue-100 dark:bg-blue-900/30 px-4 py-2 rounded-full text-xs text-blue-700 dark:text-blue-300 flex items-center gap-2 font-medium">
+              <i class="pi pi-filter"></i>
+              Showing {{ filteredMessages.length }} filtered message(s)
+            </div>
+          </div>
+
+          <!-- Loading older indicator at top (only when not searching) -->
+          <div v-if="olderLoading && !isSearchActive" class="flex items-center justify-center py-2">
+            <div class="bg-gray-200 dark:bg-slate-700 px-3 py-1.5 rounded-full text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2">
+              <i class="pi pi-spin pi-spinner text-xs"></i>
+              Loading older messages...
+            </div>
+          </div>
+
+          <div
+            v-for="msg in filteredMessages"
+            :key="msg.id"
+            class="flex"
+            :class="msg.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'"
+          >
+            <div
+              :class="[
+                'max-w-[85%] rounded-2xl px-4 py-2.5 shadow-md text-sm leading-relaxed transition-all hover:shadow-lg',
+                msg.direction === 'OUTBOUND'
+                  ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white'
+                  : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-700'
+              ]"
+            >
+              <div v-if="msg.body && msg.body !== '[media]'">{{ msg.body }}</div>
+
+              <!-- Image thumbnails -->
+              <div v-if="getImageParts(msg).length" class="flex flex-wrap gap-2 mt-2">
+                <div
+                  v-for="img in getImageParts(msg)"
+                  :key="img.id"
+                  class="relative group cursor-pointer overflow-hidden rounded-xl bg-black/10 dark:bg-black/30 transition-all hover:scale-105"
+                  :class="img.isSingle ? 'w-48 h-48' : 'w-32 h-32'"
+                  @click="openImage(img.globalIndex)"
+                  role="button"
+                  tabindex="0"
+                  aria-label="Open full size image"
+                >
+                  <img
+                    :src="img.thumbUrl"
+                    :alt="img.contentType || 'attachment'"
+                    class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110"
+                    loading="lazy"
+                    @error="handleImageError"
+                  />
+                </div>
+              </div>
+
+              <div class="text-[10px] mt-1 opacity-75">{{ formatTime(msg.timestamp) }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- No messages / No search results -->
+        <div v-else class="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
+          <i :class="isSearchActive ? 'pi pi-search text-5xl mb-3' : 'pi pi-inbox text-5xl mb-3'"></i>
+          <span class="text-sm font-medium">
+            {{ isSearchActive ? 'No messages match your search' : 'No messages in this conversation' }}
+          </span>
+          <button
+            v-if="isSearchActive"
+            @click="clearSearch"
+            class="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
+          >
+            Clear Search
+          </button>
+        </div>
+      </div>
+
+      <!-- Image Viewer Component -->
+      <ImageViewer
+        v-if="viewerOpen"
+        :images="viewerImages"
+        :initialIndex="currentIndex ?? 0"
+        :allowDelete="false"
+        aria-label="Message image viewer"
+        @close="closeViewer"
+        @indexChange="onIndexChange"
+      />
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, onBeforeUnmount } from 'vue';
+import { ref, onMounted, nextTick, computed, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   getAllConversations,
   getConversationMessages,
-  getConversationTimeline,
-  getConversationMessagesByDateRange,
+  getAllConversationMessages,
+  getConversationMessageCount,
   type ConversationSummary,
-  type ConversationTimeline,
   type Message,
 } from '../services/api';
+import ImageViewer from '@/components/ImageViewer.vue';
+import type { ViewerImage } from '@/components/ImageViewer.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -287,40 +355,29 @@ const router = useRouter();
 const conversations = ref<ConversationSummary[]>([]);
 const selectedConversation = ref<ConversationSummary | null>(null);
 const messages = ref<Message[]>([]);
-const timeline = ref<ConversationTimeline | null>(null);
-const expandedYears = ref(new Set<number>());
-const showTimeline = ref(false);
-
-// Infinite scroll sentinels
-const topSentinel = ref<HTMLElement | null>(null);
-const bottomSentinel = ref<HTMLElement | null>(null);
+const messagesContainer = ref<HTMLElement | null>(null);
 
 // Loading states
 const contactsLoading = ref(false);
 const messagesLoading = ref(false);
-const timelineLoading = ref(false);
 const olderLoading = ref(false);
-const newerLoading = ref(false);
 
 // Pagination
 const currentPage = ref(0);
-const pageSize = ref(100);
 const totalMessages = ref(0);
 const hasMoreOlder = ref(false);
-const hasMoreNewer = ref(false);
 
-// Current visible date for sticky indicator (updates as you scroll)
-const currentVisibleDate = ref<string | null>(null);
+// Search and filter state
+const searchQuery = ref('');
+const showFilters = ref(false);
+const dateFrom = ref('');
+const dateTo = ref('');
+const selectedSender = ref<string>('');
+const isSearchActive = ref(false);
 
-// Track first visible message for date indicator
-const messageObserver = ref<IntersectionObserver | null>(null);
-
-// Month names
-const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function getMonthName(month: number): string {
-  return monthNames[month - 1] || '';
-}
+// Full conversation loading state
+const fullyLoaded = ref(false);
+const loadingInBackground = ref(false);
 
 function formatTime(timestamp: string): string {
   const d = new Date(timestamp);
@@ -333,107 +390,242 @@ function formatTime(timestamp: string): string {
   });
 }
 
-function formatDateIndicator(timestamp: string): string {
-  const d = new Date(timestamp);
-  return d.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'long',
-  });
+// Image handling functions (matching Messages.vue approach)
+interface ImagePart {
+  id: number;
+  fullUrl: string;
+  thumbUrl: string;
+  contentType: string;
+  isSingle: boolean;
+  globalIndex: number;
 }
 
-// Update sticky date indicator based on visible messages
-function setupMessageObserver() {
-  // Clean up existing observer
-  if (messageObserver.value) {
-    messageObserver.value.disconnect();
+// Image viewer state
+const viewerOpen = ref(false);
+const currentIndex = ref<number | null>(null);
+let savedScrollY = 0;
+
+function normalizePath(p: string) {
+  return (p || '').replace(/\\/g, '/');
+}
+
+function extractRelativeMediaPath(fp: string): string | null {
+  if (!fp) return null;
+  const norm = normalizePath(fp);
+  const markers = ['/media/messages/', '/app/media/messages/', 'media/messages/'];
+  for (const m of markers) {
+    const idx = norm.indexOf(m);
+    if (idx >= 0) {
+      if (m === '/media/messages/') return norm.substring(idx + '/media/messages/'.length);
+      return norm.substring(idx + m.length);
+    }
+  }
+  const parts = norm.split('/').filter(Boolean);
+  if (parts.length >= 2) return parts.slice(-2).join('/');
+  return null;
+}
+
+function buildMediaUrl(rel: string, thumb: boolean): string {
+  if (!rel) return '';
+  if (thumb) return `/media/messages/${rel.replace(/(\.[A-Za-z0-9]{1,6})$/, '_thumb.jpg')}`;
+  return `/media/messages/${rel}`;
+}
+
+// Cache for message image parts
+const messageImageCache = new Map<number, ImagePart[]>();
+
+function getImageParts(msg: Message): ImagePart[] {
+  // Check cache first
+  if (messageImageCache.has(msg.id)) {
+    return messageImageCache.get(msg.id)!;
   }
 
-  // Create observer to track which message is at the top of viewport
-  messageObserver.value = new IntersectionObserver(
-    (entries) => {
-      // Find the first message that's visible at the top
-      const visibleMessages = entries
-        .filter(entry => entry.isIntersecting)
-        .sort((a, b) => {
-          // Sort by position in viewport (top to bottom)
-          return a.boundingClientRect.top - b.boundingClientRect.top;
-        });
+  const result: ImagePart[] = [];
+  if (!Array.isArray(msg.parts)) return result;
 
-      if (visibleMessages.length > 0) {
-        const firstVisible = visibleMessages[0];
-        if (firstVisible) {
-          const topMessage = firstVisible.target as HTMLElement;
-          const timestamp = topMessage.dataset.timestamp;
-          if (timestamp) {
-            currentVisibleDate.value = timestamp;
-          }
-        }
-      }
-    },
-    {
-      threshold: 0,
-      rootMargin: '0px 0px -80% 0px' // Trigger when message is in top 20% of viewport
-    }
-  );
+  const imageParts = msg.parts.filter((p) => p.contentType && p.contentType.startsWith('image'));
+  const single = imageParts.length === 1;
 
-  // Observe all message elements
-  const messageElements = document.querySelectorAll('.message-item');
-  messageElements.forEach(el => {
-    messageObserver.value?.observe(el);
-  });
+  for (const p of imageParts) {
+    const rel = extractRelativeMediaPath(p.filePath || '');
+    if (!rel) continue;
+    const fullUrl = buildMediaUrl(rel, false);
+    const thumbUrl = buildMediaUrl(rel, true);
+    result.push({
+      id: p.id,
+      fullUrl,
+      thumbUrl,
+      contentType: p.contentType,
+      isSingle: single,
+      globalIndex: -1 // Will be set by allImages computed
+    });
+  }
+
+  // Cache the result
+  messageImageCache.set(msg.id, result);
+  return result;
 }
 
-// Watch for message changes and update observers
-watch(messages, () => {
-  // Wait for DOM update then setup observers
-  setTimeout(() => {
-    setupMessageObserver();
-  }, 100);
+// Computed property for all images across all messages with global indices
+const allImages = computed(() => {
+  const acc: ImagePart[] = [];
+  let idx = 0;
+  for (const msg of messages.value) {
+    const imgs = getImageParts(msg);
+    for (const img of imgs) {
+      img.globalIndex = idx++;
+      acc.push(img);
+    }
+  }
+  return acc;
 });
 
-// Setup infinite scroll observers
+// Convert to ViewerImage format
+const viewerImages = computed<ViewerImage[]>(() =>
+  allImages.value.map(img => ({
+    id: img.id,
+    fullUrl: img.fullUrl,
+    thumbUrl: img.thumbUrl,
+    contentType: img.contentType
+  }))
+);
+
+// Get unique senders for filter dropdown
+const uniqueSenders = computed(() => {
+  const senders = new Set<string>();
+  for (const msg of messages.value) {
+    if (msg.direction === 'INBOUND' && msg.contactName) {
+      senders.add(msg.contactName);
+    }
+  }
+  return Array.from(senders).sort();
+});
+
+// Filtered messages - client-side filtering on all loaded messages
+const filteredMessages = computed(() => {
+  // If not searching/filtering, return all messages
+  if (!isSearchActive.value) {
+    return messages.value;
+  }
+
+  let filtered = messages.value;
+
+  // Filter by search query (body text)
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase();
+    filtered = filtered.filter(msg =>
+      msg.body?.toLowerCase().includes(query)
+    );
+  }
+
+  // Filter by date range
+  if (dateFrom.value) {
+    const fromDate = new Date(dateFrom.value);
+    filtered = filtered.filter(msg => new Date(msg.timestamp) >= fromDate);
+  }
+  if (dateTo.value) {
+    const toDate = new Date(dateTo.value);
+    toDate.setHours(23, 59, 59, 999); // Include entire day
+    filtered = filtered.filter(msg => new Date(msg.timestamp) <= toDate);
+  }
+
+  // Filter by sender
+  if (selectedSender.value) {
+    filtered = filtered.filter(msg =>
+      msg.direction === 'INBOUND' && msg.contactName === selectedSender.value
+    );
+  }
+
+  return filtered;
+});
+
+
+function handleImageError(event: Event) {
+  const img = event.target as HTMLImageElement;
+  console.warn('Failed to load image:', img.src);
+  img.style.display = 'none';
+}
+
+// Image viewer functions
+function openImage(index: number) {
+  currentIndex.value = index;
+  viewerOpen.value = true;
+  lockBodyScroll();
+}
+
+function closeViewer() {
+  viewerOpen.value = false;
+  currentIndex.value = null;
+  unlockBodyScroll();
+}
+
+function onIndexChange(newIndex: number) {
+  currentIndex.value = newIndex;
+}
+
+function lockBodyScroll() {
+  savedScrollY = window.scrollY || window.pageYOffset;
+  document.body.style.position = 'fixed';
+  document.body.style.top = `-${savedScrollY}px`;
+  document.body.style.left = '0';
+  document.body.style.right = '0';
+  document.body.style.width = '100%';
+}
+
+function unlockBodyScroll() {
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.left = '';
+  document.body.style.right = '';
+  document.body.style.width = '';
+  window.scrollTo(0, savedScrollY);
+}
+
+// Keyboard navigation for viewer
+function handleKey(e: KeyboardEvent) {
+  if (!viewerOpen.value) return;
+  if (e.key === 'Escape') {
+    closeViewer();
+  }
+}
+
 onMounted(() => {
-  // Observer for top sentinel (load older messages)
-  const topObserver = new IntersectionObserver(
-    (entries) => {
-      const entry = entries[0];
-      if (entry && entry.isIntersecting && hasMoreOlder.value && !olderLoading.value && !messagesLoading.value) {
-        loadOlderMessages();
-      }
-    },
-    { threshold: 0.1 }
-  );
-
-  // Observer for bottom sentinel (load newer messages)
-  const bottomObserver = new IntersectionObserver(
-    (entries) => {
-      const entry = entries[0];
-      if (entry && entry.isIntersecting && hasMoreNewer.value && !newerLoading.value && !messagesLoading.value) {
-        loadNewerMessages();
-      }
-    },
-    { threshold: 0.1 }
-  );
-
-  // Start observing when sentinels are available
-  watch([topSentinel, bottomSentinel], () => {
-    if (topSentinel.value) {
-      topObserver.observe(topSentinel.value);
-    }
-    if (bottomSentinel.value) {
-      bottomObserver.observe(bottomSentinel.value);
-    }
-  });
-
-  // Cleanup observers on unmount
-  onBeforeUnmount(() => {
-    topObserver.disconnect();
-    bottomObserver.disconnect();
-    if (messageObserver.value) {
-      messageObserver.value.disconnect();
-    }
-  });
+  window.addEventListener('keydown', handleKey);
 });
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKey);
+  unlockBodyScroll();
+});
+
+// Search and filter functions (client-side only)
+function applySearch() {
+  if (!fullyLoaded.value) {
+    // Warn user to wait for full load
+    console.warn('Not all messages loaded yet. Search results may be incomplete.');
+  }
+  isSearchActive.value = true;
+}
+
+function clearSearch() {
+  searchQuery.value = '';
+  dateFrom.value = '';
+  dateTo.value = '';
+  selectedSender.value = '';
+  isSearchActive.value = false;
+  showFilters.value = false;
+}
+
+function toggleFilters() {
+  showFilters.value = !showFilters.value;
+}
+
+// Handle scroll event - now mostly unused since we load everything in background
+function handleScroll() {
+  // With full background loading, scroll handling is not needed
+  // All messages are loaded automatically after initial display
+  // This function is kept for compatibility but does nothing
+}
 
 // Load conversations
 async function loadConversations() {
@@ -451,195 +643,84 @@ async function loadConversations() {
 async function selectConversation(conversation: ConversationSummary) {
   selectedConversation.value = conversation;
   router.push({ name: 'messages', params: { id: conversation.id } });
-  await Promise.all([loadMessages(), loadTimeline()]);
+  await loadMessages();
 }
 
 function clearConversation() {
   selectedConversation.value = null;
   messages.value = [];
-  timeline.value = null;
+  fullyLoaded.value = false;
+  loadingInBackground.value = false;
+  isSearchActive.value = false;
   router.push({ name: 'messages' });
 }
 
-// Load messages
+// Load messages with hybrid approach
 async function loadMessages() {
   if (!selectedConversation.value) return;
   messagesLoading.value = true;
+  currentPage.value = 0;
+  fullyLoaded.value = false;
+
   try {
+    // Step 1: Get total count
+    totalMessages.value = await getConversationMessageCount(selectedConversation.value.id);
+
+    // Step 2: Load first 200 messages for quick display
     const res = await getConversationMessages(
       selectedConversation.value.id,
       currentPage.value,
-      pageSize.value,
+      200, // Load first 200
       'desc'
     );
-    messages.value = res.content.reverse(); // Show chronological order
-    totalMessages.value = res.totalElements;
+    messages.value = res.content.reverse(); // Show chronological order (oldest first in view)
+    hasMoreOlder.value = !res.last;
 
-    // In 'desc' mode: first=true means most recent (has older), last=true means oldest (no older)
-    hasMoreOlder.value = !res.last;  // Can scroll back if NOT at the last page (oldest)
-    hasMoreNewer.value = !res.first; // Can scroll forward if NOT at the first page (newest)
+    messagesLoading.value = false;
+
+    // Scroll to bottom after initial messages render
+    await nextTick();
+    requestAnimationFrame(() => {
+      if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      }
+    });
+
+    // Step 3: Start loading ALL messages in background (cached on backend)
+    if (totalMessages.value > 200) {
+      loadAllMessagesInBackground();
+    } else {
+      fullyLoaded.value = true;
+    }
   } catch (e) {
     console.error('Failed to load messages', e);
-  } finally {
     messagesLoading.value = false;
   }
 }
 
-// Load timeline
-async function loadTimeline() {
+// Load all messages in background (backend cached)
+async function loadAllMessagesInBackground() {
   if (!selectedConversation.value) return;
-  timelineLoading.value = true;
-  try {
-    timeline.value = await getConversationTimeline(selectedConversation.value.id);
-    // Auto-expand most recent year
-    if (timeline.value?.years && timeline.value.years.length > 0) {
-      const latestYear = timeline.value.years[timeline.value.years.length - 1]?.year;
-      if (latestYear) {
-        expandedYears.value.add(latestYear);
-      }
-    }
-  } catch (e) {
-    console.error('Failed to load timeline', e);
-  } finally {
-    timelineLoading.value = false;
-  }
-}
 
-// Toggle year expansion
-function toggleYear(year: number) {
-  if (expandedYears.value.has(year)) {
-    expandedYears.value.delete(year);
-  } else {
-    expandedYears.value.add(year);
-  }
-}
-
-// Jump to month
-async function jumpToMonth(month: any) {
-  if (!selectedConversation.value) return;
-  messagesLoading.value = true;
+  loadingInBackground.value = true;
 
   try {
-    // Find the "page" that contains this month by calculating how many messages
-    // exist before this date, then load that page
-    const year = month.year;
-    const monthNum = month.month;
-    const targetDate = `${year}-${String(monthNum).padStart(2, '0')}-01T00:00:00Z`;
+    // This endpoint is cached in Caffeine on backend
+    const allMessages = await getAllConversationMessages(selectedConversation.value.id);
 
-    // Load messages starting from this date going forward
-    const res = await getConversationMessagesByDateRange(
-      selectedConversation.value.id,
-      targetDate,
-      '9999-12-31T23:59:59Z', // Far future to get messages from this point onward
-      0,
-      pageSize.value,
-      'asc'
-    );
+    // Replace with full dataset
+    messages.value = allMessages;
+    fullyLoaded.value = true;
+    hasMoreOlder.value = false; // No more to load
 
-    messages.value = res.content;
-    totalMessages.value = res.totalElements;
-
-    // Enable infinite scroll in both directions
-    // There are likely older messages before this month
-    hasMoreOlder.value = true;
-    // There might be newer messages after this batch
-    hasMoreNewer.value = res.content.length >= pageSize.value;
-
-    // Reset page tracking - we'll use date-based loading from here
-    currentPage.value = 0;
+    console.log(`Loaded all ${allMessages.length} messages for conversation ${selectedConversation.value.id}`);
   } catch (e) {
-    console.error('Failed to jump to month', e);
+    console.error('Failed to load all messages', e);
   } finally {
-    messagesLoading.value = false;
+    loadingInBackground.value = false;
   }
 }
 
-// Load older/newer messages (timestamp-based for continuous scrolling)
-async function loadOlderMessages() {
-  if (!selectedConversation.value || olderLoading.value || !messages.value.length) return;
-
-  const oldestMessage = messages.value[0];
-  if (!oldestMessage) return;
-
-  olderLoading.value = true;
-
-  try {
-    // Get the scroll container and save current scroll position
-    const scrollContainer = document.querySelector('.flex-1.overflow-y-auto') as HTMLElement;
-    const previousScrollHeight = scrollContainer?.scrollHeight || 0;
-    const previousScrollTop = scrollContainer?.scrollTop || 0;
-
-    // Get the oldest message timestamp
-    const oldestTimestamp = oldestMessage!.timestamp;
-
-    // Load messages older than this timestamp
-    const res = await getConversationMessagesByDateRange(
-      selectedConversation.value.id,
-      '1970-01-01T00:00:00Z', // Beginning of time
-      oldestTimestamp, // Up to (but not including) oldest current message
-      0,
-      pageSize.value,
-      'desc' // Get most recent of the older messages
-    );
-
-    if (res.content.length > 0) {
-      // Prepend older messages (they come in desc order, so reverse)
-      messages.value = [...res.content.reverse(), ...messages.value];
-      hasMoreOlder.value = res.content.length >= pageSize.value;
-
-      // Restore scroll position after DOM updates
-      await new Promise(resolve => setTimeout(resolve, 0));
-      if (scrollContainer) {
-        const newScrollHeight = scrollContainer.scrollHeight;
-        const heightDifference = newScrollHeight - previousScrollHeight;
-        scrollContainer.scrollTop = previousScrollTop + heightDifference;
-      }
-    } else {
-      hasMoreOlder.value = false;
-    }
-  } catch (e) {
-    console.error('Failed to load older messages', e);
-  } finally {
-    olderLoading.value = false;
-  }
-}
-
-async function loadNewerMessages() {
-  if (!selectedConversation.value || newerLoading.value || !messages.value.length) return;
-
-  const newestMessage = messages.value[messages.value.length - 1];
-  if (!newestMessage) return;
-
-  newerLoading.value = true;
-
-  try {
-    // Get the newest message timestamp
-    const newestTimestamp = newestMessage!.timestamp;
-
-    // Load messages newer than this timestamp
-    const res = await getConversationMessagesByDateRange(
-      selectedConversation.value.id,
-      newestTimestamp, // From (but not including) newest current message
-      '9999-12-31T23:59:59Z', // Far future
-      0,
-      pageSize.value,
-      'asc' // Get oldest of the newer messages first
-    );
-
-    if (res.content.length > 0) {
-      // Filter out the duplicate (if API includes the boundary message)
-      const newMessages = res.content.filter(m => m.id !== newestMessage!.id);
-      messages.value = [...messages.value, ...newMessages];
-      hasMoreNewer.value = newMessages.length >= pageSize.value;
-    } else {
-      hasMoreNewer.value = false;
-    }
-  } catch (e) {
-    console.error('Failed to load newer messages', e);
-  } finally {
-    newerLoading.value = false;
-  }
-}
 
 // Initialize
 onMounted(async () => {

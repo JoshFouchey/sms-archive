@@ -109,6 +109,10 @@ ORDER BY day_ts
     List<Message> findAllByConversationIdAndUser(@Param("conversationId") Long conversationId,
                                                  @Param("user") com.joshfouchey.smsarchive.model.User user);
 
+    @Query("select count(m) from Message m where m.conversation.id = :conversationId and m.user = :user")
+    Long countByConversationIdAndUser(@Param("conversationId") Long conversationId,
+                                      @Param("user") com.joshfouchey.smsarchive.model.User user);
+
     // Duplicate checking for group messages (with conversation and user)
     // Note: bodyNormalized is already lowercased and trimmed by the caller
     @Query("select (count(m) > 0) from Message m where m.user = :user and m.conversation = :conversation and m.timestamp = :ts and m.msgBox = :msgBox and m.protocol = :protocol and lower(trim(coalesce(m.body,''))) = :body")

@@ -89,6 +89,45 @@ public class ConversationService {
         );
     }
 
+    /**
+     * Load ALL messages for a conversation (cached in Caffeine).
+     * Used for client-side search/filter operations.
+     */
+    @Transactional(readOnly = true)
+    @org.springframework.cache.annotation.Cacheable(value = "conversationMessages", key = "#conversationId")
+    public List<MessageDto> getAllConversationMessages(Long conversationId) {
+        var user = currentUserProvider.getCurrentUser();
+
+        // Verify conversation belongs to user
+        Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
+                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+
+        // Load all messages sorted by timestamp ascending (oldest first)
+        List<Message> messages = messageRepository.findAllByConversationIdAndUser(conversationId, user);
+
+        // Sort by timestamp ascending
+        messages.sort((a, b) -> a.getTimestamp().compareTo(b.getTimestamp()));
+
+        return messages.stream()
+                .map(MessageMapper::toDto)
+                .toList();
+    }
+
+    /**
+     * Get message count for a conversation (cached).
+     */
+    @Transactional(readOnly = true)
+    @org.springframework.cache.annotation.Cacheable(value = "conversationMessageCount", key = "#conversationId")
+    public Long getConversationMessageCount(Long conversationId) {
+        var user = currentUserProvider.getCurrentUser();
+
+        // Verify conversation belongs to user
+        conversationRepository.findByIdAndUser(conversationId, user)
+                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+
+        return messageRepository.countByConversationIdAndUser(conversationId, user);
+    }
+
     @Transactional(readOnly = true)
     public ConversationTimelineDto getConversationTimeline(Long conversationId) {
         var user = currentUserProvider.getCurrentUser();

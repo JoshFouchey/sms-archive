@@ -347,6 +347,27 @@ export async function getMessageContext(
 }
 
 /* ==============================
+   Conversation Full Load (for client-side filtering)
+============================== */
+
+/**
+ * Load ALL messages for a conversation (backend cached).
+ * Used for client-side search/filter operations.
+ */
+export async function getAllConversationMessages(conversationId: number): Promise<Message[]> {
+  const res = await axios.get(`${API_BASE}/api/conversations/${conversationId}/messages/all`);
+  return res.data;
+}
+
+/**
+ * Get total message count for a conversation (backend cached).
+ */
+export async function getConversationMessageCount(conversationId: number): Promise<number> {
+  const res = await axios.get(`${API_BASE}/api/conversations/${conversationId}/messages/count`);
+  return res.data.count;
+}
+
+/* ==============================
    Conversation Timeline & Historical Navigation
 ============================== */
 
