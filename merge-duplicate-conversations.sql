@@ -29,7 +29,7 @@ SELECT
     STRING_AGG(cc.contact_id::TEXT, ',' ORDER BY cc.contact_id) as participant_signature,
     COUNT(DISTINCT c.id) as duplicate_count
 FROM conversations c
-JOIN conversation_contacts cc ON c.id = cc.conversation_id
+         JOIN conversation_contacts cc ON c.id = cc.conversation_id
 GROUP BY c.user_id, STRING_AGG(cc.contact_id::TEXT, ',' ORDER BY cc.contact_id)
 HAVING COUNT(DISTINCT c.id) > 1;
 
@@ -47,8 +47,8 @@ SELECT
     c.name as "Conversation Name",
     COUNT(m.id) as "Messages in Primary"
 FROM duplicate_conversation_groups dcg
-JOIN conversations c ON c.id = dcg.primary_conversation_id
-LEFT JOIN messages m ON m.conversation_id = c.id
+         JOIN conversations c ON c.id = dcg.primary_conversation_id
+         LEFT JOIN messages m ON m.conversation_id = c.id
 GROUP BY dcg.primary_conversation_id, dcg.all_conversation_ids, dcg.duplicate_count, c.name
 ORDER BY dcg.duplicate_count DESC;
 
@@ -57,31 +57,31 @@ ORDER BY dcg.duplicate_count DESC;
 -- The unique index will prevent actual duplicates from being created
 DO $$
 DECLARE
-    moved_count INTEGER := 0;
+moved_count INTEGER := 0;
     duplicate_count INTEGER := 0;
     msg_record RECORD;
 BEGIN
     -- Process each message from duplicate conversations
-    FOR msg_record IN
-        SELECT m.id, dcg.primary_conversation_id
-        FROM messages m
-        JOIN duplicate_conversation_groups dcg ON m.conversation_id = ANY(dcg.all_conversation_ids)
-        WHERE m.conversation_id != dcg.primary_conversation_id
+FOR msg_record IN
+SELECT m.id, dcg.primary_conversation_id
+FROM messages m
+         JOIN duplicate_conversation_groups dcg ON m.conversation_id = ANY(dcg.all_conversation_ids)
+WHERE m.conversation_id != dcg.primary_conversation_id
     LOOP
-        BEGIN
+BEGIN
             -- Try to update the message's conversation
-            UPDATE messages
-            SET conversation_id = msg_record.primary_conversation_id
-            WHERE id = msg_record.id;
+UPDATE messages
+SET conversation_id = msg_record.primary_conversation_id
+WHERE id = msg_record.id;
 
-            moved_count := moved_count + 1;
-        EXCEPTION
+moved_count := moved_count + 1;
+EXCEPTION
             WHEN unique_violation THEN
                 -- If it's a duplicate (violates unique constraint), delete it
-                DELETE FROM messages WHERE id = msg_record.id;
-                duplicate_count := duplicate_count + 1;
-        END;
-    END LOOP;
+DELETE FROM messages WHERE id = msg_record.id;
+duplicate_count := duplicate_count + 1;
+END;
+END LOOP;
 
     RAISE NOTICE 'Moved % messages, deleted % duplicates', moved_count, duplicate_count;
 END $$;
@@ -90,7 +90,7 @@ END $$;
 SELECT
     'Total messages now in primary conversations: ' || COUNT(*) as summary
 FROM messages m
-JOIN duplicate_conversation_groups dcg ON m.conversation_id = dcg.primary_conversation_id;
+         JOIN duplicate_conversation_groups dcg ON m.conversation_id = dcg.primary_conversation_id;
 
 -- Step 3: Update last_message_at for primary conversations
 UPDATE conversations c
@@ -103,13 +103,13 @@ WHERE c.id IN (SELECT primary_conversation_id FROM duplicate_conversation_groups
 
 -- Step 4: Delete duplicate conversation_contacts entries
 DELETE FROM conversation_contacts cc
-USING duplicate_conversation_groups dcg
+    USING duplicate_conversation_groups dcg
 WHERE cc.conversation_id = ANY(dcg.all_conversation_ids)
   AND cc.conversation_id != dcg.primary_conversation_id;
 
 -- Step 5: Delete duplicate conversations
 DELETE FROM conversations c
-USING duplicate_conversation_groups dcg
+    USING duplicate_conversation_groups dcg
 WHERE c.id = ANY(dcg.all_conversation_ids)
   AND c.id != dcg.primary_conversation_id;
 
@@ -124,7 +124,7 @@ SELECT
     COUNT(DISTINCT c.id) as conversation_count,
     SUM((SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id)) as total_messages
 FROM users u
-LEFT JOIN conversations c ON c.user_id = u.id
+         LEFT JOIN conversations c ON c.user_id = u.id
 GROUP BY u.username;
 
 COMMIT;
