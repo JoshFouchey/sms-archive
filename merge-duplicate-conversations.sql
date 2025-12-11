@@ -1,6 +1,8 @@
 BEGIN;
 
--- Step 0: Build participant signature per conversation
+-- Step 0 & 1 combined:
+-- Build participant signatures, find duplicate groups, and store into temp table
+CREATE TEMP TABLE duplicate_conversation_groups AS
 WITH conversation_participants AS (
     SELECT
         c.id,
@@ -10,9 +12,7 @@ WITH conversation_participants AS (
     JOIN conversation_contacts cc ON c.id = cc.conversation_id
     GROUP BY c.id, c.user_id
 ),
-
--- Step 1: Identify duplicate groups
-duplicate_conversation_groups AS (
+dupe_groups AS (
     SELECT
         MIN(id) AS primary_conversation_id,
         ARRAY_AGG(id ORDER BY id) AS all_conversation_ids,
@@ -23,18 +23,15 @@ duplicate_conversation_groups AS (
     GROUP BY user_id, participant_signature
     HAVING COUNT(*) > 1
 )
+SELECT * FROM dupe_groups;
 
--- Create the temp table
-CREATE TEMP TABLE duplicate_conversation_groups AS
-SELECT * FROM duplicate_conversation_groups;
-
--- Show what was found
+-- Show what we found
 SELECT
     'Found ' || COUNT(*) || ' groups of duplicate conversations affecting ' ||
     SUM(duplicate_count - 1) || ' conversations to be merged' AS summary
 FROM duplicate_conversation_groups;
 
--- Details
+-- Show details
 SELECT
     dcg.primary_conversation_id AS "Keep (Primary)",
     dcg.all_conversation_ids AS "Duplicate IDs",
@@ -55,7 +52,7 @@ FROM duplicate_conversation_groups dcg
 WHERE m.conversation_id = ANY(dcg.all_conversation_ids)
   AND m.conversation_id != dcg.primary_conversation_id;
 
--- How many moved
+-- Show moved message count
 SELECT
     'Moved ' || COUNT(*) || ' messages to primary conversations' AS summary
 FROM messages m
