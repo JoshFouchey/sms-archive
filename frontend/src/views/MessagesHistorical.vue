@@ -202,19 +202,35 @@
 
           <!-- Messages List -->
           <div v-else-if="messages.length" class="space-y-3">
-            <!-- Date separator with load more -->
-            <div v-if="hasMoreOlder" class="flex items-center justify-center my-4">
-              <button
-                @click="loadOlderMessages"
-                :disabled="olderLoading"
-                class="bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 disabled:opacity-50 px-4 py-2 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300 transition-colors flex items-center gap-2"
-              >
-                <i :class="['pi text-xs', olderLoading ? 'pi-spin pi-spinner' : 'pi-arrow-up']"></i>
-                {{ olderLoading ? 'Loading...' : 'Load older messages' }}
-              </button>
+            <!-- Top Sentinel for Infinite Scroll (Load Older) -->
+            <div ref="topSentinel" class="h-2"></div>
+
+            <!-- Loading older indicator -->
+            <div v-if="olderLoading" class="flex items-center justify-center py-2">
+              <div class="bg-gray-200 dark:bg-slate-700 px-3 py-1.5 rounded-full text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                <i class="pi pi-spin pi-spinner text-xs"></i>
+                Loading older...
+              </div>
             </div>
 
-            <div v-for="msg in messages" :key="msg.id" class="flex" :class="msg.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'">
+            <!-- Sticky Current Date Indicator -->
+            <div
+              v-if="currentVisibleDate"
+              class="sticky top-0 z-10 flex justify-center py-2"
+            >
+              <div class="bg-purple-600 dark:bg-purple-700 text-white px-4 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm">
+                {{ formatDateIndicator(currentVisibleDate) }}
+              </div>
+            </div>
+
+            <div
+              v-for="msg in messages"
+              :key="msg.id"
+              :data-timestamp="msg.timestamp"
+              :data-message-id="msg.id"
+              class="message-item flex"
+              :class="msg.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'"
+            >
               <div
                 :class="[
                   'max-w-[85%] rounded-2xl px-4 py-2.5 shadow-md text-sm leading-relaxed transition-all hover:shadow-lg',
@@ -228,17 +244,16 @@
               </div>
             </div>
 
-            <!-- Load more recent -->
-            <div v-if="hasMoreNewer" class="flex items-center justify-center my-4">
-              <button
-                @click="loadNewerMessages"
-                :disabled="newerLoading"
-                class="bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 disabled:opacity-50 px-4 py-2 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300 transition-colors flex items-center gap-2"
-              >
-                <i :class="['pi text-xs', newerLoading ? 'pi-spin pi-spinner' : 'pi-arrow-down']"></i>
-                {{ newerLoading ? 'Loading...' : 'Load newer messages' }}
-              </button>
+            <!-- Loading newer indicator -->
+            <div v-if="newerLoading" class="flex items-center justify-center py-2">
+              <div class="bg-gray-200 dark:bg-slate-700 px-3 py-1.5 rounded-full text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                <i class="pi pi-spin pi-spinner text-xs"></i>
+                Loading newer...
+              </div>
             </div>
+
+            <!-- Bottom Sentinel for Infinite Scroll (Load Newer) -->
+            <div ref="bottomSentinel" class="h-2"></div>
           </div>
 
           <!-- No messages -->
@@ -253,7 +268,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   getAllConversations,
@@ -276,6 +291,10 @@ const timeline = ref<ConversationTimeline | null>(null);
 const expandedYears = ref(new Set<number>());
 const showTimeline = ref(false);
 
+// Infinite scroll sentinels
+const topSentinel = ref<HTMLElement | null>(null);
+const bottomSentinel = ref<HTMLElement | null>(null);
+
 // Loading states
 const contactsLoading = ref(false);
 const messagesLoading = ref(false);
@@ -290,6 +309,12 @@ const totalMessages = ref(0);
 const hasMoreOlder = ref(false);
 const hasMoreNewer = ref(false);
 
+// Current visible date for sticky indicator (updates as you scroll)
+const currentVisibleDate = ref<string | null>(null);
+
+// Track first visible message for date indicator
+const messageObserver = ref<IntersectionObserver | null>(null);
+
 // Month names
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -300,12 +325,115 @@ function getMonthName(month: number): string {
 function formatTime(timestamp: string): string {
   const d = new Date(timestamp);
   return d.toLocaleString(undefined, {
+    year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   });
 }
+
+function formatDateIndicator(timestamp: string): string {
+  const d = new Date(timestamp);
+  return d.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'long',
+  });
+}
+
+// Update sticky date indicator based on visible messages
+function setupMessageObserver() {
+  // Clean up existing observer
+  if (messageObserver.value) {
+    messageObserver.value.disconnect();
+  }
+
+  // Create observer to track which message is at the top of viewport
+  messageObserver.value = new IntersectionObserver(
+    (entries) => {
+      // Find the first message that's visible at the top
+      const visibleMessages = entries
+        .filter(entry => entry.isIntersecting)
+        .sort((a, b) => {
+          // Sort by position in viewport (top to bottom)
+          return a.boundingClientRect.top - b.boundingClientRect.top;
+        });
+
+      if (visibleMessages.length > 0) {
+        const firstVisible = visibleMessages[0];
+        if (firstVisible) {
+          const topMessage = firstVisible.target as HTMLElement;
+          const timestamp = topMessage.dataset.timestamp;
+          if (timestamp) {
+            currentVisibleDate.value = timestamp;
+          }
+        }
+      }
+    },
+    {
+      threshold: 0,
+      rootMargin: '0px 0px -80% 0px' // Trigger when message is in top 20% of viewport
+    }
+  );
+
+  // Observe all message elements
+  const messageElements = document.querySelectorAll('.message-item');
+  messageElements.forEach(el => {
+    messageObserver.value?.observe(el);
+  });
+}
+
+// Watch for message changes and update observers
+watch(messages, () => {
+  // Wait for DOM update then setup observers
+  setTimeout(() => {
+    setupMessageObserver();
+  }, 100);
+});
+
+// Setup infinite scroll observers
+onMounted(() => {
+  // Observer for top sentinel (load older messages)
+  const topObserver = new IntersectionObserver(
+    (entries) => {
+      const entry = entries[0];
+      if (entry && entry.isIntersecting && hasMoreOlder.value && !olderLoading.value && !messagesLoading.value) {
+        loadOlderMessages();
+      }
+    },
+    { threshold: 0.1 }
+  );
+
+  // Observer for bottom sentinel (load newer messages)
+  const bottomObserver = new IntersectionObserver(
+    (entries) => {
+      const entry = entries[0];
+      if (entry && entry.isIntersecting && hasMoreNewer.value && !newerLoading.value && !messagesLoading.value) {
+        loadNewerMessages();
+      }
+    },
+    { threshold: 0.1 }
+  );
+
+  // Start observing when sentinels are available
+  watch([topSentinel, bottomSentinel], () => {
+    if (topSentinel.value) {
+      topObserver.observe(topSentinel.value);
+    }
+    if (bottomSentinel.value) {
+      bottomObserver.observe(bottomSentinel.value);
+    }
+  });
+
+  // Cleanup observers on unmount
+  onBeforeUnmount(() => {
+    topObserver.disconnect();
+    bottomObserver.disconnect();
+    if (messageObserver.value) {
+      messageObserver.value.disconnect();
+    }
+  });
+});
 
 // Load conversations
 async function loadConversations() {
@@ -388,31 +516,34 @@ function toggleYear(year: number) {
 async function jumpToMonth(month: any) {
   if (!selectedConversation.value) return;
   messagesLoading.value = true;
+
   try {
-    // Construct month boundaries in UTC
+    // Find the "page" that contains this month by calculating how many messages
+    // exist before this date, then load that page
     const year = month.year;
     const monthNum = month.month;
+    const targetDate = `${year}-${String(monthNum).padStart(2, '0')}-01T00:00:00Z`;
 
-    // Start of month in UTC
-    const dateFrom = `${year}-${String(monthNum).padStart(2, '0')}-01T00:00:00Z`;
-
-    // Start of next month in UTC
-    const nextMonth = monthNum === 12 ? 1 : monthNum + 1;
-    const nextYear = monthNum === 12 ? year + 1 : year;
-    const dateTo = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00Z`;
-
+    // Load messages starting from this date going forward
     const res = await getConversationMessagesByDateRange(
       selectedConversation.value.id,
-      dateFrom,
-      dateTo,
+      targetDate,
+      '9999-12-31T23:59:59Z', // Far future to get messages from this point onward
       0,
       pageSize.value,
       'asc'
     );
+
     messages.value = res.content;
     totalMessages.value = res.totalElements;
-    hasMoreOlder.value = false; // We're at a specific month
+
+    // Enable infinite scroll in both directions
+    // There are likely older messages before this month
+    hasMoreOlder.value = true;
+    // There might be newer messages after this batch
     hasMoreNewer.value = res.content.length >= pageSize.value;
+
+    // Reset page tracking - we'll use date-based loading from here
     currentPage.value = 0;
   } catch (e) {
     console.error('Failed to jump to month', e);
@@ -421,20 +552,36 @@ async function jumpToMonth(month: any) {
   }
 }
 
-// Load older/newer messages
+// Load older/newer messages (timestamp-based for continuous scrolling)
 async function loadOlderMessages() {
-  if (!selectedConversation.value || olderLoading.value) return;
+  if (!selectedConversation.value || olderLoading.value || !messages.value.length) return;
+
+  const oldestMessage = messages.value[0];
+  if (!oldestMessage) return;
+
   olderLoading.value = true;
+
   try {
-    const res = await getConversationMessages(
+    // Get the oldest message timestamp
+    const oldestTimestamp = oldestMessage!.timestamp;
+
+    // Load messages older than this timestamp
+    const res = await getConversationMessagesByDateRange(
       selectedConversation.value.id,
-      currentPage.value + 1,
+      '1970-01-01T00:00:00Z', // Beginning of time
+      oldestTimestamp, // Up to (but not including) oldest current message
+      0,
       pageSize.value,
-      'desc'
+      'desc' // Get most recent of the older messages
     );
-    messages.value = [...res.content.reverse(), ...messages.value];
-    currentPage.value++;
-    hasMoreOlder.value = !res.first;
+
+    if (res.content.length > 0) {
+      // Prepend older messages (they come in desc order, so reverse)
+      messages.value = [...res.content.reverse(), ...messages.value];
+      hasMoreOlder.value = res.content.length >= pageSize.value;
+    } else {
+      hasMoreOlder.value = false;
+    }
   } catch (e) {
     console.error('Failed to load older messages', e);
   } finally {
@@ -443,18 +590,35 @@ async function loadOlderMessages() {
 }
 
 async function loadNewerMessages() {
-  if (!selectedConversation.value || newerLoading.value || currentPage.value === 0) return;
+  if (!selectedConversation.value || newerLoading.value || !messages.value.length) return;
+
+  const newestMessage = messages.value[messages.value.length - 1];
+  if (!newestMessage) return;
+
   newerLoading.value = true;
+
   try {
-    const res = await getConversationMessages(
+    // Get the newest message timestamp
+    const newestTimestamp = newestMessage!.timestamp;
+
+    // Load messages newer than this timestamp
+    const res = await getConversationMessagesByDateRange(
       selectedConversation.value.id,
-      currentPage.value - 1,
+      newestTimestamp, // From (but not including) newest current message
+      '9999-12-31T23:59:59Z', // Far future
+      0,
       pageSize.value,
-      'desc'
+      'asc' // Get oldest of the newer messages first
     );
-    messages.value = [...messages.value, ...res.content.reverse()];
-    currentPage.value--;
-    hasMoreNewer.value = !res.last;
+
+    if (res.content.length > 0) {
+      // Filter out the duplicate (if API includes the boundary message)
+      const newMessages = res.content.filter(m => m.id !== newestMessage!.id);
+      messages.value = [...messages.value, ...newMessages];
+      hasMoreNewer.value = newMessages.length >= pageSize.value;
+    } else {
+      hasMoreNewer.value = false;
+    }
   } catch (e) {
     console.error('Failed to load newer messages', e);
   } finally {
@@ -476,4 +640,3 @@ onMounted(async () => {
   }
 });
 </script>
-
