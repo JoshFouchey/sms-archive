@@ -22,16 +22,24 @@ BEGIN;
 -- Step 1: Find duplicate conversations (same participants)
 -- This creates a temp table with groups of duplicate conversation IDs
 CREATE TEMP TABLE duplicate_conversation_groups AS
+WITH conversation_participants AS (
+    SELECT
+        c.id AS conversation_id,
+        c.user_id,
+        STRING_AGG(cc.contact_id::TEXT, ',' ORDER BY cc.contact_id) as participant_signature
+    FROM conversations c
+    JOIN conversation_contacts cc ON c.id = cc.conversation_id
+    GROUP BY c.id, c.user_id
+)
 SELECT
-    MIN(c.id) as primary_conversation_id,
-    ARRAY_AGG(c.id ORDER BY c.id) as all_conversation_ids,
-    c.user_id,
-    STRING_AGG(cc.contact_id::TEXT, ',' ORDER BY cc.contact_id) as participant_signature,
-    COUNT(DISTINCT c.id) as duplicate_count
-FROM conversations c
-         JOIN conversation_contacts cc ON c.id = cc.conversation_id
-GROUP BY c.user_id, STRING_AGG(cc.contact_id::TEXT, ',' ORDER BY cc.contact_id)
-HAVING COUNT(DISTINCT c.id) > 1;
+    MIN(conversation_id) as primary_conversation_id,
+    ARRAY_AGG(conversation_id ORDER BY conversation_id) as all_conversation_ids,
+    user_id,
+    participant_signature,
+    COUNT(*) as duplicate_count
+FROM conversation_participants
+GROUP BY user_id, participant_signature
+HAVING COUNT(*) > 1;
 
 -- Show what we found
 SELECT
