@@ -1,97 +1,49 @@
 BEGIN;
 
--- Step 0 & 1 combined:
--- Build participant signatures, find duplicate groups, and store into temp table
+-- 1. Identify conversation groups that share the same participant set
 CREATE TEMP TABLE duplicate_conversation_groups AS
-WITH conversation_participants AS (
-    SELECT
-        c.id,
-        c.user_id,
-        STRING_AGG(cc.contact_id::TEXT, ',' ORDER BY cc.contact_id) AS participant_signature
-    FROM conversations c
-    JOIN conversation_contacts cc ON c.id = cc.conversation_id
-    GROUP BY c.id, c.user_id
-),
-dupe_groups AS (
-    SELECT
-        MIN(id) AS primary_conversation_id,
-        ARRAY_AGG(id ORDER BY id) AS all_conversation_ids,
-        user_id,
-        participant_signature,
-        COUNT(*) AS duplicate_count
-    FROM conversation_participants
-    GROUP BY user_id, participant_signature
-    HAVING COUNT(*) > 1
-)
-SELECT * FROM dupe_groups;
+SELECT 
+    array_agg(c.id ORDER BY c.id) AS conversation_ids,
+    COUNT(*) AS count
+FROM conversations c
+GROUP BY c.participant_hash
+HAVING COUNT(*) > 1;
 
--- Show what we found
-SELECT
-    'Found ' || COUNT(*) || ' groups of duplicate conversations affecting ' ||
-    SUM(duplicate_count - 1) || ' conversations to be merged' AS summary
+-- 2. Pick the lowest conversation_id in each group as the “canonical”
+CREATE TEMP TABLE canonical_conversations AS
+SELECT 
+    conversation_ids[1] AS canonical_id,
+    conversation_ids      AS all_ids
 FROM duplicate_conversation_groups;
 
--- Show details
-SELECT
-    dcg.primary_conversation_id AS "Keep (Primary)",
-    dcg.all_conversation_ids AS "Duplicate IDs",
-    dcg.duplicate_count AS "Total Dupes",
-    c.name AS "Conversation Name",
-    COUNT(m.id) AS "Messages in Primary"
-FROM duplicate_conversation_groups dcg
-JOIN conversations c ON c.id = dcg.primary_conversation_id
-LEFT JOIN messages m ON m.conversation_id = c.id
-GROUP BY dcg.primary_conversation_id, dcg.all_conversation_ids,
-         dcg.duplicate_count, c.name
-ORDER BY dcg.duplicate_count DESC;
+-- 3. Merge messages from duplicates into their canonical conversation
+--    Safe insert: skips duplicates using ON CONFLICT DO NOTHING
+INSERT INTO messages (conversation_id, body, "timestamp", direction, user_id, message_source_id)
+SELECT 
+    cc.canonical_id AS conversation_id,
+    m.body,
+    m."timestamp",
+    m.direction,
+    m.user_id,
+    m.id AS message_source_id
+FROM canonical_conversations cc
+JOIN messages m 
+    ON m.conversation_id = ANY(cc.all_ids)
+WHERE m.conversation_id != cc.canonical_id
+ON CONFLICT ON CONSTRAINT unique_message_per_conversation DO NOTHING;
 
--- Step 2: Move messages
-UPDATE messages m
-SET conversation_id = dcg.primary_conversation_id
-FROM duplicate_conversation_groups dcg
-WHERE m.conversation_id = ANY(dcg.all_conversation_ids)
-  AND m.conversation_id != dcg.primary_conversation_id;
+-- 4. Move attachments from duplicate messages
+UPDATE attachments a
+SET message_id = new_messages.id
+FROM messages src
+JOIN messages new_messages
+    ON new_messages.message_source_id = src.id
+WHERE a.message_id = src.id;
 
--- Show moved message count
-SELECT
-    'Moved ' || COUNT(*) || ' messages to primary conversations' AS summary
-FROM messages m
-JOIN duplicate_conversation_groups dcg
-  ON m.conversation_id = dcg.primary_conversation_id;
-
--- Step 3: Update last_message_at
-UPDATE conversations c
-SET last_message_at = (
-    SELECT MAX(m.timestamp)
-    FROM messages m
-    WHERE m.conversation_id = c.id
-)
-WHERE c.id IN (SELECT primary_conversation_id FROM duplicate_conversation_groups);
-
--- Step 4: Delete duplicate conversation_contacts
-DELETE FROM conversation_contacts cc
-USING duplicate_conversation_groups dcg
-WHERE cc.conversation_id = ANY(dcg.all_conversation_ids)
-  AND cc.conversation_id != dcg.primary_conversation_id;
-
--- Step 5: Delete duplicate conversations
+-- 5. Delete duplicate conversations (leave only canonical)
 DELETE FROM conversations c
-USING duplicate_conversation_groups dcg
-WHERE c.id = ANY(dcg.all_conversation_ids)
-  AND c.id != dcg.primary_conversation_id;
-
--- Final summary
-SELECT
-    'Cleanup complete! Merged ' || COUNT(*) || ' groups of duplicates' AS summary
-FROM duplicate_conversation_groups;
-
--- Remaining conversations per user
-SELECT
-    u.username,
-    COUNT(DISTINCT c.id) AS conversation_count,
-    SUM((SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id)) AS total_messages
-FROM users u
-LEFT JOIN conversations c ON c.user_id = u.id
-GROUP BY u.username;
+USING canonical_conversations cc
+WHERE c.id = ANY(cc.all_ids)
+  AND c.id != cc.canonical_id;
 
 COMMIT;
