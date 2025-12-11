@@ -474,8 +474,10 @@ async function loadMessages() {
     );
     messages.value = res.content.reverse(); // Show chronological order
     totalMessages.value = res.totalElements;
-    hasMoreOlder.value = !res.first;
-    hasMoreNewer.value = !res.last;
+
+    // In 'desc' mode: first=true means most recent (has older), last=true means oldest (no older)
+    hasMoreOlder.value = !res.last;  // Can scroll back if NOT at the last page (oldest)
+    hasMoreNewer.value = !res.first; // Can scroll forward if NOT at the first page (newest)
   } catch (e) {
     console.error('Failed to load messages', e);
   } finally {
@@ -562,6 +564,11 @@ async function loadOlderMessages() {
   olderLoading.value = true;
 
   try {
+    // Get the scroll container and save current scroll position
+    const scrollContainer = document.querySelector('.flex-1.overflow-y-auto') as HTMLElement;
+    const previousScrollHeight = scrollContainer?.scrollHeight || 0;
+    const previousScrollTop = scrollContainer?.scrollTop || 0;
+
     // Get the oldest message timestamp
     const oldestTimestamp = oldestMessage!.timestamp;
 
@@ -579,6 +586,14 @@ async function loadOlderMessages() {
       // Prepend older messages (they come in desc order, so reverse)
       messages.value = [...res.content.reverse(), ...messages.value];
       hasMoreOlder.value = res.content.length >= pageSize.value;
+
+      // Restore scroll position after DOM updates
+      await new Promise(resolve => setTimeout(resolve, 0));
+      if (scrollContainer) {
+        const newScrollHeight = scrollContainer.scrollHeight;
+        const heightDifference = newScrollHeight - previousScrollHeight;
+        scrollContainer.scrollTop = previousScrollTop + heightDifference;
+      }
     } else {
       hasMoreOlder.value = false;
     }
