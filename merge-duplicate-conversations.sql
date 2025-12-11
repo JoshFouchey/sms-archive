@@ -53,15 +53,42 @@ GROUP BY dcg.primary_conversation_id, dcg.all_conversation_ids, dcg.duplicate_co
 ORDER BY dcg.duplicate_count DESC;
 
 -- Step 2: Move all messages from duplicate conversations to primary conversation
-UPDATE messages m
-SET conversation_id = dcg.primary_conversation_id
-FROM duplicate_conversation_groups dcg
-WHERE m.conversation_id = ANY(dcg.all_conversation_ids)
-  AND m.conversation_id != dcg.primary_conversation_id;
+-- Handle potential duplicate messages by updating conversation_id one by one
+-- The unique index will prevent actual duplicates from being created
+DO $$
+DECLARE
+    moved_count INTEGER := 0;
+    duplicate_count INTEGER := 0;
+    msg_record RECORD;
+BEGIN
+    -- Process each message from duplicate conversations
+    FOR msg_record IN
+        SELECT m.id, dcg.primary_conversation_id
+        FROM messages m
+        JOIN duplicate_conversation_groups dcg ON m.conversation_id = ANY(dcg.all_conversation_ids)
+        WHERE m.conversation_id != dcg.primary_conversation_id
+    LOOP
+        BEGIN
+            -- Try to update the message's conversation
+            UPDATE messages
+            SET conversation_id = msg_record.primary_conversation_id
+            WHERE id = msg_record.id;
 
--- Show how many messages were moved
+            moved_count := moved_count + 1;
+        EXCEPTION
+            WHEN unique_violation THEN
+                -- If it's a duplicate (violates unique constraint), delete it
+                DELETE FROM messages WHERE id = msg_record.id;
+                duplicate_count := duplicate_count + 1;
+        END;
+    END LOOP;
+
+    RAISE NOTICE 'Moved % messages, deleted % duplicates', moved_count, duplicate_count;
+END $$;
+
+-- Show total messages now in primary conversations
 SELECT
-    'Moved ' || COUNT(*) || ' messages to primary conversations' as summary
+    'Total messages now in primary conversations: ' || COUNT(*) as summary
 FROM messages m
 JOIN duplicate_conversation_groups dcg ON m.conversation_id = dcg.primary_conversation_id;
 
