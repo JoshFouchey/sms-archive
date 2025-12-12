@@ -64,10 +64,10 @@ SELECT new com.joshfouchey.smsarchive.dto.TopContactDto(
     COUNT(m.id)
 )
 FROM Message m 
-JOIN m.senderContact c
+JOIN m.conversation conv
+JOIN conv.participants c
 WHERE m.timestamp >= :since 
   AND m.user = :user
-  AND m.direction = com.joshfouchey.smsarchive.model.MessageDirection.INBOUND
 GROUP BY c.id, c.name, c.number
 ORDER BY COUNT(m.id) DESC
 """)

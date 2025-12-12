@@ -179,35 +179,35 @@
         <!-- Advanced Filters (collapsible) -->
         <div
           v-if="selectedConversation && showFilters"
-          class="mt-3 p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 space-y-3"
+          class="mt-3 p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 space-y-3 overflow-hidden"
         >
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 min-w-0">
             <!-- Date From -->
-            <div>
+            <div class="min-w-0">
               <label class="block text-xs text-white/90 mb-1.5 font-medium">From Date</label>
               <input
                 v-model="dateFrom"
                 type="date"
-                class="w-full px-3 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:bg-white/30 focus:border-white/50 focus:outline-none transition-all text-sm"
+                class="w-full px-3 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:bg-white/30 focus:border-white/50 focus:outline-none transition-all text-sm min-w-0"
               />
             </div>
 
             <!-- Date To -->
-            <div>
+            <div class="min-w-0">
               <label class="block text-xs text-white/90 mb-1.5 font-medium">To Date</label>
               <input
                 v-model="dateTo"
                 type="date"
-                class="w-full px-3 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:bg-white/30 focus:border-white/50 focus:outline-none transition-all text-sm"
+                class="w-full px-3 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:bg-white/30 focus:border-white/50 focus:outline-none transition-all text-sm min-w-0"
               />
             </div>
 
             <!-- Sender Filter -->
-            <div>
+            <div class="min-w-0">
               <label class="block text-xs text-white/90 mb-1.5 font-medium">Sender</label>
               <select
                 v-model="selectedSender"
-                class="w-full px-3 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:bg-white/30 focus:border-white/50 focus:outline-none transition-all text-sm"
+                class="w-full px-3 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:bg-white/30 focus:border-white/50 focus:outline-none transition-all text-sm min-w-0"
               >
                 <option value="" class="bg-slate-700">All Senders</option>
                 <option
