@@ -142,22 +142,22 @@
         </div>
 
         <!-- Loading Status Indicators -->
-        <div v-if="selectedConversation && loadingInBackground" class="mt-3">
-          <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-3">
-            <div class="flex items-center gap-2 text-blue-700 dark:text-blue-300">
-              <i class="pi pi-spin pi-spinner text-sm"></i>
-              <span class="text-sm font-medium">
+        <div v-if="selectedConversation && loadingInBackground" class="mt-3 min-w-0">
+          <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-3 overflow-hidden">
+            <div class="flex items-center gap-2 text-blue-700 dark:text-blue-300 min-w-0">
+              <i class="pi pi-spin pi-spinner text-sm flex-shrink-0"></i>
+              <span class="text-sm font-medium break-words min-w-0">
                 Loading full history... ({{ messages.length.toLocaleString() }} / {{ totalMessages.toLocaleString() }} messages)
               </span>
             </div>
           </div>
         </div>
 
-        <div v-else-if="selectedConversation && fullyLoaded && messages.length > 200" class="mt-3">
-          <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl p-3">
-            <div class="flex items-center gap-2 text-green-700 dark:text-green-300">
-              <i class="pi pi-check-circle text-sm"></i>
-              <span class="text-sm font-medium">
+        <div v-else-if="selectedConversation && fullyLoaded && messages.length > 200" class="mt-3 min-w-0">
+          <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl p-3 overflow-hidden">
+            <div class="flex items-center gap-2 text-green-700 dark:text-green-300 min-w-0">
+              <i class="pi pi-check-circle text-sm flex-shrink-0"></i>
+              <span class="text-sm font-medium break-words min-w-0">
                 ✓ All {{ messages.length.toLocaleString() }} messages loaded (search ready)
               </span>
             </div>
@@ -165,11 +165,11 @@
         </div>
 
         <!-- Warning when searching before fully loaded -->
-        <div v-if="selectedConversation && isSearchActive && !fullyLoaded" class="mt-3">
-          <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-3">
-            <div class="flex items-center gap-2 text-yellow-700 dark:text-yellow-300">
-              <i class="pi pi-exclamation-triangle text-sm"></i>
-              <span class="text-sm">
+        <div v-if="selectedConversation && isSearchActive && !fullyLoaded" class="mt-3 min-w-0">
+          <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-3 overflow-hidden">
+            <div class="flex items-center gap-2 text-yellow-700 dark:text-yellow-300 min-w-0">
+              <i class="pi pi-exclamation-triangle text-sm flex-shrink-0"></i>
+              <span class="text-sm break-words min-w-0">
                 Searching {{ messages.length.toLocaleString() }} messages (still loading full history...)
               </span>
             </div>
