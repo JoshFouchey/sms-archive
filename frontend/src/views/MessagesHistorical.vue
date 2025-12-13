@@ -301,7 +301,7 @@
                     : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-700',
                   isCurrentMatch(msg.id) ? 'ring-4 ring-amber-400 dark:ring-amber-500 shadow-2xl scale-[1.03]' : '',
                   isMatch(msg.id) && !isCurrentMatch(msg.id) ? (msg.direction === 'OUTBOUND' ? 'ring-2 ring-amber-300/50 dark:ring-amber-400/50' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800') : '',
-                  isSearchActive.value && !isMatch(msg.id) ? 'opacity-30' : ''
+                  isSearchActive && !isMatch(msg.id) ? 'opacity-30' : ''
                 ]"
               >
                 <!-- Sender name header for group messages (inside bubble) -->
