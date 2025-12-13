@@ -267,39 +267,58 @@
             class="flex"
             :class="msg.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'"
           >
-            <div
-              :class="[
-                'max-w-[85%] rounded-2xl px-4 py-2.5 shadow-md text-sm leading-relaxed transition-all hover:shadow-lg',
-                msg.direction === 'OUTBOUND'
-                  ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white'
-                  : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-700'
-              ]"
-            >
-              <div v-if="msg.body && msg.body !== '[media]'">{{ msg.body }}</div>
-
-              <!-- Image thumbnails -->
-              <div v-if="getImageParts(msg).length" class="flex flex-wrap gap-2 mt-2">
+            <div class="max-w-[85%]">
+              <div
+                :class="[
+                  'rounded-2xl shadow-md text-sm leading-relaxed transition-all hover:shadow-lg',
+                  msg.direction === 'OUTBOUND'
+                    ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white'
+                    : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-700'
+                ]"
+              >
+                <!-- Sender name header for group messages (inside bubble) -->
                 <div
-                  v-for="img in getImageParts(msg)"
-                  :key="img.id"
-                  class="relative group cursor-pointer overflow-hidden rounded-xl bg-black/10 dark:bg-black/30 transition-all hover:scale-105"
-                  :class="img.isSingle ? 'w-48 h-48' : 'w-32 h-32'"
-                  @click="openImage(img.globalIndex)"
-                  role="button"
-                  tabindex="0"
-                  aria-label="Open full size image"
+                  v-if="msg.direction === 'INBOUND' && selectedConversation?.participantCount && selectedConversation.participantCount > 2 && (msg.senderContactName || msg.senderContactNumber)"
+                  class="px-4 pt-2.5 pb-1.5 border-b border-gray-200 dark:border-slate-600"
                 >
-                  <img
-                    :src="img.thumbUrl"
-                    :alt="img.contentType || 'attachment'"
-                    class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110"
-                    loading="lazy"
-                    @error="handleImageError"
-                  />
+                  <div class="flex items-center gap-2">
+                    <span 
+                      class="w-2 h-2 rounded-full flex-shrink-0"
+                      :class="getParticipantColor(msg.senderContactId)"
+                    ></span>
+                    <span class="font-semibold text-xs text-gray-700 dark:text-gray-300">{{ msg.senderContactName || msg.senderContactNumber || 'Unknown' }}</span>
+                  </div>
+                </div>
+                
+                <!-- Message content -->
+                <div class="px-4 py-2.5">
+                  <div v-if="msg.body && msg.body !== '[media]'">{{ msg.body }}</div>
+
+                  <!-- Image thumbnails -->
+                  <div v-if="getImageParts(msg).length" class="flex flex-wrap gap-2 mt-2">
+                    <div
+                      v-for="img in getImageParts(msg)"
+                      :key="img.id"
+                      class="relative group cursor-pointer overflow-hidden rounded-xl bg-black/10 dark:bg-black/30 transition-all hover:scale-105"
+                      :class="img.isSingle ? 'w-48 h-48' : 'w-32 h-32'"
+                      @click="openImage(img.globalIndex)"
+                      role="button"
+                      tabindex="0"
+                      aria-label="Open full size image"
+                    >
+                      <img
+                        :src="img.thumbUrl"
+                        :alt="img.contentType || 'attachment'"
+                        class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110"
+                        loading="lazy"
+                        @error="handleImageError"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="text-[10px] mt-1 opacity-75">{{ formatTime(msg.timestamp) }}</div>
                 </div>
               </div>
-
-              <div class="text-[10px] mt-1 opacity-75">{{ formatTime(msg.timestamp) }}</div>
             </div>
           </div>
         </div>
@@ -539,6 +558,43 @@ const filteredMessages = computed(() => {
   return filtered;
 });
 
+// Color palette for group conversation participants
+const participantColors = [
+  'bg-blue-700 text-white',
+  'bg-green-700 text-white',
+  'bg-purple-700 text-white',
+  'bg-orange-700 text-white',
+  'bg-pink-700 text-white',
+  'bg-teal-700 text-white',
+  'bg-indigo-700 text-white',
+  'bg-rose-700 text-white',
+  'bg-amber-700 text-white',
+  'bg-cyan-700 text-white',
+];
+
+// Map to store participant -> color assignments for current conversation
+const participantColorMap = ref(new Map<string, string>());
+
+function getParticipantColor(senderContactId: number | undefined | null): string {
+  const defaultColor = 'bg-gray-200 text-gray-900 dark:bg-slate-700 dark:text-gray-100';
+
+  // Return default color if no identifier
+  if (!senderContactId) {
+    return defaultColor;
+  }
+
+  const map = participantColorMap.value;
+  const id = String(senderContactId);
+
+  // Assign color if not already assigned
+  if (!map.has(id)) {
+    const colorIndex = map.size % participantColors.length;
+    const color = participantColors[colorIndex] ?? defaultColor;
+    map.set(id, color);
+  }
+
+  return map.get(id) || defaultColor;
+}
 
 function handleImageError(event: Event) {
   const img = event.target as HTMLImageElement;
@@ -642,6 +698,7 @@ async function loadConversations() {
 // Select conversation
 async function selectConversation(conversation: ConversationSummary) {
   selectedConversation.value = conversation;
+  participantColorMap.value.clear(); // Clear color assignments for new conversation
   router.push({ name: 'messages', params: { id: conversation.id } });
   await loadMessages();
 }
@@ -652,6 +709,7 @@ function clearConversation() {
   fullyLoaded.value = false;
   loadingInBackground.value = false;
   isSearchActive.value = false;
+  participantColorMap.value.clear(); // Clear color assignments
   router.push({ name: 'messages' });
 }
 
