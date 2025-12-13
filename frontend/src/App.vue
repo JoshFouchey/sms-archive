@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+  <div class="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
     <!-- Navbar -->
     <Menubar :model="items" class="shadow-md bg-white dark:bg-gray-800 border-b-2 border-blue-500 dark:border-blue-600 sticky top-0 z-50">
       <template #start>
@@ -48,8 +48,8 @@
       <router-view />
     </main>
 
-    <!-- Footer -->
-    <footer class="text-center text-sm text-gray-500 dark:text-gray-400 py-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+    <!-- Footer (hidden on historical messages page) -->
+    <footer v-if="!hideFooter" class="text-center text-sm text-gray-500 dark:text-gray-400 py-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
       <div class="flex items-center justify-center gap-2">
         <i class="pi pi-inbox text-blue-600 dark:text-blue-400"></i>
         <span class="font-medium">SMS Archive</span>
@@ -87,9 +87,14 @@ const isHistoricalPage = computed(() => {
 const mainClasses = computed(() => {
   if (isHistoricalPage.value) {
     // Full width, no padding for historical messages (it manages its own layout)
-    return 'flex-1 w-full';
+    return 'flex-1 w-full overflow-hidden';
   }
   // Wider layout with more breathing room for other pages
   return 'flex-1 p-4 sm:p-6 lg:p-8 w-full max-w-[1920px] mx-auto';
+});
+
+// Check if footer should be hidden
+const hideFooter = computed(() => {
+  return isHistoricalPage.value;
 });
 </script>

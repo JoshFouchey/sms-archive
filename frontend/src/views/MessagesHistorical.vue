@@ -74,12 +74,12 @@
     <!-- Main Content Area -->
     <main
       :class="[
-        'flex-1 flex flex-col bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900',
+        'flex-1 flex flex-col bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 overflow-hidden',
         !selectedConversation ? 'hidden md:flex' : 'flex'
       ]"
     >
       <!-- Header -->
-      <div class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 p-4 shadow-md">
+      <div class="flex-shrink-0 bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 p-4 shadow-md">
         <div class="flex items-center gap-3">
           <!-- Back button (mobile) -->
           <button
@@ -112,6 +112,30 @@
             />
             <i class="pi pi-search absolute right-3 top-1/2 -translate-y-1/2 text-white/70"></i>
           </div>
+          
+          <!-- Search navigation controls (only when search is active and has results) -->
+          <div v-if="isSearchActive && searchMatches.length > 0" class="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30">
+            <span class="text-xs text-white font-medium whitespace-nowrap">
+              {{ currentMatchIndex + 1 }} / {{ searchMatches.length }}
+            </span>
+            <div class="flex gap-1">
+              <button
+                @click="prevMatch"
+                class="p-1 rounded hover:bg-white/20 transition-all"
+                title="Previous match"
+              >
+                <i class="pi pi-chevron-up text-white text-xs"></i>
+              </button>
+              <button
+                @click="nextMatch"
+                class="p-1 rounded hover:bg-white/20 transition-all"
+                title="Next match"
+              >
+                <i class="pi pi-chevron-down text-white text-xs"></i>
+              </button>
+            </div>
+          </div>
+          
           <button
             @click="toggleFilters"
             :class="[
@@ -236,7 +260,7 @@
       </div>
 
       <!-- Messages Area -->
-      <div v-else ref="messagesContainer" class="flex-1 overflow-y-auto p-4 space-y-3" @scroll="handleScroll">
+      <div v-else ref="messagesContainer" class="flex-1 overflow-y-auto p-4 pb-20 space-y-3 min-h-0" @scroll="handleScroll">
         <!-- Loading State -->
         <div v-if="messagesLoading" class="flex flex-col items-center justify-center py-12">
           <i class="pi pi-spin pi-spinner text-4xl text-blue-600 dark:text-blue-400 mb-3"></i>
@@ -246,10 +270,10 @@
         <!-- Messages List -->
         <div v-else-if="filteredMessages.length" class="space-y-3">
           <!-- Active search/filter indicator -->
-          <div v-if="isSearchActive" class="flex items-center justify-center py-2">
-            <div class="bg-blue-100 dark:bg-blue-900/30 px-4 py-2 rounded-full text-xs text-blue-700 dark:text-blue-300 flex items-center gap-2 font-medium">
-              <i class="pi pi-filter"></i>
-              Showing {{ filteredMessages.length }} filtered message(s)
+          <div v-if="isSearchActive && searchMatches.length === 0" class="flex items-center justify-center py-2">
+            <div class="bg-yellow-100 dark:bg-yellow-900/30 px-4 py-2 rounded-full text-xs text-yellow-700 dark:text-yellow-300 flex items-center gap-2 font-medium">
+              <i class="pi pi-exclamation-triangle"></i>
+              No matches found
             </div>
           </div>
 
@@ -264,16 +288,20 @@
           <div
             v-for="msg in filteredMessages"
             :key="msg.id"
+            :data-message-id="msg.id"
             class="flex"
             :class="msg.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'"
           >
             <div class="max-w-[85%]">
               <div
                 :class="[
-                  'rounded-2xl shadow-md text-sm leading-relaxed transition-all hover:shadow-lg',
+                  'rounded-2xl shadow-md text-sm leading-relaxed transition-all duration-300',
                   msg.direction === 'OUTBOUND'
                     ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white'
-                    : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-700'
+                    : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-700',
+                  isCurrentMatch(msg.id) ? 'ring-4 ring-amber-400 dark:ring-amber-500 shadow-2xl scale-[1.03]' : '',
+                  isMatch(msg.id) && !isCurrentMatch(msg.id) ? (msg.direction === 'OUTBOUND' ? 'ring-2 ring-amber-300/50 dark:ring-amber-400/50' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800') : '',
+                  isSearchActive.value && !isMatch(msg.id) ? 'opacity-30' : ''
                 ]"
               >
                 <!-- Sender name header for group messages (inside bubble) -->
@@ -323,19 +351,10 @@
           </div>
         </div>
 
-        <!-- No messages / No search results -->
+        <!-- No messages -->
         <div v-else class="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
-          <i :class="isSearchActive ? 'pi pi-search text-5xl mb-3' : 'pi pi-inbox text-5xl mb-3'"></i>
-          <span class="text-sm font-medium">
-            {{ isSearchActive ? 'No messages match your search' : 'No messages in this conversation' }}
-          </span>
-          <button
-            v-if="isSearchActive"
-            @click="clearSearch"
-            class="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
-          >
-            Clear Search
-          </button>
+          <i class="pi pi-inbox text-5xl mb-3"></i>
+          <span class="text-sm font-medium">No messages in this conversation</span>
         </div>
       </div>
 
@@ -393,6 +412,8 @@ const dateFrom = ref('');
 const dateTo = ref('');
 const selectedSender = ref<string>('');
 const isSearchActive = ref(false);
+const currentMatchIndex = ref(0);
+const searchMatches = ref<number[]>([]); // Array of message IDs that match
 
 // Full conversation loading state
 const fullyLoaded = ref(false);
@@ -520,42 +541,55 @@ const uniqueSenders = computed(() => {
   return Array.from(senders).sort();
 });
 
-// Filtered messages - client-side filtering on all loaded messages
-const filteredMessages = computed(() => {
-  // If not searching/filtering, return all messages
-  if (!isSearchActive.value) {
-    return messages.value;
-  }
-
-  let filtered = messages.value;
+// Check if a message matches the current search/filter criteria
+function messageMatchesSearch(msg: Message): boolean {
+  if (!isSearchActive.value) return false;
 
   // Filter by search query (body text)
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase();
-    filtered = filtered.filter(msg =>
-      msg.body?.toLowerCase().includes(query)
-    );
+    if (!msg.body?.toLowerCase().includes(query)) {
+      return false;
+    }
   }
 
   // Filter by date range
   if (dateFrom.value) {
     const fromDate = new Date(dateFrom.value);
-    filtered = filtered.filter(msg => new Date(msg.timestamp) >= fromDate);
+    if (new Date(msg.timestamp) < fromDate) {
+      return false;
+    }
   }
   if (dateTo.value) {
     const toDate = new Date(dateTo.value);
-    toDate.setHours(23, 59, 59, 999); // Include entire day
-    filtered = filtered.filter(msg => new Date(msg.timestamp) <= toDate);
+    toDate.setHours(23, 59, 59, 999);
+    if (new Date(msg.timestamp) > toDate) {
+      return false;
+    }
   }
 
   // Filter by sender
   if (selectedSender.value) {
-    filtered = filtered.filter(msg =>
-      msg.direction === 'INBOUND' && msg.contactName === selectedSender.value
-    );
+    if (msg.direction !== 'INBOUND' || msg.contactName !== selectedSender.value) {
+      return false;
+    }
   }
 
-  return filtered;
+  return true;
+}
+
+// Compute search matches (array of matching message IDs)
+const computedSearchMatches = computed(() => {
+  if (!isSearchActive.value) return [];
+  
+  return messages.value
+    .filter(msg => messageMatchesSearch(msg))
+    .map(msg => msg.id);
+});
+
+// Filtered messages - NOW returns ALL messages, not just matches
+const filteredMessages = computed(() => {
+  return messages.value;
 });
 
 // Color palette for group conversation participants
@@ -661,6 +695,15 @@ function applySearch() {
     console.warn('Not all messages loaded yet. Search results may be incomplete.');
   }
   isSearchActive.value = true;
+  searchMatches.value = computedSearchMatches.value;
+  currentMatchIndex.value = 0;
+  
+  // Scroll to first match
+  if (searchMatches.value.length > 0) {
+    nextTick(() => {
+      scrollToMatch(0);
+    });
+  }
 }
 
 function clearSearch() {
@@ -670,6 +713,38 @@ function clearSearch() {
   selectedSender.value = '';
   isSearchActive.value = false;
   showFilters.value = false;
+  searchMatches.value = [];
+  currentMatchIndex.value = 0;
+}
+
+function nextMatch() {
+  if (searchMatches.value.length === 0) return;
+  currentMatchIndex.value = (currentMatchIndex.value + 1) % searchMatches.value.length;
+  scrollToMatch(currentMatchIndex.value);
+}
+
+function prevMatch() {
+  if (searchMatches.value.length === 0) return;
+  currentMatchIndex.value = (currentMatchIndex.value - 1 + searchMatches.value.length) % searchMatches.value.length;
+  scrollToMatch(currentMatchIndex.value);
+}
+
+function scrollToMatch(index: number) {
+  if (searchMatches.value.length === 0) return;
+  const messageId = searchMatches.value[index];
+  const element = document.querySelector(`[data-message-id="${messageId}"]`);
+  if (element) {
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function isCurrentMatch(messageId: number): boolean {
+  if (!isSearchActive.value || searchMatches.value.length === 0) return false;
+  return searchMatches.value[currentMatchIndex.value] === messageId;
+}
+
+function isMatch(messageId: number): boolean {
+  return searchMatches.value.includes(messageId);
 }
 
 function toggleFilters() {
