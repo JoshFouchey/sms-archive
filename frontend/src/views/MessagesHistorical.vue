@@ -67,15 +67,14 @@
             </div>
             
             <!-- Action menu button -->
-            <div class="relative flex-shrink-0">
+            <div class="relative flex-shrink-0 z-10">
               <button
                 @click.stop="toggleActionsMenu(conversation.id)"
                 :class="[
                   'p-2 rounded-lg transition-all',
                   selectedConversation?.id === conversation.id
                     ? 'hover:bg-white/20 text-white'
-                    : 'hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-600 dark:text-gray-400',
-                  'md:opacity-0 md:group-hover:opacity-100'
+                    : 'hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-600 dark:text-gray-400'
                 ]"
                 title="Actions"
               >
@@ -85,7 +84,7 @@
               <!-- Actions dropdown menu -->
               <div
                 v-if="showActionsMenu === conversation.id"
-                class="absolute right-0 top-full mt-1 bg-white dark:bg-slate-700 rounded-lg shadow-xl border border-gray-200 dark:border-slate-600 py-1 z-20 min-w-[150px]"
+                class="absolute right-0 top-full mt-1 bg-white dark:bg-slate-700 rounded-lg shadow-xl border border-gray-200 dark:border-slate-600 py-1 z-30 min-w-[150px]"
               >
                 <button
                   @click.stop="openRenameDialog(conversation); showActionsMenu = null"
@@ -328,9 +327,11 @@
             :data-message-id="msg.id"
             class="flex"
             :class="msg.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'"
+            v-show="!isReactionMessage(msg)"
           >
             <div class="max-w-[85%]">
               <div
+                class="relative"
                 :class="[
                   'rounded-2xl shadow-md text-sm leading-relaxed transition-all duration-300',
                   msg.direction === 'OUTBOUND'
@@ -383,6 +384,23 @@
 
                   <div class="text-[10px] mt-1 opacity-75">{{ formatTime(msg.timestamp) }}</div>
                 </div>
+                
+                <!-- Reactions overlay -->
+                <ul
+                  v-if="getGroupedReactions(msg.id).length"
+                  class="absolute -bottom-2 right-2 flex gap-1"
+                  :aria-label="'Reactions for message ' + msg.id"
+                >
+                  <li
+                    v-for="(r, idx) in getGroupedReactions(msg.id)"
+                    :key="idx"
+                    class="bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-full px-2.5 py-1 text-xs shadow-md flex items-center gap-1"
+                    :title="r.tooltip"
+                  >
+                    <span>{{ r.emoji }}</span>
+                    <span v-if="r.count > 1" class="text-[10px] font-bold">{{ r.count }}</span>
+                  </li>
+                </ul>
               </div>
             </div>
           </div>
@@ -616,6 +634,108 @@ const uniqueSenders = computed(() => {
   }
   return Array.from(senders).sort();
 });
+
+// Reactions support
+interface ParsedReaction {
+  emoji: string;
+  targetMessageBody: string;
+  targetNormalizedBody: string;
+  senderName?: string;
+  targetMessageId?: number;
+}
+
+interface MessageWithReaction extends Message {
+  reaction?: ParsedReaction;
+  normalizedBody?: string;
+}
+
+const reactionIndex = ref(new Map<number, ParsedReaction[]>()); // messageId -> reactions
+
+function normalizeForMatch(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function parseReaction(msg: Message): ParsedReaction | undefined {
+  if (!msg.body) return undefined;
+  const normalizedBody = normalizeForMatch(msg.body);
+  const match = normalizedBody.match(/^(.+?)\s+to\s+"(.+)"$/);
+  if (!match || match.length < 3) return undefined;
+  
+  const rawEmoji = match[1] ?? '';
+  const rawTarget = match[2] ?? '';
+  if (!rawEmoji || !rawTarget) return undefined;
+  
+  const emoji = rawEmoji.trim();
+  if (emoji.length > 12) return undefined;
+  
+  const senderName = msg.senderContactName || msg.senderContactNumber || undefined;
+  
+  return {
+    emoji,
+    targetMessageBody: rawTarget,
+    targetNormalizedBody: normalizeForMatch(rawTarget),
+    ...(senderName ? { senderName } : {})
+  };
+}
+
+function rebuildReactionIndex() {
+  reactionIndex.value.clear();
+  const priorMessages: MessageWithReaction[] = [];
+  
+  for (const msg of messages.value) {
+    const reaction = parseReaction(msg);
+    const msgWithReaction = msg as MessageWithReaction;
+    
+    if (reaction) {
+      msgWithReaction.reaction = reaction;
+      msgWithReaction.normalizedBody = normalizeForMatch(msg.body || '');
+      
+      // Find the target message
+      for (let i = priorMessages.length - 1; i >= 0; i--) {
+        const candidate = priorMessages[i];
+        if (!candidate || !candidate.body) continue;
+        
+        const candidateNormalized = candidate.normalizedBody || normalizeForMatch(candidate.body);
+        if (candidateNormalized === reaction.targetNormalizedBody) {
+          reaction.targetMessageId = candidate.id;
+          const arr = reactionIndex.value.get(candidate.id) || [];
+          arr.push(reaction);
+          reactionIndex.value.set(candidate.id, arr);
+          break;
+        }
+      }
+    } else {
+      msgWithReaction.normalizedBody = normalizeForMatch(msg.body || '');
+      priorMessages.push(msgWithReaction);
+    }
+  }
+}
+
+function getGroupedReactions(messageId: number): { emoji: string; count: number; tooltip: string }[] {
+  const reactions = reactionIndex.value.get(messageId) || [];
+  if (!reactions.length) return [];
+  
+  const counts = new Map<string, { emoji: string; count: number; senders: string[] }>();
+  for (const r of reactions) {
+    const key = r.emoji;
+    if (!counts.has(key)) {
+      counts.set(key, { emoji: r.emoji, count: 0, senders: [] });
+    }
+    const entry = counts.get(key)!;
+    entry.count += 1;
+    if (r.senderName) entry.senders.push(r.senderName);
+  }
+  
+  return Array.from(counts.values()).map(e => ({
+    emoji: e.emoji,
+    count: e.count,
+    tooltip: e.senders.length ? `${e.emoji} by ${e.senders.join(', ')}` : `${e.emoji}`
+  }));
+}
+
+function isReactionMessage(msg: Message): boolean {
+  return !!parseReaction(msg);
+}
 
 // Check if a message matches the current search/filter criteria
 function messageMatchesSearch(msg: Message): boolean {
@@ -921,6 +1041,9 @@ async function loadAllMessagesInBackground() {
     messages.value = allMessages;
     fullyLoaded.value = true;
     hasMoreOlder.value = false; // No more to load
+    
+    // Rebuild reaction index after loading all messages
+    rebuildReactionIndex();
 
     console.log(`Loaded all ${allMessages.length} messages for conversation ${selectedConversation.value.id}`);
   } catch (e) {
