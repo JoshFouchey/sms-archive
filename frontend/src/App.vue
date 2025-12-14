@@ -1,5 +1,8 @@
 <template>
-  <div class="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
+  <div :class="[
+    'flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100',
+    isHistoricalPage ? 'h-screen overflow-hidden' : 'min-h-screen'
+  ]">
     <!-- Navbar -->
     <Menubar :model="items" class="shadow-md bg-white dark:bg-gray-800 border-b-2 border-blue-500 dark:border-blue-600 sticky top-0 z-50">
       <template #start>
@@ -86,11 +89,11 @@ const isHistoricalPage = computed(() => {
 // Compute main container classes based on route
 const mainClasses = computed(() => {
   if (isHistoricalPage.value) {
-    // Full width, no padding for historical messages (it manages its own layout)
+    // Full width, no padding, no scroll for historical messages (it manages its own layout)
     return 'flex-1 w-full overflow-hidden';
   }
-  // Wider layout with more breathing room for other pages
-  return 'flex-1 p-4 sm:p-6 lg:p-8 w-full max-w-[1920px] mx-auto';
+  // Wider layout with more breathing room and normal scrolling for other pages
+  return 'flex-1 p-4 sm:p-6 lg:p-8 w-full max-w-[1920px] mx-auto overflow-y-auto';
 });
 
 // Check if footer should be hidden
