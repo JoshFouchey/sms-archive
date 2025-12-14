@@ -33,16 +33,15 @@
         <div
           v-for="conversation in conversations"
           :key="conversation.id"
-          @click="selectConversation(conversation)"
           :class="[
-            'group p-4 rounded-xl border cursor-pointer transition-all duration-200 flex flex-col gap-1.5 shadow-sm hover:shadow-md',
+            'group p-4 rounded-xl border transition-all duration-200 flex flex-col gap-1.5 shadow-sm hover:shadow-md relative',
             selectedConversation?.id === conversation.id
               ? 'bg-gradient-to-br from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 border-blue-500 text-white scale-[1.02]'
-              : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-slate-700 active:scale-[0.98]'
+              : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-slate-700'
           ]"
         >
           <div class="flex justify-between items-start gap-2">
-            <div class="flex items-center gap-2 flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-1 min-w-0 cursor-pointer" @click="selectConversation(conversation)">
               <div :class="[
                 'w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold shrink-0',
                 selectedConversation?.id === conversation.id
@@ -64,6 +63,44 @@
                 ]">
                   {{ conversation.lastMessagePreview }}
                 </p>
+              </div>
+            </div>
+            
+            <!-- Action menu button -->
+            <div class="relative flex-shrink-0">
+              <button
+                @click.stop="toggleActionsMenu(conversation.id)"
+                :class="[
+                  'p-2 rounded-lg transition-all',
+                  selectedConversation?.id === conversation.id
+                    ? 'hover:bg-white/20 text-white'
+                    : 'hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-600 dark:text-gray-400',
+                  'md:opacity-0 md:group-hover:opacity-100'
+                ]"
+                title="Actions"
+              >
+                <i class="pi pi-ellipsis-v text-xs"></i>
+              </button>
+              
+              <!-- Actions dropdown menu -->
+              <div
+                v-if="showActionsMenu === conversation.id"
+                class="absolute right-0 top-full mt-1 bg-white dark:bg-slate-700 rounded-lg shadow-xl border border-gray-200 dark:border-slate-600 py-1 z-20 min-w-[150px]"
+              >
+                <button
+                  @click.stop="openRenameDialog(conversation); showActionsMenu = null"
+                  class="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-slate-600 flex items-center gap-2 text-gray-700 dark:text-gray-300"
+                >
+                  <i class="pi pi-pencil text-xs"></i>
+                  <span>Rename</span>
+                </button>
+                <button
+                  @click.stop="confirmDelete(conversation); showActionsMenu = null"
+                  class="w-full px-4 py-2 text-left text-sm hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center gap-2 text-red-600 dark:text-red-400"
+                >
+                  <i class="pi pi-trash text-xs"></i>
+                  <span>Delete</span>
+                </button>
               </div>
             </div>
           </div>
@@ -369,6 +406,37 @@
         @indexChange="onIndexChange"
       />
     </main>
+
+    <!-- Rename Dialog -->
+    <div v-if="showRenameDialog" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
+        <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Rename Conversation</h3>
+        <input
+          v-model="newConversationName"
+          type="text"
+          placeholder="Enter new name..."
+          class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          @keyup.enter="submitRename"
+          @keyup.escape="cancelRename"
+          autofocus
+        />
+        <div class="flex gap-3 mt-6">
+          <button
+            @click="cancelRename"
+            class="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            @click="submitRename"
+            :disabled="!newConversationName.trim()"
+            class="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white transition-colors"
+          >
+            Rename
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -380,6 +448,8 @@ import {
   getConversationMessages,
   getAllConversationMessages,
   getConversationMessageCount,
+  renameConversation,
+  deleteConversation,
   type ConversationSummary,
   type Message,
 } from '../services/api';
@@ -418,6 +488,12 @@ const searchMatches = ref<number[]>([]); // Array of message IDs that match
 // Full conversation loading state
 const fullyLoaded = ref(false);
 const loadingInBackground = ref(false);
+
+// Rename/Delete state
+const showRenameDialog = ref(false);
+const conversationToRename = ref<ConversationSummary | null>(null);
+const newConversationName = ref('');
+const showActionsMenu = ref<number | null>(null); // Track which conversation's menu is open
 
 function formatTime(timestamp: string): string {
   const d = new Date(timestamp);
@@ -854,6 +930,92 @@ async function loadAllMessagesInBackground() {
   }
 }
 
+
+// Actions menu
+function toggleActionsMenu(conversationId: number) {
+  showActionsMenu.value = showActionsMenu.value === conversationId ? null : conversationId;
+}
+
+// Close menu when clicking outside
+function handleClickOutside(event: MouseEvent) {
+  const target = event.target as HTMLElement;
+  if (!target.closest('.relative')) {
+    showActionsMenu.value = null;
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
+
+// Rename conversation
+function openRenameDialog(conversation: ConversationSummary) {
+  conversationToRename.value = conversation;
+  newConversationName.value = conversation.name;
+  showRenameDialog.value = true;
+}
+
+async function submitRename() {
+  if (!conversationToRename.value || !newConversationName.value.trim()) return;
+  
+  try {
+    const updated = await renameConversation(conversationToRename.value.id, newConversationName.value.trim());
+    
+    // Update the conversation in the list
+    const index = conversations.value.findIndex(c => c.id === updated.id);
+    if (index !== -1) {
+      conversations.value[index] = updated;
+    }
+    
+    // Update selected conversation if it's the one being renamed
+    if (selectedConversation.value?.id === updated.id) {
+      selectedConversation.value = updated;
+    }
+    
+    showRenameDialog.value = false;
+    conversationToRename.value = null;
+    newConversationName.value = '';
+  } catch (error) {
+    console.error('Failed to rename conversation', error);
+    alert('Failed to rename conversation');
+  }
+}
+
+function cancelRename() {
+  showRenameDialog.value = false;
+  conversationToRename.value = null;
+  newConversationName.value = '';
+}
+
+// Delete conversation
+async function confirmDelete(conversation: ConversationSummary) {
+  if (!confirm(`Are you sure you want to delete the conversation with "${conversation.name}"? This will delete all messages in this conversation.`)) {
+    return;
+  }
+  
+  try {
+    const result = await deleteConversation(conversation.id);
+    
+    if (result === 'deleted') {
+      // Remove from list
+      conversations.value = conversations.value.filter(c => c.id !== conversation.id);
+      
+      // Clear selected if it was the deleted one
+      if (selectedConversation.value?.id === conversation.id) {
+        clearConversation();
+      }
+    } else {
+      alert('Conversation not found or already deleted');
+    }
+  } catch (error) {
+    console.error('Failed to delete conversation', error);
+    alert('Failed to delete conversation');
+  }
+}
 
 // Initialize
 onMounted(async () => {

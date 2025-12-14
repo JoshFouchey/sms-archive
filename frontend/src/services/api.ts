@@ -182,6 +182,11 @@ export async function getConversationMessages(
 /**
  * Delete a conversation by ID. Returns 'deleted' or 'not_found'.
  */
+export async function renameConversation(conversationId: number, newName: string): Promise<ConversationSummary> {
+    const res = await axios.patch(`${API_BASE}/api/conversations/${conversationId}/name`, { name: newName });
+    return res.data;
+}
+
 export async function deleteConversation(conversationId: number): Promise<'deleted' | 'not_found'> {
     try {
         const res = await axios.delete(`${API_BASE}/api/conversations/${conversationId}`);

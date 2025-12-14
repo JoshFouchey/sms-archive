@@ -363,6 +363,18 @@ public class ConversationService {
     }
 
     @Transactional
+    @Transactional
+    public ConversationSummaryDto renameConversation(Long conversationId, String newName) {
+        var user = currentUserProvider.getCurrentUser();
+        Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
+                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+        
+        conversation.setName(newName);
+        conversationRepository.save(conversation);
+        
+        return toSummaryDto(conversation);
+    }
+
     public void deleteConversationById(Long conversationId) {
         var user = currentUserProvider.getCurrentUser();
         Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)

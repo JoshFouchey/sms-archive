@@ -48,6 +48,22 @@ public class ConversationController {
         return conversationService.getConversationTimeline(conversationId);
     }
 
+    @PatchMapping("/{conversationId}/name")
+    public org.springframework.http.ResponseEntity<ConversationSummaryDto> renameConversation(
+            @PathVariable Long conversationId,
+            @RequestBody java.util.Map<String, String> body) {
+        try {
+            String newName = body.get("name");
+            if (newName == null || newName.isBlank()) {
+                return org.springframework.http.ResponseEntity.badRequest().build();
+            }
+            ConversationSummaryDto updated = conversationService.renameConversation(conversationId, newName);
+            return org.springframework.http.ResponseEntity.ok(updated);
+        } catch (RuntimeException ex) {
+            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND).build();
+        }
+    }
+
     @DeleteMapping("/{conversationId}")
     public org.springframework.http.ResponseEntity<Void> deleteConversation(@PathVariable Long conversationId) {
         try {
