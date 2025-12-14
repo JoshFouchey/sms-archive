@@ -363,7 +363,6 @@ public class ConversationService {
     }
 
     @Transactional
-    @Transactional
     public ConversationSummaryDto renameConversation(Long conversationId, String newName) {
         var user = currentUserProvider.getCurrentUser();
         Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
