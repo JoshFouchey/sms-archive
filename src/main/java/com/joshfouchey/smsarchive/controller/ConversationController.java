@@ -78,9 +78,10 @@ public class ConversationController {
     /**
      * Load ALL messages for a conversation (cached).
      * Used for client-side search/filter operations.
+     * Returns lightweight DTOs to reduce JSON payload size.
      */
     @GetMapping("/{conversationId}/messages/all")
-    public List<MessageDto> getAllConversationMessages(@PathVariable Long conversationId) {
+    public List<com.joshfouchey.smsarchive.dto.api.ConversationMessagesDto> getAllConversationMessages(@PathVariable Long conversationId) {
         return conversationService.getAllConversationMessages(conversationId);
     }
 

@@ -92,10 +92,11 @@ public class ConversationService {
     /**
      * Load ALL messages for a conversation (cached in Caffeine).
      * Used for client-side search/filter operations.
+     * Returns lightweight DTOs to reduce JSON payload size for large conversations.
      */
     @Transactional(readOnly = true)
     @org.springframework.cache.annotation.Cacheable(value = "conversationMessages", key = "#conversationId")
-    public List<MessageDto> getAllConversationMessages(Long conversationId) {
+    public List<com.joshfouchey.smsarchive.dto.api.ConversationMessagesDto> getAllConversationMessages(Long conversationId) {
         var user = currentUserProvider.getCurrentUser();
 
         // Verify conversation belongs to user
@@ -109,7 +110,7 @@ public class ConversationService {
         messages.sort((a, b) -> a.getTimestamp().compareTo(b.getTimestamp()));
 
         return messages.stream()
-                .map(MessageMapper::toDto)
+                .map(MessageMapper::toLightDto)
                 .toList();
     }
 
