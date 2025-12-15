@@ -344,7 +344,7 @@
               >
                 <!-- Sender name header for group messages (inside bubble) -->
                 <div
-                  v-if="msg.direction === 'INBOUND' && selectedConversation?.participantCount && selectedConversation.participantCount > 2 && (msg.senderContactName || msg.senderContactNumber)"
+                  v-if="msg.direction === 'INBOUND' && selectedConversation?.participantCount && selectedConversation.participantCount >= 2 && (msg.senderContactName || msg.senderContactNumber)"
                   class="px-4 pt-2.5 pb-1.5 border-b border-gray-200 dark:border-slate-600"
                 >
                   <div class="flex items-center gap-2">
