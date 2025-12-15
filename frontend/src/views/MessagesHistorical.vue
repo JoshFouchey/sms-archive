@@ -382,7 +382,10 @@
                     </div>
                   </div>
 
-                  <div class="text-[10px] mt-1 opacity-75">{{ formatTime(msg.timestamp) }}</div>
+                  <div 
+                    class="text-[10px] mt-1 opacity-75"
+                    :class="getGroupedReactions(msg.id).length ? 'mr-16' : ''"
+                  >{{ formatTime(msg.timestamp) }}</div>
                 </div>
                 
                 <!-- Reactions overlay -->
@@ -652,11 +655,9 @@ interface MessageWithReaction extends Message {
 const reactionIndex = ref(new Map<number, ParsedReaction[]>()); // messageId -> reactions
 
 function normalizeForMatch(text: string): string {
-  // Replace fancy/curly quotes with regular quotes, normalize whitespace
-  return text
-    .replace(/[""]/g, '"')  // Replace fancy quotes with regular quotes
-    .replace(/['']/g, "'")  // Replace fancy apostrophes
-    .toLowerCase()
+  return (text || '')
+    .replace(/[\u201C\u201D]/g, '"')  // Replace curly quotes with regular quotes
+    .replace(/[\u2000-\u200F\uFEFF]/g, '')  // Remove zero-width and special space characters
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -664,45 +665,27 @@ function normalizeForMatch(text: string): string {
 function parseReaction(msg: Message): ParsedReaction | undefined {
   if (!msg.body) return undefined;
   
-  // Normalize the body for parsing (handles fancy quotes, extra spaces, etc.)
   const normalizedBody = normalizeForMatch(msg.body);
   
-  // Try multiple reaction patterns:
-  // Pattern 1: " emoji to " text " " (quoted emoji and text with extra quotes)
-  // Pattern 2: emoji to "text" (standard format)
-  // Pattern 3: "emoji to "text"" (all wrapped)
+  // Pattern matches: emoji to "text" or emoji to "text "" (with extra trailing quotes)
+  const match = normalizedBody.match(/^(.+?)\s+to\s*"(.+?)"\s*"?\s*$/);
+  if (!match || match.length < 3) return undefined;
   
-  const patterns = [
-    /^"?\s*(.+?)\s+to\s+"?\s*(.+?)\s*"?\s*"?$/,  // Flexible pattern with optional quotes
-    /^(.+?)\s+to\s+[""](.+?)[""]$/,               // Standard: emoji to "text"
-    /^"(.+?)\s+to\s+"(.+?)""$/                    // Wrapped: "emoji to "text""
-  ];
+  const rawEmoji = match[1] ?? '';
+  const rawTarget = match[2] ?? '';
+  if (!rawEmoji || !rawTarget) return undefined;
   
-  for (const pattern of patterns) {
-    const match = normalizedBody.match(pattern);
-    if (match && match.length >= 3) {
-      let rawEmoji = (match[1] ?? '').trim();
-      let rawTarget = (match[2] ?? '').trim();
-      
-      // Remove any remaining quotes from emoji
-      rawEmoji = rawEmoji.replace(/^[""]|[""]$/g, '');
-      rawTarget = rawTarget.replace(/^[""]|[""]$/g, '');
-      
-      if (!rawEmoji || !rawTarget) continue;
-      if (rawEmoji.length > 12) continue;
-      
-      const senderName = msg.senderContactName || msg.senderContactNumber || undefined;
-      
-      return {
-        emoji: rawEmoji,
-        targetMessageBody: rawTarget,
-        targetNormalizedBody: normalizeForMatch(rawTarget),
-        ...(senderName ? { senderName } : {})
-      };
-    }
-  }
+  const emoji = rawEmoji.trim();
+  if (emoji.length > 12) return undefined;
   
-  return undefined;
+  const senderName = msg.senderContactName || msg.senderContactNumber || undefined;
+  
+  return {
+    emoji,
+    targetMessageBody: rawTarget,
+    targetNormalizedBody: normalizeForMatch(rawTarget),
+    ...(senderName ? { senderName } : {})
+  };
 }
 
 function rebuildReactionIndex() {
@@ -717,7 +700,7 @@ function rebuildReactionIndex() {
       msgWithReaction.reaction = reaction;
       msgWithReaction.normalizedBody = normalizeForMatch(msg.body || '');
       
-      // Find the target message
+      // Find the target message by matching normalized body
       for (let i = priorMessages.length - 1; i >= 0; i--) {
         const candidate = priorMessages[i];
         if (!candidate || !candidate.body) continue;
@@ -1047,6 +1030,8 @@ async function loadMessages() {
       loadAllMessagesInBackground();
     } else {
       fullyLoaded.value = true;
+      // Build reaction index for small conversations too
+      rebuildReactionIndex();
     }
   } catch (e) {
     console.error('Failed to load messages', e);
