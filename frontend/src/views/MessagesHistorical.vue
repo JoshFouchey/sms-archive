@@ -667,26 +667,42 @@ function parseReaction(msg: Message): ParsedReaction | undefined {
   // Normalize the body for parsing (handles fancy quotes, extra spaces, etc.)
   const normalizedBody = normalizeForMatch(msg.body);
   
-  // Match pattern: "emoji to "quoted text""
-  // Handle both regular quotes " and fancy quotes " "
-  const match = normalizedBody.match(/^(.+?)\s+to\s+[""](.+?)[""]$/);
-  if (!match || match.length < 3) return undefined;
+  // Try multiple reaction patterns:
+  // Pattern 1: " emoji to " text " " (quoted emoji and text with extra quotes)
+  // Pattern 2: emoji to "text" (standard format)
+  // Pattern 3: "emoji to "text"" (all wrapped)
   
-  const rawEmoji = match[1] ?? '';
-  const rawTarget = match[2] ?? '';
-  if (!rawEmoji || !rawTarget) return undefined;
+  const patterns = [
+    /^"?\s*(.+?)\s+to\s+"?\s*(.+?)\s*"?\s*"?$/,  // Flexible pattern with optional quotes
+    /^(.+?)\s+to\s+[""](.+?)[""]$/,               // Standard: emoji to "text"
+    /^"(.+?)\s+to\s+"(.+?)""$/                    // Wrapped: "emoji to "text""
+  ];
   
-  const emoji = rawEmoji.trim();
-  if (emoji.length > 12) return undefined;
+  for (const pattern of patterns) {
+    const match = normalizedBody.match(pattern);
+    if (match && match.length >= 3) {
+      let rawEmoji = (match[1] ?? '').trim();
+      let rawTarget = (match[2] ?? '').trim();
+      
+      // Remove any remaining quotes from emoji
+      rawEmoji = rawEmoji.replace(/^[""]|[""]$/g, '');
+      rawTarget = rawTarget.replace(/^[""]|[""]$/g, '');
+      
+      if (!rawEmoji || !rawTarget) continue;
+      if (rawEmoji.length > 12) continue;
+      
+      const senderName = msg.senderContactName || msg.senderContactNumber || undefined;
+      
+      return {
+        emoji: rawEmoji,
+        targetMessageBody: rawTarget,
+        targetNormalizedBody: normalizeForMatch(rawTarget),
+        ...(senderName ? { senderName } : {})
+      };
+    }
+  }
   
-  const senderName = msg.senderContactName || msg.senderContactNumber || undefined;
-  
-  return {
-    emoji,
-    targetMessageBody: rawTarget,
-    targetNormalizedBody: normalizeForMatch(rawTarget),
-    ...(senderName ? { senderName } : {})
-  };
+  return undefined;
 }
 
 function rebuildReactionIndex() {
