@@ -37,7 +37,8 @@
             'group p-4 rounded-xl border transition-all duration-200 flex flex-col gap-1.5 shadow-sm hover:shadow-md relative',
             selectedConversation?.id === conversation.id
               ? 'bg-gradient-to-br from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 border-blue-500 text-white scale-[1.02]'
-              : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-slate-700'
+              : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-slate-700',
+            showActionsMenu === conversation.id ? 'z-50' : ''
           ]"
         >
           <div class="flex justify-between items-start gap-2">
@@ -67,7 +68,7 @@
             </div>
             
             <!-- Action menu button -->
-            <div class="relative flex-shrink-0 z-10">
+            <div class="relative flex-shrink-0" :class="showActionsMenu === conversation.id ? 'z-50' : 'z-10'">
               <button
                 @click.stop="toggleActionsMenu(conversation.id)"
                 :class="[
@@ -84,7 +85,7 @@
               <!-- Actions dropdown menu -->
               <div
                 v-if="showActionsMenu === conversation.id"
-                class="absolute right-0 top-full mt-1 bg-white dark:bg-slate-700 rounded-lg shadow-xl border border-gray-200 dark:border-slate-600 py-1 z-30 min-w-[150px]"
+                class="absolute right-0 top-full mt-1 bg-white dark:bg-slate-700 rounded-lg shadow-xl border border-gray-200 dark:border-slate-600 py-1 z-50 min-w-[150px]"
               >
                 <button
                   @click.stop="openRenameDialog(conversation); showActionsMenu = null"
