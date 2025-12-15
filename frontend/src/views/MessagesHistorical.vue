@@ -652,13 +652,24 @@ interface MessageWithReaction extends Message {
 const reactionIndex = ref(new Map<number, ParsedReaction[]>()); // messageId -> reactions
 
 function normalizeForMatch(text: string): string {
-  return text.toLowerCase().replace(/\s+/g, ' ').trim();
+  // Replace fancy/curly quotes with regular quotes, normalize whitespace
+  return text
+    .replace(/[""]/g, '"')  // Replace fancy quotes with regular quotes
+    .replace(/['']/g, "'")  // Replace fancy apostrophes
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function parseReaction(msg: Message): ParsedReaction | undefined {
   if (!msg.body) return undefined;
+  
+  // Normalize the body for parsing (handles fancy quotes, extra spaces, etc.)
   const normalizedBody = normalizeForMatch(msg.body);
-  const match = normalizedBody.match(/^(.+?)\s+to\s+"(.+)"$/);
+  
+  // Match pattern: "emoji to "quoted text""
+  // Handle both regular quotes " and fancy quotes " "
+  const match = normalizedBody.match(/^(.+?)\s+to\s+[""](.+?)[""]$/);
   if (!match || match.length < 3) return undefined;
   
   const rawEmoji = match[1] ?? '';
