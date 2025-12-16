@@ -21,18 +21,44 @@
       </div>
 
       <!-- Conversations List -->
-      <div class="flex-1 overflow-y-auto p-4 space-y-2">
-        <div v-if="contactsLoading" class="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
-          <i class="pi pi-spin pi-spinner text-3xl text-blue-600 dark:text-blue-400 mb-2"></i>
-          <span class="text-sm">Loading conversations...</span>
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Search bar -->
+        <div class="p-4 pb-2">
+          <div class="relative">
+            <input
+              v-model="conversationSearchQuery"
+              type="text"
+              placeholder="Search conversations..."
+              class="w-full px-4 py-2 pl-10 text-sm border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <i class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+            <button
+              v-if="conversationSearchQuery"
+              @click="conversationSearchQuery = ''"
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              <i class="pi pi-times text-xs"></i>
+            </button>
+          </div>
         </div>
-        <div v-else-if="!conversations.length" class="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
-          <i class="pi pi-inbox text-4xl mb-2"></i>
-          <span class="text-sm">No conversations yet</span>
-        </div>
-        <div
-          v-for="conversation in conversations"
-          :key="conversation.id"
+
+        <!-- Conversations list -->
+        <div class="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
+          <div v-if="contactsLoading" class="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
+            <i class="pi pi-spin pi-spinner text-3xl text-blue-600 dark:text-blue-400 mb-2"></i>
+            <span class="text-sm">Loading conversations...</span>
+          </div>
+          <div v-else-if="!filteredConversations.length && !conversationSearchQuery" class="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
+            <i class="pi pi-inbox text-4xl mb-2"></i>
+            <span class="text-sm">No conversations yet</span>
+          </div>
+          <div v-else-if="!filteredConversations.length && conversationSearchQuery" class="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
+            <i class="pi pi-search text-4xl mb-2"></i>
+            <span class="text-sm">No conversations match "{{ conversationSearchQuery }}"</span>
+          </div>
+          <div
+            v-for="conversation in filteredConversations"
+            :key="conversation.id"
           :class="[
             'group p-4 rounded-xl border transition-all duration-200 flex flex-col gap-1.5 shadow-sm hover:shadow-md relative',
             selectedConversation?.id === conversation.id
@@ -104,6 +130,7 @@
               </div>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </aside>
@@ -483,6 +510,7 @@ const router = useRouter();
 
 // State
 const conversations = ref<ConversationSummary[]>([]);
+const conversationSearchQuery = ref('');
 const selectedConversation = ref<ConversationSummary | null>(null);
 const messages = ref<Message[]>([]);
 const messagesContainer = ref<HTMLElement | null>(null);
@@ -797,6 +825,29 @@ const computedSearchMatches = computed(() => {
 // Filtered messages - NOW returns ALL messages, not just matches
 const filteredMessages = computed(() => {
   return messages.value;
+});
+
+// Filtered conversations based on search query
+const filteredConversations = computed(() => {
+  if (!conversationSearchQuery.value.trim()) {
+    return conversations.value;
+  }
+  
+  const query = conversationSearchQuery.value.toLowerCase();
+  
+  return conversations.value.filter(conv => {
+    // Search in conversation name
+    if (conv.name.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search in last message preview
+    if (conv.lastMessagePreview?.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    return false;
+  });
 });
 
 // Color palette for group conversation participants
