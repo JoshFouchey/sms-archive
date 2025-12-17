@@ -813,14 +813,8 @@ function messageMatchesSearch(msg: Message): boolean {
   return true;
 }
 
-// Compute search matches (array of matching message IDs)
-const computedSearchMatches = computed(() => {
-  if (!isSearchActive.value) return [];
-  
-  return messages.value
-    .filter(msg => messageMatchesSearch(msg))
-    .map(msg => msg.id);
-});
+// Note: We don't use a computed property here because it would recalculate on every keystroke
+// Instead, we manually compute matches only when applySearch() is called
 
 // Filtered messages - NOW returns ALL messages, not just matches
 const filteredMessages = computed(() => {
@@ -952,8 +946,15 @@ function applySearch() {
     // Warn user to wait for full load
     console.warn('Not all messages loaded yet. Search results may be incomplete.');
   }
+  
+  // Manually compute matches only when search is explicitly triggered
+  // This prevents recalculating on every keystroke (which causes lag with 50k+ messages)
+  const matches = messages.value
+    .filter(msg => messageMatchesSearch(msg))
+    .map(msg => msg.id);
+  
   isSearchActive.value = true;
-  searchMatches.value = computedSearchMatches.value;
+  searchMatches.value = matches;
   currentMatchIndex.value = 0;
   
   // Scroll to first match
