@@ -85,10 +85,6 @@ public class ContactService {
             throw new RuntimeException("Cannot merge contact with itself");
         }
 
-        if (mergeFromContact.getIsArchived()) {
-            throw new RuntimeException("Cannot merge from an archived contact");
-        }
-
         // Find all conversations involving the old contact
         List<Conversation> oldConversations = conversationRepository.findByParticipant(mergeFromContact);
 
@@ -125,11 +121,14 @@ public class ContactService {
             }
         }
 
-        // Archive the old contact
-        mergeFromContact.setIsArchived(true);
+        // Mark the old contact as merged and delete it
+        // We keep track of the merge for a moment before deletion
         mergeFromContact.setMergedInto(primaryContact);
         mergeFromContact.setMergedAt(Instant.now());
         contactRepository.save(mergeFromContact);
+        
+        // Now delete the merged contact (all references have been updated)
+        contactRepository.delete(mergeFromContact);
 
         String primaryName = primaryContact.getName() != null ? primaryContact.getName() : primaryContact.getNumber();
         String mergedName = mergeFromContact.getName() != null ? mergeFromContact.getName() : mergeFromContact.getNumber();

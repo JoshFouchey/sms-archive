@@ -19,9 +19,9 @@ public interface ContactRepository extends JpaRepository<Contact, Long> {
     List<Contact> findByNormalizedNumberIn(Collection<String> normalizedNumbers);
 
     // added user-scoped methods
-    @Query("select c from Contact c where c.user = :user and (c.isArchived = false or c.isArchived is null)")
+    @Query("select c from Contact c where c.user = :user")
     List<Contact> findAllByUser(@Param("user") User user);
 
-    @Query("select c from Contact c where c.user = :user and c.normalizedNumber = :norm and (c.isArchived = false or c.isArchived is null)")
+    @Query("select c from Contact c where c.user = :user and c.normalizedNumber = :norm")
     Optional<Contact> findByUserAndNormalizedNumber(@Param("user") User user, @Param("norm") String normalizedNumber);
 }

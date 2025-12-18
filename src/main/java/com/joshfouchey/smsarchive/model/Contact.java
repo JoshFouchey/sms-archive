@@ -36,11 +36,7 @@ public class Contact {
     @JoinColumn(name = "user_id")
     private User user;
 
-    // Merge support
-    @Column(name = "is_archived")
-    @Builder.Default
-    private Boolean isArchived = false;
-
+    // Merge support - track when contacts are merged together
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "merged_into_id")
     private Contact mergedInto;
@@ -53,9 +49,6 @@ public class Contact {
         Instant now = Instant.now();
         createdAt = now;
         updatedAt = now;
-        if (isArchived == null) {
-            isArchived = false;
-        }
     }
 
     @PreUpdate
