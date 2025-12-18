@@ -300,11 +300,14 @@ public class ConversationService {
 
     @Transactional
     public Conversation findOrCreateOneToOneForUser(User user, String normalizedNumber, String suggestedName) {
+        // Defensive: ensure number is truly normalized
+        String safeNormalized = normalizeNumberDefensive(normalizedNumber);
+        
         // Find or create contact with retry on duplicate
-        Contact contact = findOrCreateContact(user, normalizedNumber, suggestedName);
+        Contact contact = findOrCreateContact(user, safeNormalized, suggestedName);
 
         // Find existing conversation with single participant
-        List<Conversation> existing = conversationRepository.findByUserAndSingleParticipant(user, normalizedNumber);
+        List<Conversation> existing = conversationRepository.findByUserAndSingleParticipant(user, safeNormalized);
         if (!existing.isEmpty()) {
             return existing.get(0);
         }
@@ -318,8 +321,11 @@ public class ConversationService {
     }
     
     private Contact findOrCreateContact(User user, String normalizedNumber, String suggestedName) {
+        // Defensive: ensure number is truly normalized (strips any remaining non-digits)
+        String safeNormalized = normalizeNumberDefensive(normalizedNumber);
+        
         // First attempt to find
-        Optional<Contact> existing = contactRepository.findByUserAndNormalizedNumber(user, normalizedNumber);
+        Optional<Contact> existing = contactRepository.findByUserAndNormalizedNumber(user, safeNormalized);
         if (existing.isPresent()) {
             return existing.get();
         }
@@ -328,15 +334,33 @@ public class ConversationService {
         try {
             Contact c = new Contact();
             c.setUser(user);
-            c.setNormalizedNumber(normalizedNumber);
-            c.setNumber(normalizedNumber);
+            c.setNormalizedNumber(safeNormalized);
+            c.setNumber(safeNormalized);
             c.setName(suggestedName != null && !suggestedName.isBlank() ? suggestedName : null);
             return contactRepository.save(c);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             // Contact was created by another thread/transaction, fetch it again
-            return contactRepository.findByUserAndNormalizedNumber(user, normalizedNumber)
-                    .orElseThrow(() -> new RuntimeException("Failed to find or create contact for: " + normalizedNumber));
+            return contactRepository.findByUserAndNormalizedNumber(user, safeNormalized)
+                    .orElseThrow(() -> new RuntimeException("Failed to find or create contact for: " + safeNormalized));
         }
+    }
+    
+    private String normalizeNumberDefensive(String number) {
+        if (number == null || number.isBlank()) {
+            return "__unknown__";
+        }
+        // Strip all non-digits
+        String digits = number.replaceAll("\\D", "");
+        if (digits.isEmpty()) return "__unknown__";
+        
+        // NANP canonicalization: always 11 digits with leading 1
+        if (digits.length() == 10) {
+            return "1" + digits;
+        }
+        if (digits.length() == 11 && digits.startsWith("1")) {
+            return digits;
+        }
+        return digits;
     }
 
     @Transactional
