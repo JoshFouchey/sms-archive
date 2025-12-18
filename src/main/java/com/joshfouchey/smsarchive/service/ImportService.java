@@ -728,8 +728,34 @@ public class ImportService {
     }
     private void flushStreamingBatch(List<Message> batch, ImportProgress progress) {
         if (batch.isEmpty()) return;
-        try { messageRepo.saveAll(batch); batch.clear(); }
-        catch (Exception e) { log.error("Batch persist failed size={}", batch.size(), e); progress.setStatus("FAILED"); progress.setError("Persistence error: " + e.getMessage()); }
+        try { 
+            messageRepo.saveAll(batch); 
+            batch.clear(); 
+        }
+        catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+            // A duplicate message was found during the batch save
+            // Try to save messages individually, skipping duplicates
+            log.warn("Optimistic locking failure during batch save, retrying individually");
+            int saved = 0;
+            int skipped = 0;
+            for (Message msg : batch) {
+                try {
+                    messageRepo.save(msg);
+                    saved++;
+                } catch (Exception ex) {
+                    // Skip this message, it's likely a duplicate
+                    log.debug("Skipped message during individual save: {}", ex.getMessage());
+                    skipped++;
+                }
+            }
+            log.info("Individual save complete: {} saved, {} skipped", saved, skipped);
+            batch.clear();
+        }
+        catch (Exception e) { 
+            log.error("Batch persist failed size={}", batch.size(), e); 
+            progress.setStatus("FAILED"); 
+            progress.setError("Persistence error: " + e.getMessage()); 
+        }
     }
 
     private boolean isDuplicate(Message msg) {
