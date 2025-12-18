@@ -300,16 +300,8 @@ public class ConversationService {
 
     @Transactional
     public Conversation findOrCreateOneToOneForUser(User user, String normalizedNumber, String suggestedName) {
-        // Find or create contact
-        Contact contact = contactRepository.findByUserAndNormalizedNumber(user, normalizedNumber)
-                .orElseGet(() -> {
-                    Contact c = new Contact();
-                    c.setUser(user);
-                    c.setNormalizedNumber(normalizedNumber);
-                    c.setNumber(normalizedNumber);
-                    c.setName(suggestedName != null && !suggestedName.isBlank() ? suggestedName : null);
-                    return contactRepository.save(c);
-                });
+        // Find or create contact with retry on duplicate
+        Contact contact = findOrCreateContact(user, normalizedNumber, suggestedName);
 
         // Find existing conversation with single participant
         List<Conversation> existing = conversationRepository.findByUserAndSingleParticipant(user, normalizedNumber);
@@ -324,6 +316,28 @@ public class ConversationService {
         conv.getParticipants().add(contact);
         return conversationRepository.save(conv);
     }
+    
+    private Contact findOrCreateContact(User user, String normalizedNumber, String suggestedName) {
+        // First attempt to find
+        Optional<Contact> existing = contactRepository.findByUserAndNormalizedNumber(user, normalizedNumber);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        
+        // Try to create
+        try {
+            Contact c = new Contact();
+            c.setUser(user);
+            c.setNormalizedNumber(normalizedNumber);
+            c.setNumber(normalizedNumber);
+            c.setName(suggestedName != null && !suggestedName.isBlank() ? suggestedName : null);
+            return contactRepository.save(c);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // Contact was created by another thread/transaction, fetch it again
+            return contactRepository.findByUserAndNormalizedNumber(user, normalizedNumber)
+                    .orElseThrow(() -> new RuntimeException("Failed to find or create contact for: " + normalizedNumber));
+        }
+    }
 
     @Transactional
     public Conversation findOrCreateGroupForUser(User user, String threadKey, Set<String> participantNumbers, String suggestedName) {
@@ -335,17 +349,10 @@ public class ConversationService {
             }
         }
 
-        // Find or create contacts for all participants
+        // Find or create contacts for all participants with retry on duplicate
         Set<Contact> contacts = new HashSet<>();
         for (String normalized : participantNumbers) {
-            Contact contact = contactRepository.findByUserAndNormalizedNumber(user, normalized)
-                    .orElseGet(() -> {
-                        Contact c = new Contact();
-                        c.setUser(user);
-                        c.setNormalizedNumber(normalized);
-                        c.setNumber(normalized);
-                        return contactRepository.save(c);
-                    });
+            Contact contact = findOrCreateContact(user, normalized, null);
             contacts.add(contact);
         }
 
