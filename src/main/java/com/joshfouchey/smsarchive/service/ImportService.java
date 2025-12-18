@@ -885,14 +885,21 @@ public class ImportService {
             }
             return cached;
         }
+        // Find or create contact with retry on duplicate key violation
         Contact contact = contactRepo.findByUserAndNormalizedNumber(user, normalized).orElseGet(() -> {
-            Contact c = new Contact();
-            c.setUser(user);
-            c.setNumber(number == null ? UNKNOWN_NUMBER_DISPLAY : number);
-            c.setNormalizedNumber(normalized);
-            String sanitizedName = sanitizeContactName(suggestedName);
-            c.setName(sanitizedName != null ? sanitizedName : c.getNumber());
-            return contactRepo.save(c);
+            try {
+                Contact c = new Contact();
+                c.setUser(user);
+                c.setNumber(number == null ? UNKNOWN_NUMBER_DISPLAY : number);
+                c.setNormalizedNumber(normalized);
+                String sanitizedName = sanitizeContactName(suggestedName);
+                c.setName(sanitizedName != null ? sanitizedName : c.getNumber());
+                return contactRepo.save(c);
+            } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                // Contact was created by another thread/transaction, fetch it again
+                return contactRepo.findByUserAndNormalizedNumber(user, normalized)
+                        .orElseThrow(() -> new RuntimeException("Failed to find or create contact for: " + normalized));
+            }
         });
         if (shouldUpdateContactName(contact, suggestedName)) {
             String sanitized = sanitizeContactName(suggestedName);
