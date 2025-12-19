@@ -109,8 +109,8 @@ public class ConversationService {
         // Search for matches
         List<Message> matches = messageRepository.searchWithinConversation(conversationId, query, user);
 
-        // Sort by timestamp ascending (oldest first)
-        matches.sort((a, b) -> a.getTimestamp().compareTo(b.getTimestamp()));
+        // Sort by timestamp descending (most recent first)
+        matches.sort((a, b) -> b.getTimestamp().compareTo(a.getTimestamp()));
 
         // Return message IDs for navigation
         List<Long> matchIds = matches.stream()

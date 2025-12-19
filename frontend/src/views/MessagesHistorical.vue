@@ -320,7 +320,7 @@
             v-for="msg in searchContextMessages"
             :key="msg.id"
             :data-message-id="msg.id"
-            class="flex"
+            class="flex scroll-mt-24"
             :class="msg.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'"
             v-show="!isReactionMessage(msg)"
           >
@@ -335,12 +335,68 @@
                   isCurrentMatch(msg.id) ? 'ring-4 ring-yellow-400 dark:ring-yellow-500 shadow-2xl scale-[1.02]' : '',
                 ]"
               >
-                <div class="px-4 py-3">
-                  <div v-if="msg.body" class="whitespace-pre-wrap break-words">{{ msg.body }}</div>
+                <!-- Sender name header for group messages -->
+                <div
+                  v-if="msg.direction === 'INBOUND' && selectedConversation?.participantCount && selectedConversation.participantCount >= 2 && (msg.senderContactName || msg.senderContactNumber)"
+                  class="px-4 pt-2.5 pb-1.5 border-b border-gray-200 dark:border-slate-600"
+                >
+                  <div class="flex items-center gap-2">
+                    <span 
+                      class="w-2 h-2 rounded-full flex-shrink-0"
+                      :class="getParticipantColor(msg.senderContactId)"
+                    ></span>
+                    <span class="font-semibold text-xs text-gray-700 dark:text-gray-300">{{ msg.senderContactName || msg.senderContactNumber || 'Unknown' }}</span>
+                  </div>
                 </div>
-              </div>
-              <div class="text-[10px] mt-1 opacity-75 px-1">
-                {{ formatTime(msg.timestamp) }}
+
+                <!-- Message content -->
+                <div class="px-4 py-2.5">
+                  <div v-if="msg.body && msg.body !== '[media]'" class="whitespace-pre-wrap break-words">{{ msg.body }}</div>
+
+                  <!-- Image thumbnails -->
+                  <div v-if="getImageParts(msg).length" class="flex flex-wrap gap-2 mt-2">
+                    <div
+                      v-for="img in getImageParts(msg)"
+                      :key="img.id"
+                      class="relative group cursor-pointer overflow-hidden rounded-xl bg-black/10 dark:bg-black/30 transition-all hover:scale-105"
+                      :class="img.isSingle ? 'w-48 h-48' : 'w-32 h-32'"
+                      @click="openImage(img.globalIndex)"
+                      role="button"
+                      tabindex="0"
+                      aria-label="Open full size image"
+                    >
+                      <img
+                        :src="img.thumbUrl"
+                        :alt="img.contentType || 'attachment'"
+                        class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110"
+                        loading="lazy"
+                        @error="handleImageError"
+                      />
+                    </div>
+                  </div>
+
+                  <div 
+                    class="text-[10px] mt-1 opacity-75"
+                    :class="getGroupedReactions(msg.id).length ? 'mr-16' : ''"
+                  >{{ formatTime(msg.timestamp) }}</div>
+                </div>
+
+                <!-- Reactions overlay -->
+                <ul
+                  v-if="getGroupedReactions(msg.id).length"
+                  class="absolute -bottom-2 right-2 flex gap-1"
+                  :aria-label="'Reactions for message ' + msg.id"
+                >
+                  <li
+                    v-for="(r, idx) in getGroupedReactions(msg.id)"
+                    :key="idx"
+                    class="bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-full px-2.5 py-1 text-xs shadow-md flex items-center gap-1"
+                    :title="r.tooltip"
+                  >
+                    <span>{{ r.emoji }}</span>
+                    <span v-if="r.count > 1" class="text-[10px] font-bold">{{ r.count }}</span>
+                  </li>
+                </ul>
               </div>
             </div>
           </div>
@@ -1021,8 +1077,15 @@ async function loadSearchContext(matchIndex: number) {
       ...contextData.after
     ];
     
-    // Instantly replace with new context - no scroll animation
+    // Instantly replace with new context
     searchContextMessages.value = contextMessages;
+
+    // Center the matched message on screen after render
+    await nextTick();
+    const matchElement = document.querySelector(`[data-message-id="${targetMessageId}"]`);
+    if (matchElement) {
+      matchElement.scrollIntoView({ behavior: 'instant', block: 'center' });
+    }
   } catch (error) {
     console.error('Failed to load search context:', error);
   } finally {
