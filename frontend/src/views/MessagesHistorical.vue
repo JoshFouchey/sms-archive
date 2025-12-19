@@ -858,10 +858,24 @@ function rebuildReactionIndex() {
       // Find the target message by matching normalized body
       for (let i = priorMessages.length - 1; i >= 0; i--) {
         const candidate = priorMessages[i];
-        if (!candidate || !candidate.body) continue;
+        if (!candidate) continue;
         
-        const candidateNormalized = candidate.normalizedBody || normalizeForMatch(candidate.body);
-        if (candidateNormalized === reaction.targetNormalizedBody) {
+        // For media messages, treat empty/null body as "[media]" or "an image"
+        let candidateNormalized = candidate.normalizedBody || normalizeForMatch(candidate.body || '');
+        
+        // If message has media but no text, also try matching against common media placeholders
+        if (!candidateNormalized && candidate.media && getImageParts(candidate).length > 0) {
+          const targetLower = reaction.targetNormalizedBody.toLowerCase();
+          // Match common media reaction targets
+          if (targetLower === 'an image' || targetLower === '[media]' || targetLower === 'a photo' || 
+              targetLower === 'an attachment' || targetLower === 'a video' || targetLower === 'a gif') {
+            reaction.targetMessageId = candidate.id;
+            const arr = reactionIndex.value.get(candidate.id) || [];
+            arr.push(reaction);
+            reactionIndex.value.set(candidate.id, arr);
+            break;
+          }
+        } else if (candidateNormalized === reaction.targetNormalizedBody) {
           reaction.targetMessageId = candidate.id;
           const arr = reactionIndex.value.get(candidate.id) || [];
           arr.push(reaction);
