@@ -158,10 +158,28 @@
             <h2 class="text-xl font-bold text-white tracking-tight truncate">
               {{ selectedConversation?.name || 'Select a conversation' }}
             </h2>
-            <p v-if="selectedConversation" class="text-xs text-blue-100 dark:text-blue-200 mt-0.5">
-              {{ isSearchActive ? `${filteredMessages.length} of ${totalMessages}` : totalMessages }} messages
+            <p v-if="selectedConversation && !isSearchViewMode" class="text-xs text-blue-100 dark:text-blue-200 mt-0.5">
+              {{ totalMessages }} messages
+            </p>
+            <!-- Search View Mode Info -->
+            <p v-if="isSearchViewMode" class="text-xs text-blue-100 dark:text-blue-200 mt-0.5 flex items-center gap-2">
+              <i class="pi pi-search text-xs"></i>
+              Match {{ currentMatchIndex + 1 }} of {{ searchMatches.length }}
+              <span class="text-white/50">•</span>
+              Showing {{ searchContextMessages.length }} messages with context
             </p>
           </div>
+          
+          <!-- Exit Search View button -->
+          <button
+            v-if="isSearchViewMode"
+            @click="exitSearchView"
+            class="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm active:scale-95 transition-all text-white text-sm font-medium"
+            title="Exit search view"
+          >
+            <i class="pi pi-times"></i>
+            <span class="hidden sm:inline">Exit Search</span>
+          </button>
         </div>
 
         <!-- Search Bar (only when conversation selected) -->
@@ -175,29 +193,6 @@
               @keyup.enter="applySearch"
             />
             <i class="pi pi-search absolute right-3 top-1/2 -translate-y-1/2 text-white/70"></i>
-          </div>
-          
-          <!-- Search navigation controls (only when search is active and has results) -->
-          <div v-if="isSearchActive && searchMatches.length > 0" class="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30">
-            <span class="text-xs text-white font-medium whitespace-nowrap">
-              {{ currentMatchIndex + 1 }} / {{ searchMatches.length }}
-            </span>
-            <div class="flex gap-1">
-              <button
-                @click="prevMatch"
-                class="p-1 rounded hover:bg-white/20 transition-all"
-                title="Previous match"
-              >
-                <i class="pi pi-chevron-up text-white text-xs"></i>
-              </button>
-              <button
-                @click="nextMatch"
-                class="p-1 rounded hover:bg-white/20 transition-all"
-                title="Next match"
-              >
-                <i class="pi pi-chevron-down text-white text-xs"></i>
-              </button>
-            </div>
           </div>
           
           <button
@@ -247,18 +242,6 @@
               <i class="pi pi-check-circle text-sm flex-shrink-0"></i>
               <span class="text-sm font-medium truncate">
                 ✓ All {{ messages.length.toLocaleString() }} messages loaded (search ready)
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Warning when searching before fully loaded -->
-        <div v-if="selectedConversation && isSearchActive && !fullyLoaded" class="mt-3">
-          <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-3">
-            <div class="flex items-center gap-2 text-yellow-700 dark:text-yellow-300">
-              <i class="pi pi-exclamation-triangle text-sm flex-shrink-0"></i>
-              <span class="text-sm truncate">
-                Searching {{ messages.length.toLocaleString() }} messages (still loading full history...)
               </span>
             </div>
           </div>
@@ -323,7 +306,79 @@
         </div>
       </div>
 
-      <!-- Messages Area -->
+      <!-- Search View Mode (completely separate) -->
+      <div v-if="isSearchViewMode" class="flex-1 overflow-y-auto p-4 pb-20 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
+        <!-- Search Loading -->
+        <div v-if="searchContextLoading" class="flex flex-col items-center justify-center py-12">
+          <i class="pi pi-spin pi-spinner text-4xl text-blue-600 dark:text-blue-400 mb-3"></i>
+          <span class="text-sm text-gray-600 dark:text-gray-400">Loading search results...</span>
+        </div>
+
+        <!-- Search Results -->
+        <div v-else-if="searchContextMessages.length" class="max-w-4xl mx-auto space-y-3">
+          <div
+            v-for="msg in searchContextMessages"
+            :key="msg.id"
+            :data-message-id="msg.id"
+            class="flex"
+            :class="msg.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'"
+            v-show="!isReactionMessage(msg)"
+          >
+            <div class="max-w-[85%]">
+              <div
+                class="relative"
+                :class="[
+                  'rounded-2xl shadow-md text-sm leading-relaxed transition-all duration-300',
+                  msg.direction === 'OUTBOUND'
+                    ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white'
+                    : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-700',
+                  isCurrentMatch(msg.id) ? 'ring-4 ring-yellow-400 dark:ring-yellow-500 shadow-2xl scale-[1.02]' : '',
+                ]"
+              >
+                <div class="px-4 py-3">
+                  <div v-if="msg.body" class="whitespace-pre-wrap break-words">{{ msg.body }}</div>
+                </div>
+              </div>
+              <div class="text-[10px] mt-1 opacity-75 px-1">
+                {{ formatTime(msg.timestamp) }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Navigation Controls -->
+          <div class="sticky bottom-4 flex justify-center gap-3 mt-6">
+            <button
+              @click="prevMatch"
+              :disabled="currentMatchIndex === 0"
+              class="flex items-center gap-2 px-6 py-3 rounded-xl bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-gray-100 font-semibold shadow-lg hover:shadow-xl transition-all"
+            >
+              <i class="pi pi-chevron-left"></i>
+              <span>Previous Match</span>
+            </button>
+            
+            <div class="flex items-center px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold shadow-lg">
+              Match {{ currentMatchIndex + 1 }} of {{ searchMatches.length }}
+            </div>
+
+            <button
+              @click="nextMatch"
+              :disabled="currentMatchIndex === searchMatches.length - 1"
+              class="flex items-center gap-2 px-6 py-3 rounded-xl bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-gray-100 font-semibold shadow-lg hover:shadow-xl transition-all"
+            >
+              <span>Next Match</span>
+              <i class="pi pi-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- No Results -->
+        <div v-else class="flex flex-col items-center justify-center py-12">
+          <i class="pi pi-inbox text-5xl text-gray-400 mb-3"></i>
+          <span class="text-sm text-gray-600 dark:text-gray-400">No search results</span>
+        </div>
+      </div>
+
+      <!-- Normal Messages Area -->
       <div v-else ref="messagesContainer" class="flex-1 overflow-y-auto p-4 pb-20 space-y-3 min-h-0" @scroll="handleScroll">
         <!-- Loading State -->
         <div v-if="messagesLoading" class="flex flex-col items-center justify-center py-12">
@@ -332,7 +387,7 @@
         </div>
 
         <!-- Messages List -->
-        <div v-else-if="filteredMessages.length" class="space-y-3">
+        <div v-else-if="messages.length" class="space-y-3">
           <!-- Active search/filter indicator -->
           <div v-if="isSearchActive && searchMatches.length === 0" class="flex items-center justify-center py-2">
             <div class="bg-yellow-100 dark:bg-yellow-900/30 px-4 py-2 rounded-full text-xs text-yellow-700 dark:text-yellow-300 flex items-center gap-2 font-medium">
@@ -348,9 +403,17 @@
               Loading older messages...
             </div>
           </div>
+          
+          <!-- Hint to scroll up for more (when not loading and has more) -->
+          <div v-else-if="hasMoreOlder && !isSearchActive && !fullyLoaded" class="flex items-center justify-center py-2">
+            <div class="bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full text-xs text-blue-600 dark:text-blue-400 flex items-center gap-2">
+              <i class="pi pi-arrow-up text-xs"></i>
+              Scroll up to load older messages
+            </div>
+          </div>
 
           <div
-            v-for="msg in filteredMessages"
+            v-for="msg in messages"
             :key="msg.id"
             :data-message-id="msg.id"
             class="flex"
@@ -497,6 +560,8 @@ import {
   getConversationMessages,
   getAllConversationMessages,
   getConversationMessageCount,
+  searchWithinConversation,
+  getMessageContext,
   renameConversation,
   deleteConversation,
   type ConversationSummary,
@@ -534,6 +599,11 @@ const selectedSender = ref<string>('');
 const isSearchActive = ref(false);
 const currentMatchIndex = ref(0);
 const searchMatches = ref<number[]>([]); // Array of message IDs that match
+
+// Context-based search view state
+const isSearchViewMode = ref(false); // Whether we're in focused search mode showing only context
+const searchContextMessages = ref<Message[]>([]); // Messages to show in search view (match + context)
+const searchContextLoading = ref(false);
 
 // Full conversation loading state
 const fullyLoaded = ref(false);
@@ -777,50 +847,9 @@ function isReactionMessage(msg: Message): boolean {
 }
 
 // Check if a message matches the current search/filter criteria
-function messageMatchesSearch(msg: Message): boolean {
-  if (!isSearchActive.value) return false;
-
-  // Filter by search query (body text)
-  if (searchQuery.value.trim()) {
-    const query = searchQuery.value.toLowerCase();
-    if (!msg.body?.toLowerCase().includes(query)) {
-      return false;
-    }
-  }
-
-  // Filter by date range
-  if (dateFrom.value) {
-    const fromDate = new Date(dateFrom.value);
-    if (new Date(msg.timestamp) < fromDate) {
-      return false;
-    }
-  }
-  if (dateTo.value) {
-    const toDate = new Date(dateTo.value);
-    toDate.setHours(23, 59, 59, 999);
-    if (new Date(msg.timestamp) > toDate) {
-      return false;
-    }
-  }
-
-  // Filter by sender
-  if (selectedSender.value) {
-    if (msg.direction !== 'INBOUND' || msg.contactName !== selectedSender.value) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-// Note: We don't use a computed property here because it would recalculate on every keystroke
-// Instead, we manually compute matches only when applySearch() is called
+// Backend search now handles filtering - no need for client-side messageMatchesSearch function
 
 // Filtered messages - NOW returns ALL messages, not just matches
-const filteredMessages = computed(() => {
-  return messages.value;
-});
-
 // Filtered conversations based on search query
 const filteredConversations = computed(() => {
   if (!conversationSearchQuery.value.trim()) {
@@ -940,28 +969,64 @@ onUnmounted(() => {
   unlockBodyScroll();
 });
 
-// Search and filter functions (client-side only)
-function applySearch() {
-  if (!fullyLoaded.value) {
-    // Warn user to wait for full load
-    console.warn('Not all messages loaded yet. Search results may be incomplete.');
+// Search and filter functions (backend search)
+async function applySearch() {
+  if (!selectedConversation.value || !searchQuery.value.trim()) return;
+  
+  searchContextLoading.value = true;
+  
+  try {
+    // Call backend search API - works even without loading all messages!
+    const searchResult = await searchWithinConversation(
+      selectedConversation.value.id,
+      searchQuery.value.trim()
+    );
+    
+    isSearchActive.value = true;
+    searchMatches.value = searchResult.matchIds;
+    currentMatchIndex.value = 0;
+    
+    // Enter search view mode showing first match with context
+    if (searchMatches.value.length > 0) {
+      isSearchViewMode.value = true;
+      await loadSearchContext(0);
+    }
+  } catch (error) {
+    console.error('Search failed:', error);
+  } finally {
+    searchContextLoading.value = false;
+  }
+}
+
+// Load context around a specific match (25 before + match + 25 after)
+async function loadSearchContext(matchIndex: number) {
+  if (searchMatches.value.length === 0) return;
+  
+  const targetMessageId = searchMatches.value[matchIndex];
+  
+  if (!targetMessageId) {
+    return;
   }
   
-  // Manually compute matches only when search is explicitly triggered
-  // This prevents recalculating on every keystroke (which causes lag with 50k+ messages)
-  const matches = messages.value
-    .filter(msg => messageMatchesSearch(msg))
-    .map(msg => msg.id);
+  searchContextLoading.value = true;
   
-  isSearchActive.value = true;
-  searchMatches.value = matches;
-  currentMatchIndex.value = 0;
-  
-  // Scroll to first match
-  if (searchMatches.value.length > 0) {
-    nextTick(() => {
-      scrollToMatch(0);
-    });
+  try {
+    // Call backend API to get context around this message (backend cached for 24 hours)
+    const contextData = await getMessageContext(targetMessageId, 25, 25);
+    
+    // Combine before + center + after messages
+    const contextMessages = [
+      ...contextData.before.reverse(), // API returns before messages newest-first, so reverse
+      contextData.center,
+      ...contextData.after
+    ];
+    
+    // Instantly replace with new context - no scroll animation
+    searchContextMessages.value = contextMessages;
+  } catch (error) {
+    console.error('Failed to load search context:', error);
+  } finally {
+    searchContextLoading.value = false;
   }
 }
 
@@ -974,18 +1039,36 @@ function clearSearch() {
   showFilters.value = false;
   searchMatches.value = [];
   currentMatchIndex.value = 0;
+  isSearchViewMode.value = false;
+  searchContextMessages.value = [];
 }
 
-function nextMatch() {
+function exitSearchView() {
+  isSearchViewMode.value = false;
+  searchContextMessages.value = [];
+  // Keep search active but return to full message view
+}
+
+async function nextMatch() {
   if (searchMatches.value.length === 0) return;
   currentMatchIndex.value = (currentMatchIndex.value + 1) % searchMatches.value.length;
-  scrollToMatch(currentMatchIndex.value);
+  
+  if (isSearchViewMode.value) {
+    await loadSearchContext(currentMatchIndex.value);
+  } else {
+    scrollToMatch(currentMatchIndex.value);
+  }
 }
 
-function prevMatch() {
+async function prevMatch() {
   if (searchMatches.value.length === 0) return;
   currentMatchIndex.value = (currentMatchIndex.value - 1 + searchMatches.value.length) % searchMatches.value.length;
-  scrollToMatch(currentMatchIndex.value);
+  
+  if (isSearchViewMode.value) {
+    await loadSearchContext(currentMatchIndex.value);
+  } else {
+    scrollToMatch(currentMatchIndex.value);
+  }
 }
 
 function scrollToMatch(index: number) {
@@ -1011,10 +1094,60 @@ function toggleFilters() {
 }
 
 // Handle scroll event - now mostly unused since we load everything in background
+// Lazy load more messages when scrolling to top
 function handleScroll() {
-  // With full background loading, scroll handling is not needed
-  // All messages are loaded automatically after initial display
-  // This function is kept for compatibility but does nothing
+  // Don't trigger lazy loading when in search view mode
+  if (isSearchViewMode.value) return;
+  
+  if (!messagesContainer.value || olderLoading.value || fullyLoaded.value) return;
+  
+  // Check if user scrolled near the top (within 100px)
+  const scrollTop = messagesContainer.value.scrollTop;
+  if (scrollTop < 100 && hasMoreOlder.value) {
+    loadMoreOlderMessages();
+  }
+}
+
+async function loadMoreOlderMessages() {
+  if (!selectedConversation.value || olderLoading.value || !hasMoreOlder.value) return;
+  
+  olderLoading.value = true;
+  
+  // Save current scroll position relative to a message
+  const container = messagesContainer.value;
+  const firstMessage = container?.querySelector('[data-message-id]');
+  const firstMessageId = firstMessage?.getAttribute('data-message-id');
+  const scrollOffsetBeforeLoad = firstMessage ? firstMessage.getBoundingClientRect().top : 0;
+  
+  try {
+    currentPage.value++;
+    const res = await getConversationMessages(
+      selectedConversation.value.id,
+      currentPage.value,
+      200,
+      'desc'
+    );
+    
+    // Prepend older messages (they come newest-first from API, so reverse them)
+    const olderMessages = res.content.reverse();
+    messages.value = [...olderMessages, ...messages.value];
+    hasMoreOlder.value = !res.last;
+    
+    // Restore scroll position to keep user at same message
+    await nextTick();
+    if (firstMessageId) {
+      const messageElement = container?.querySelector(`[data-message-id="${firstMessageId}"]`);
+      if (messageElement && container) {
+        const newTop = messageElement.getBoundingClientRect().top;
+        container.scrollTop += (newTop - scrollOffsetBeforeLoad);
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load more messages', e);
+    currentPage.value--; // Revert page increment on error
+  } finally {
+    olderLoading.value = false;
+  }
 }
 
 // Load conversations
@@ -1079,13 +1212,17 @@ async function loadMessages() {
     });
 
     // Step 3: Start loading ALL messages in background (cached on backend)
-    if (totalMessages.value > 200) {
+    // Only auto-load all messages if conversation has fewer than 5000 messages
+    // For larger conversations, user can manually click "Load All" if needed
+    if (totalMessages.value > 200 && totalMessages.value < 5000) {
       loadAllMessagesInBackground();
-    } else {
+    } else if (totalMessages.value <= 200) {
+      // Small conversations (≤200) are fully loaded on first fetch
       fullyLoaded.value = true;
-      // Build reaction index for small conversations too
       rebuildReactionIndex();
     }
+    // For large conversations (≥5000), fullyLoaded stays false
+    // User can lazy load or click "Load All" button
   } catch (e) {
     console.error('Failed to load messages', e);
     messagesLoading.value = false;

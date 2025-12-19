@@ -7,6 +7,7 @@ import com.joshfouchey.smsarchive.model.Contact;
 import com.joshfouchey.smsarchive.model.MessageProtocol;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -89,6 +90,18 @@ ORDER BY day_ts
     @Query("select m from Message m where m.user = :user and lower(m.body) like lower(concat('%', :text, '%'))")
     List<Message> searchByTextUser(@Param("text") String text, @Param("user") com.joshfouchey.smsarchive.model.User user);
 
+    // Paginated full-text search
+    @Query("select m from Message m where m.user = :user and lower(m.body) like lower(concat('%', :text, '%'))")
+    Page<Message> searchByTextUserPaginated(@Param("text") String text, @Param("user") com.joshfouchey.smsarchive.model.User user, Pageable pageable);
+
+    // Paginated full-text search with contact filter
+    @Query("select m from Message m join m.conversation conv join conv.participants c where m.user = :user and c.id = :contactId and lower(m.body) like lower(concat('%', :text, '%'))")
+    Page<Message> searchByTextAndContactUser(@Param("text") String text, @Param("contactId") Long contactId, @Param("user") com.joshfouchey.smsarchive.model.User user, Pageable pageable);
+
+    // Search within a specific conversation
+    @Query("select m from Message m where m.user = :user and m.conversation.id = :conversationId and lower(m.body) like lower(concat('%', :text, '%'))")
+    List<Message> searchWithinConversation(@Param("conversationId") Long conversationId, @Param("text") String text, @Param("user") com.joshfouchey.smsarchive.model.User user);
+
     @Query("select m from Message m where m.user = :user and m.timestamp between :start and :end")
     List<Message> findByTimestampBetweenUser(@Param("start") Instant start, @Param("end") Instant end, @Param("user") com.joshfouchey.smsarchive.model.User user);
 
@@ -130,15 +143,18 @@ ORDER BY day_ts
                                       @Param("protocol") com.joshfouchey.smsarchive.model.MessageProtocol protocol,
                                       @Param("user") com.joshfouchey.smsarchive.model.User user);
 
+    @EntityGraph(attributePaths = {"parts", "senderContact"})
     @Query("select m from Message m where m.id = :id and m.user = :user")
     Message findByIdAndUser(@Param("id") Long id, @Param("user") com.joshfouchey.smsarchive.model.User user);
 
+    @EntityGraph(attributePaths = {"parts", "senderContact"})
     @Query("select m from Message m where m.conversation.id = :conversationId and m.user = :user and m.timestamp < :centerTs order by m.timestamp desc")
     List<Message> findBeforeInConversation(@Param("conversationId") Long conversationId,
                                            @Param("centerTs") Instant centerTs,
                                            @Param("user") com.joshfouchey.smsarchive.model.User user,
                                            Pageable pageable);
 
+    @EntityGraph(attributePaths = {"parts", "senderContact"})
     @Query("select m from Message m where m.conversation.id = :conversationId and m.user = :user and m.timestamp > :centerTs order by m.timestamp asc")
     List<Message> findAfterInConversation(@Param("conversationId") Long conversationId,
                                           @Param("centerTs") Instant centerTs,

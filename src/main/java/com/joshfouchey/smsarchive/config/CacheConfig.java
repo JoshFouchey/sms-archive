@@ -19,11 +19,12 @@ public class CacheConfig {
                 "analyticsDashboard",
                 "distinctContacts",
                 "conversationMessages",      // Cache full conversation message lists
-                "conversationMessageCount"   // Cache message counts
+                "conversationMessageCount",   // Cache message counts
+                "messageContext"             // Cache message context for search navigation
         );
         mgr.setCaffeine(Caffeine.newBuilder()
-                .maximumSize(100)
-                .expireAfterWrite(Duration.ofHours(6))
+                .maximumSize(500)            // Increased to handle more context caching
+                .expireAfterWrite(Duration.ofHours(24))  // 24 hour cache
                 .recordStats());
         return mgr;
     }

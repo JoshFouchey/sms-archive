@@ -95,6 +95,35 @@ public class ConversationService {
      * Returns lightweight DTOs to reduce JSON payload size for large conversations.
      */
     @Transactional(readOnly = true)
+    /**
+     * Search messages within a conversation (backend search - works without loading all messages).
+     * Returns message IDs that match, sorted by timestamp.
+     */
+    public java.util.Map<String, Object> searchWithinConversation(Long conversationId, String query) {
+        var user = currentUserProvider.getCurrentUser();
+
+        // Verify conversation belongs to user
+        Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
+                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+
+        // Search for matches
+        List<Message> matches = messageRepository.searchWithinConversation(conversationId, query, user);
+
+        // Sort by timestamp ascending (oldest first)
+        matches.sort((a, b) -> a.getTimestamp().compareTo(b.getTimestamp()));
+
+        // Return message IDs for navigation
+        List<Long> matchIds = matches.stream()
+                .map(Message::getId)
+                .toList();
+
+        var result = new java.util.HashMap<String, Object>();
+        result.put("matchIds", matchIds);
+        result.put("totalMatches", matchIds.size());
+        result.put("query", query);
+        return result;
+    }
+
     @org.springframework.cache.annotation.Cacheable(value = "conversationMessages", key = "#conversationId")
     public List<com.joshfouchey.smsarchive.dto.api.ConversationMessagesDto> getAllConversationMessages(Long conversationId) {
         var user = currentUserProvider.getCurrentUser();

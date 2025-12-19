@@ -271,7 +271,20 @@ export async function getImportProgress(jobId: string): Promise<ImportProgress |
 
 export async function searchBySender(sender: string): Promise<Message[]> { const res = await axios.get(`${API_BASE}/search/sender`, { params: { sender }}); return res.data; }
 export async function searchByRecipient(recipient: string): Promise<Message[]> { const res = await axios.get(`${API_BASE}/search/recipient`, { params: { recipient }}); return res.data; }
-export async function searchByText(text: string): Promise<Message[]> { const res = await axios.get(`${API_BASE}/search/text`, { params: { text }}); return res.data; }
+
+// Updated to support pagination and contact filtering
+export async function searchByText(
+    text: string, 
+    contactId?: number | null,
+    page: number = 0, 
+    size: number = 50
+): Promise<PagedResponse<Message>> { 
+    const params: any = { text, page, size };
+    if (contactId) params.contactId = contactId;
+    const res = await axios.get(`${API_BASE}/search/text`, { params }); 
+    return res.data; 
+}
+
 export async function searchByDateRange(start: string, end: string): Promise<Message[]> { const res = await axios.get(`${API_BASE}/search/dates`, { params: { start, end }}); return res.data; }
 
 /* ==============================
@@ -361,6 +374,21 @@ export async function getMessageContext(
  */
 export async function getAllConversationMessages(conversationId: number): Promise<Message[]> {
   const res = await axios.get(`${API_BASE}/api/conversations/${conversationId}/messages/all`);
+  return res.data;
+}
+
+/**
+ * Search within a specific conversation (backend search).
+ * Returns message IDs that match the query.
+ */
+export async function searchWithinConversation(conversationId: number, query: string): Promise<{
+  matchIds: number[];
+  totalMatches: number;
+  query: string;
+}> {
+  const res = await axios.get(`${API_BASE}/api/conversations/${conversationId}/messages/search`, {
+    params: { query }
+  });
   return res.data;
 }
 

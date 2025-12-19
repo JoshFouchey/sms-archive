@@ -76,6 +76,17 @@ public class ConversationController {
     }
 
     /**
+     * Search messages within a conversation.
+     * Returns message IDs that match the search query (for navigation).
+     */
+    @GetMapping("/{conversationId}/messages/search")
+    public java.util.Map<String, Object> searchConversationMessages(
+            @PathVariable Long conversationId,
+            @RequestParam String query) {
+        return conversationService.searchWithinConversation(conversationId, query);
+    }
+
+    /**
      * Load ALL messages for a conversation (cached).
      * Used for client-side search/filter operations.
      * Returns lightweight DTOs to reduce JSON payload size.

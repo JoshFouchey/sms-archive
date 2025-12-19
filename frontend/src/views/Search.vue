@@ -16,7 +16,8 @@
               <i class="pi pi-check-circle text-lg"></i>
               <div class="text-left">
                 <p class="text-xs text-blue-100">Results Found</p>
-                <p class="text-2xl font-bold">{{ filteredResults.length }}</p>
+                <p class="text-2xl font-bold">{{ totalResults.toLocaleString() }}</p>
+                <p class="text-xs text-blue-100">Showing {{ filteredResults.length }}</p>
               </div>
             </div>
           </div>
@@ -191,6 +192,19 @@
           <p class="text-sm text-gray-800 dark:text-gray-200 leading-relaxed break-words whitespace-pre-wrap">{{ m.body }}</p>
         </div>
       </div>
+      
+      <!-- Load More Button -->
+      <div v-if="hasMore" class="flex justify-center">
+        <button
+          @click="loadMore"
+          :disabled="loading"
+          class="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg px-6 py-3 disabled:opacity-50 transition-all font-semibold shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+        >
+          <i v-if="!loading" class="pi pi-angle-down"></i>
+          <i v-else class="pi pi-spin pi-spinner"></i>
+          <span>{{ loading ? 'Loading...' : 'Load More Results' }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- Context Modal -->
@@ -295,7 +309,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import Select from 'primevue/select';
 import { RouterLink } from 'vue-router';
 import {
@@ -315,6 +329,9 @@ const results = ref<Message[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const touched = ref(false); // whether search attempted
+const currentPage = ref(0);
+const hasMore = ref(false);
+const totalResults = ref(0);
 
 // Context modal state
 const contextOpen = ref(false);
@@ -331,6 +348,13 @@ onMounted(async () => {
   }
 });
 
+// Re-search when contact filter changes (if search text exists)
+watch(selectedContact, () => {
+  if (touched.value && searchText.value.trim()) {
+    performSearch();
+  }
+});
+
 async function performSearch() {
   touched.value = true;
   error.value = null;
@@ -339,10 +363,32 @@ async function performSearch() {
     return; // don't query empty
   }
   loading.value = true;
+  currentPage.value = 0;
+  results.value = []; // Clear previous results
   try {
-    results.value = await searchByText(searchText.value.trim());
+    const contactId = selectedContact.value?.id || null;
+    const response = await searchByText(searchText.value.trim(), contactId, 0, 50);
+    results.value = response.content;
+    hasMore.value = !response.last;
+    totalResults.value = response.totalElements;
   } catch (e: any) {
     error.value = e?.message || 'Search failed';
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function loadMore() {
+  if (!hasMore.value || loading.value) return;
+  loading.value = true;
+  try {
+    const contactId = selectedContact.value?.id || null;
+    const response = await searchByText(searchText.value.trim(), contactId, currentPage.value + 1, 50);
+    results.value = [...results.value, ...response.content];
+    currentPage.value++;
+    hasMore.value = !response.last;
+  } catch (e: any) {
+    error.value = e?.message || 'Failed to load more results';
   } finally {
     loading.value = false;
   }
@@ -354,24 +400,13 @@ function clearSearch() {
   results.value = [];
   error.value = null;
   touched.value = false;
+  currentPage.value = 0;
+  hasMore.value = false;
+  totalResults.value = 0;
 }
 
-function matchContact(msg: Message, c: Contact): boolean {
-  // Try name match if available
-  if (c.name && msg.contactName && msg.contactName.toLowerCase() === c.name.toLowerCase())
-    return true;
-  // Fallback to number match
-  if (msg.contactNumber && msg.contactNumber === c.number) return true;
-  if (msg.contactNormalizedNumber && msg.contactNormalizedNumber === c.normalizedNumber)
-    return true;
-  return false;
-}
-
-const filteredResults = computed(() => {
-  if (!selectedContact.value) return results.value;
-  const c = selectedContact.value;
-  return results.value.filter((m) => matchContact(m, c));
-});
+// Filtering is now done on backend, so filteredResults just returns results
+const filteredResults = computed(() => results.value);
 
 function formatDateTime(iso: string) {
   if (!iso) return '';

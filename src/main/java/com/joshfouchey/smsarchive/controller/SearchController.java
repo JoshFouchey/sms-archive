@@ -1,10 +1,15 @@
 package com.joshfouchey.smsarchive.controller;
 
 import com.joshfouchey.smsarchive.dto.MessageDto;
+import com.joshfouchey.smsarchive.dto.PagedResponse;
 import com.joshfouchey.smsarchive.mapper.MessageMapper;
 import com.joshfouchey.smsarchive.model.Message;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
 import com.joshfouchey.smsarchive.service.CurrentUserProvider;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,13 +29,35 @@ public class SearchController {
     }
 
 
-    // Search by body text
+    // Search by body text with pagination and optional contact filter
     @GetMapping("/text")
-    public List<MessageDto> byText(@RequestParam String text) {
-        return repo.searchByTextUser(text, currentUserProvider.getCurrentUser())
-                .stream()
-                .map(MessageMapper::toDto)
-                .toList();    }
+    public PagedResponse<MessageDto> byText(
+            @RequestParam String text,
+            @RequestParam(required = false) Long contactId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "timestamp"));
+        Page<Message> results;
+        
+        if (contactId != null) {
+            // Search with contact filter
+            results = repo.searchByTextAndContactUser(text, contactId, currentUserProvider.getCurrentUser(), pageable);
+        } else {
+            // Search all messages
+            results = repo.searchByTextUserPaginated(text, currentUserProvider.getCurrentUser(), pageable);
+        }
+        
+        return new PagedResponse<>(
+                results.getContent().stream().map(MessageMapper::toDto).toList(),
+                results.getNumber(),
+                results.getSize(),
+                results.getTotalElements(),
+                results.getTotalPages(),
+                results.isFirst(),
+                results.isLast()
+        );
+    }
 
     // Search by timestamp range (was "date")
     @GetMapping("/dates")
