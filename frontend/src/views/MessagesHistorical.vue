@@ -214,14 +214,6 @@
           >
             <i class="pi pi-search text-white"></i>
           </button>
-          <button
-            v-if="isSearchActive"
-            @click="clearSearch"
-            class="px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 transition-all"
-            title="Clear search"
-          >
-            <i class="pi pi-times text-white"></i>
-          </button>
         </div>
 
         <!-- Loading Status Indicators -->
@@ -307,7 +299,7 @@
       </div>
 
       <!-- Search View Mode (completely separate) -->
-      <div v-if="isSearchViewMode" class="flex-1 overflow-y-auto p-4 pb-20 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
+      <div v-if="isSearchViewMode" ref="searchViewContainer" class="flex-1 overflow-y-auto p-4 pb-20 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
         <!-- Search Loading -->
         <div v-if="searchContextLoading" class="flex flex-col items-center justify-center py-12">
           <i class="pi pi-spin pi-spinner text-4xl text-blue-600 dark:text-blue-400 mb-3"></i>
@@ -635,6 +627,7 @@ const conversationSearchQuery = ref('');
 const selectedConversation = ref<ConversationSummary | null>(null);
 const messages = ref<Message[]>([]);
 const messagesContainer = ref<HTMLElement | null>(null);
+const searchViewContainer = ref<HTMLElement | null>(null);
 
 // Loading states
 const contactsLoading = ref(false);
@@ -1096,10 +1089,22 @@ async function loadSearchContext(matchIndex: number) {
 
     // Center the matched message on screen after render
     await nextTick();
-    const matchElement = document.querySelector(`[data-message-id="${targetMessageId}"]`);
-    if (matchElement) {
-      matchElement.scrollIntoView({ behavior: 'instant', block: 'center' });
-    }
+    
+    // Use a slight delay to ensure DOM has fully updated
+    setTimeout(() => {
+      const matchElement = document.querySelector(`[data-message-id="${targetMessageId}"]`) as HTMLElement;
+      const container = searchViewContainer.value;
+      
+      if (matchElement && container) {
+        // Calculate position to center the matched message
+        const containerRect = container.getBoundingClientRect();
+        const matchRect = matchElement.getBoundingClientRect();
+        
+        // Scroll to position that centers the match
+        const scrollOffset = matchRect.top - containerRect.top - (containerRect.height / 2) + (matchRect.height / 2);
+        container.scrollTop += scrollOffset;
+      }
+    }, 50);
   } catch (error) {
     console.error('Failed to load search context:', error);
   } finally {
@@ -1107,7 +1112,8 @@ async function loadSearchContext(matchIndex: number) {
   }
 }
 
-function clearSearch() {
+function exitSearchView() {
+  // Exit search completely - clear everything and return to normal messages
   searchQuery.value = '';
   dateFrom.value = '';
   dateTo.value = '';
@@ -1118,12 +1124,6 @@ function clearSearch() {
   currentMatchIndex.value = 0;
   isSearchViewMode.value = false;
   searchContextMessages.value = [];
-}
-
-function exitSearchView() {
-  isSearchViewMode.value = false;
-  searchContextMessages.value = [];
-  // Keep search active but return to full message view
 }
 
 async function nextMatch() {
