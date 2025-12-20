@@ -8,7 +8,7 @@
             <i class="pi pi-search"></i>
             Search Messages
           </h1>
-          <p class="text-blue-100 dark:text-blue-200">Search across all messages by text and filter by contact</p>
+          <p class="text-blue-100 dark:text-blue-200">Search across all conversations and messages</p>
         </div>
         <div v-if="filteredResults.length" class="flex items-center gap-2">
           <div class="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
@@ -28,10 +28,10 @@
     <!-- Search Form -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 border border-gray-200 dark:border-gray-700">
       <form
-        class="grid gap-4 md:grid-cols-5 items-end"
+        class="flex gap-4 items-end"
         @submit.prevent="performSearch"
       >
-        <div class="md:col-span-2 flex flex-col gap-2">
+        <div class="flex-1 flex flex-col gap-2">
           <label for="searchText" class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
             <i class="pi pi-search text-xs mr-1"></i>
             Search Text
@@ -45,41 +45,11 @@
             @keyup.enter="performSearch"
           />
         </div>
-        <div class="flex flex-col gap-2">
-          <label for="contactFilter" class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-            <i class="pi pi-user text-xs mr-1"></i>
-            Filter by Contact
-          </label>
-          <Select
-            id="contactFilter"
-            v-model="selectedContact"
-            :options="contacts"
-            filter
-            :filterFields="['name', 'number']"
-            placeholder="All contacts"
-            class="w-full"
-            :showClear="true"
-          >
-            <template #value="slotProps">
-              <div v-if="slotProps.value">
-                {{ slotProps.value.name || slotProps.value.number }}
-              </div>
-              <span v-else>
-                {{ slotProps.placeholder }}
-              </span>
-            </template>
-            <template #option="slotProps">
-              <div>
-                {{ slotProps.option.name || slotProps.option.number }}
-              </div>
-            </template>
-          </Select>
-        </div>
-        <div class="flex gap-2 md:col-span-2">
+        <div class="flex gap-2">
           <button
             type="submit"
             :disabled="loading"
-            class="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg px-4 py-2.5 disabled:opacity-50 transition-all font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+            class="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg px-6 py-2.5 disabled:opacity-50 transition-all font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
           >
             <i v-if="!loading" class="pi pi-search"></i>
             <i v-else class="pi pi-spin pi-spinner"></i>
@@ -119,7 +89,7 @@
         </div>
         <div>
           <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">No Results Found</h3>
-          <p class="text-gray-600 dark:text-gray-400">Try adjusting your search terms or contact filter</p>
+          <p class="text-gray-600 dark:text-gray-400">Try adjusting your search terms</p>
         </div>
       </div>
     </div>
@@ -309,21 +279,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
-import Select from 'primevue/select';
+import { ref, computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
-  getDistinctContacts,
   searchByText,
   getMessageContext,
-  type Contact,
   type Message,
   type MessageContext,
 } from '../services/api';
 
-const contacts = ref<Contact[]>([]);
 const searchText = ref('');
-const selectedContact = ref<Contact | null>(null);
 
 const results = ref<Message[]>([]);
 const loading = ref(false);
@@ -339,22 +304,6 @@ const contextLoading = ref(false);
 const contextError = ref<string | null>(null);
 const contextData = ref<MessageContext | null>(null);
 
-onMounted(async () => {
-  try {
-    contacts.value = await getDistinctContacts();
-  } catch (e: any) {
-    // Non-blocking; show console only
-    console.error('Failed to load contacts', e);
-  }
-});
-
-// Re-search when contact filter changes (if search text exists)
-watch(selectedContact, () => {
-  if (touched.value && searchText.value.trim()) {
-    performSearch();
-  }
-});
-
 async function performSearch() {
   touched.value = true;
   error.value = null;
@@ -366,8 +315,7 @@ async function performSearch() {
   currentPage.value = 0;
   results.value = []; // Clear previous results
   try {
-    const contactId = selectedContact.value?.id || null;
-    const response = await searchByText(searchText.value.trim(), contactId, 0, 50);
+    const response = await searchByText(searchText.value.trim(), null, 0, 50);
     results.value = response.content;
     hasMore.value = !response.last;
     totalResults.value = response.totalElements;
@@ -382,8 +330,7 @@ async function loadMore() {
   if (!hasMore.value || loading.value) return;
   loading.value = true;
   try {
-    const contactId = selectedContact.value?.id || null;
-    const response = await searchByText(searchText.value.trim(), contactId, currentPage.value + 1, 50);
+    const response = await searchByText(searchText.value.trim(), null, currentPage.value + 1, 50);
     results.value = [...results.value, ...response.content];
     currentPage.value++;
     hasMore.value = !response.last;
@@ -396,7 +343,6 @@ async function loadMore() {
 
 function clearSearch() {
   searchText.value = '';
-  selectedContact.value = null;
   results.value = [];
   error.value = null;
   touched.value = false;

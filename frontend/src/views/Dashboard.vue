@@ -58,7 +58,7 @@
           <div class="flex items-start justify-between">
             <div>
               <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Total Messages</p>
-              <p class="text-5xl font-bold text-gray-900 dark:text-gray-100">{{ summary?.totalMessages ?? '–' }}</p>
+              <p class="text-5xl font-bold text-gray-900 dark:text-gray-100">{{ summary?.totalMessages?.toLocaleString() ?? '–' }}</p>
             </div>
             <div class="bg-green-100 dark:bg-green-900/30 p-4 rounded-2xl">
               <i class="pi pi-comments text-3xl text-green-600 dark:text-green-400"></i>
@@ -73,7 +73,7 @@
           <div class="flex items-start justify-between">
             <div>
               <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Total Images</p>
-              <p class="text-5xl font-bold text-gray-900 dark:text-gray-100">{{ summary?.totalImages ?? '–' }}</p>
+              <p class="text-5xl font-bold text-gray-900 dark:text-gray-100">{{ summary?.totalImages?.toLocaleString() ?? '–' }}</p>
             </div>
             <div class="bg-cyan-100 dark:bg-cyan-900/30 p-4 rounded-2xl">
               <i class="pi pi-images text-3xl text-cyan-600 dark:text-cyan-400"></i>

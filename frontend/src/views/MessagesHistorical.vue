@@ -1241,6 +1241,18 @@ async function loadConversations() {
 
 // Select conversation
 async function selectConversation(conversation: ConversationSummary) {
+  // Clear search state when switching conversations
+  searchQuery.value = '';
+  dateFrom.value = '';
+  dateTo.value = '';
+  selectedSender.value = '';
+  isSearchActive.value = false;
+  showFilters.value = false;
+  searchMatches.value = [];
+  currentMatchIndex.value = 0;
+  isSearchViewMode.value = false;
+  searchContextMessages.value = [];
+  
   selectedConversation.value = conversation;
   participantColorMap.value.clear(); // Clear color assignments for new conversation
   router.push({ name: 'messages', params: { id: conversation.id } });
@@ -1252,8 +1264,20 @@ function clearConversation() {
   messages.value = [];
   fullyLoaded.value = false;
   loadingInBackground.value = false;
-  isSearchActive.value = false;
   participantColorMap.value.clear(); // Clear color assignments
+  
+  // Clear all search state when leaving conversation
+  searchQuery.value = '';
+  dateFrom.value = '';
+  dateTo.value = '';
+  selectedSender.value = '';
+  isSearchActive.value = false;
+  showFilters.value = false;
+  searchMatches.value = [];
+  currentMatchIndex.value = 0;
+  isSearchViewMode.value = false;
+  searchContextMessages.value = [];
+  
   router.push({ name: 'messages' });
 }
 

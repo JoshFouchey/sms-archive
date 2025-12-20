@@ -1,6 +1,6 @@
 <template>
   <div class="flex items-center gap-3" v-if="ready">
-    <div class="flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-700">
+    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700">
       <div class="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-500 text-white font-semibold" :title="username">
         {{ initials }}
       </div>
@@ -9,12 +9,6 @@
         <div class="text-xs" :class="statusClass">{{ statusLabel }}</div>
       </div>
     </div>
-    <button v-if="isAuthenticated" @click="logout" class="text-xs px-3 py-1 rounded bg-red-500 hover:bg-red-600 text-white" data-testid="logout-btn">
-      Logout
-    </button>
-    <button v-else @click="goLogin" class="text-xs px-3 py-1 rounded bg-indigo-500 hover:bg-indigo-600 text-white" data-testid="login-btn">
-      Login
-    </button>
   </div>
   <div v-else class="flex items-center gap-2 px-3 py-1 text-xs text-gray-500">Loading...</div>
 </template>
@@ -22,10 +16,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useAuthStore } from '../stores/authStore';
-import { useRouter } from 'vue-router';
 
 const auth = useAuthStore();
-const router = useRouter();
 const ready = ref(false);
 
 onMounted(() => { // ensure me fetched if token present but store not hydrated yet
@@ -51,9 +43,6 @@ const statusClass = computed(() => {
     'text-gray-500': statusLabel.value === 'Offline'
   };
 });
-
-function logout() { auth.logout(); router.push('/login'); }
-function goLogin() { router.push('/login'); }
 </script>
 
 <style scoped>
