@@ -364,7 +364,9 @@ public class ConversationService {
             Contact c = new Contact();
             c.setUser(user);
             c.setNormalizedNumber(safeNormalized);
-            c.setNumber(safeNormalized);
+            // Format for display: add + prefix for international format (E.164)
+            String displayNumber = safeNormalized.equals("__unknown__") ? safeNormalized : "+" + safeNormalized;
+            c.setNumber(displayNumber);
             c.setName(suggestedName != null && !suggestedName.isBlank() ? suggestedName : null);
             return contactRepository.save(c);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
