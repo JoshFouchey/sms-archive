@@ -732,6 +732,29 @@ public class ImportService {
             messageRepo.saveAll(batch); 
             batch.clear(); 
         }
+        catch (org.springframework.dao.DataIntegrityViolationException dive) {
+            // Duplicate key constraint violation - retry individually
+            log.warn("Constraint violation during batch save (likely duplicates), retrying individually");
+            int saved = 0;
+            int skipped = 0;
+            for (Message msg : batch) {
+                try {
+                    messageRepo.save(msg);
+                    saved++;
+                } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+                    // Skip this duplicate message
+                    log.debug("Skipped duplicate message: conversation={}, timestamp={}, direction={}", 
+                        msg.getConversation().getId(), msg.getTimestamp(), msg.getDirection());
+                    skipped++;
+                    progress.incDuplicateMessages();
+                } catch (Exception ex) {
+                    log.error("Failed to save message", ex);
+                    skipped++;
+                }
+            }
+            log.info("Individual save complete: {} saved, {} skipped as duplicates", saved, skipped);
+            batch.clear();
+        }
         catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
             // A duplicate message was found during the batch save
             // Try to save messages individually, skipping duplicates
