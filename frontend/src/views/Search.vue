@@ -266,7 +266,7 @@
             <RouterLink
               v-if="contextData"
               class="px-3 py-2 text-sm rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
-              :to="{ name: 'messages', params: { id: contextData.conversationId } }"
+              :to="{ name: 'MessagesDetail', params: { id: contextData.conversationId } }"
               title="Open conversation"
             >
               Open conversation

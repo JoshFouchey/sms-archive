@@ -128,6 +128,7 @@ watch(() => props.initialIndex, (v) => { if (typeof v === 'number') { index.valu
 watch(index, () => { imageLoaded.value = false; });
 
 onMounted(() => {
+  imageLoaded.value = false; // Reset loading state when viewer opens
   lockBody();
   setTimeout(() => { closeBtn.value?.focus(); }, 0);
 });
