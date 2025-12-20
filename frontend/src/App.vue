@@ -1,33 +1,77 @@
 <template>
-  <div :class="[
-    'flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100',
-    isHistoricalPage ? 'h-screen overflow-hidden' : 'min-h-screen'
-  ]">
-    <!-- Minimal Top Bar (just hamburger) -->
-    <div class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 shadow-sm">
-      <div class="px-4 py-3">
-        <!-- Hamburger Menu Button -->
-        <button
-          @click="sidebarOpen = true"
-          class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          aria-label="Open menu"
+  <div class="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
+    <!-- Persistent Sidebar (Desktop) - Icon Only -->
+    <div class="hidden lg:flex lg:flex-col lg:w-20 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-lg">
+      <!-- Sidebar Header -->
+      <div class="flex items-center justify-center p-4 border-b border-gray-200 dark:border-gray-700">
+        <i class="pi pi-inbox text-3xl text-blue-600 dark:text-blue-400"></i>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="flex-1 flex flex-col p-3 gap-2 overflow-y-auto">
+        <router-link
+          v-for="item in items"
+          :key="item.route"
+          :to="item.route"
+          v-slot="{ isActive }"
+          custom
         >
-          <i class="pi pi-bars text-2xl text-gray-700 dark:text-gray-300"></i>
+          <a
+            :href="item.route"
+            @click.prevent="navigateTo(item.route)"
+            :class="[
+              'flex items-center justify-center p-4 rounded-xl transition-all duration-200',
+              isActive
+                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-sm'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
+            ]"
+            :title="item.label"
+          >
+            <i :class="[item.icon, 'text-2xl', isActive ? 'text-blue-600 dark:text-blue-400' : '']"></i>
+          </a>
+        </router-link>
+      </nav>
+
+      <!-- Sidebar Footer (Icon Only) -->
+      <div class="p-3 border-t border-gray-200 dark:border-gray-700 flex flex-col gap-2">
+        <!-- User Avatar -->
+        <div class="flex items-center justify-center p-2">
+          <div class="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-500 text-white font-semibold text-sm" :title="username">
+            {{ initials }}
+          </div>
+        </div>
+        
+        <!-- Logout Button -->
+        <button
+          @click="handleLogout"
+          class="flex items-center justify-center p-3 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-all duration-200"
+          title="Logout"
+        >
+          <i class="pi pi-sign-out text-xl"></i>
         </button>
       </div>
     </div>
 
-    <!-- Sidebar Overlay -->
+    <!-- Mobile Hamburger Button (only visible on mobile) -->
+    <button
+      @click="sidebarOpen = true"
+      class="lg:hidden fixed top-4 left-4 z-40 p-3 rounded-xl bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+      aria-label="Open menu"
+    >
+      <i class="pi pi-bars text-xl text-gray-700 dark:text-gray-300"></i>
+    </button>
+
+    <!-- Mobile Sidebar Overlay (same as before, only shows on mobile) -->
     <div
       v-if="sidebarOpen"
-      class="fixed inset-0 bg-black/50 z-50 transition-opacity"
+      class="lg:hidden fixed inset-0 bg-black/50 z-50 transition-opacity"
       @click="sidebarOpen = false"
     ></div>
 
-    <!-- Sidebar -->
+    <!-- Mobile Sidebar (slide-out, only on mobile) -->
     <div
       :class="[
-        'fixed top-0 left-0 h-full w-80 bg-white dark:bg-gray-800 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col',
+        'lg:hidden fixed top-0 left-0 h-full w-80 bg-white dark:bg-gray-800 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       ]"
     >
@@ -74,7 +118,7 @@
         </router-link>
       </nav>
 
-      <!-- Sidebar Footer (User Info + Logout side by side) -->
+      <!-- Sidebar Footer (User Info + Logout) -->
       <div class="p-4 border-t border-gray-200 dark:border-gray-700">
         <div class="flex items-center gap-3">
           <!-- User Info -->
@@ -95,23 +139,29 @@
       </div>
     </div>
 
-    <!-- Toast Container -->
-    <Toast position="top-right" />
+    <!-- Main Content Area -->
+    <div :class="[
+      'flex-1 flex flex-col',
+      isHistoricalPage ? 'overflow-hidden' : 'overflow-y-auto'
+    ]">
+      <!-- Toast Container -->
+      <Toast position="top-right" />
 
-    <!-- Main -->
-    <main :class="mainClasses">
-      <router-view />
-    </main>
+      <!-- Main -->
+      <main :class="mainClasses">
+        <router-view />
+      </main>
 
-    <!-- Footer (hidden on historical messages page) -->
-    <footer v-if="!hideFooter" class="text-center text-sm text-gray-500 dark:text-gray-400 py-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-      <div class="flex items-center justify-center gap-2">
-        <i class="pi pi-inbox text-blue-600 dark:text-blue-400"></i>
-        <span class="font-medium">SMS Archive</span>
-        <span class="text-gray-400 dark:text-gray-500">©</span>
-        <span>{{ new Date().getFullYear() }}</span>
-      </div>
-    </footer>
+      <!-- Footer (hidden on historical messages page) -->
+      <footer v-if="!hideFooter" class="text-center text-sm text-gray-500 dark:text-gray-400 py-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <div class="flex items-center justify-center gap-2">
+          <i class="pi pi-inbox text-blue-600 dark:text-blue-400"></i>
+          <span class="font-medium">SMS Archive</span>
+          <span class="text-gray-400 dark:text-gray-500">©</span>
+          <span>{{ new Date().getFullYear() }}</span>
+        </div>
+      </footer>
+    </div>
   </div>
 </template>
 
@@ -126,6 +176,9 @@ const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
 const sidebarOpen = ref(false);
+
+const username = computed(() => auth.user?.username || 'Guest');
+const initials = computed(() => username.value.substring(0, 2).toUpperCase());
 
 const items = [
   { label: "Dashboard", icon: "pi pi-home", route: "/" },
