@@ -2,6 +2,7 @@ package com.joshfouchey.smsarchive.service;
 
 import com.joshfouchey.smsarchive.model.User;
 import com.joshfouchey.smsarchive.repository.UserRepository;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.env.Environment;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -19,6 +20,7 @@ public class CurrentUserProvider {
         this.environment = environment;
     }
 
+    @Cacheable(value = "currentUser", key = "T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName()")
     public User getCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         boolean testProfile = Arrays.asList(environment.getActiveProfiles()).contains("test");

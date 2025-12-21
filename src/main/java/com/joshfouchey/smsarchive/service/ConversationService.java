@@ -45,6 +45,7 @@ public class ConversationService {
     }
 
     @Transactional(readOnly = true)
+    @org.springframework.cache.annotation.Cacheable(value = "conversationList", key = "T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName()")
     public List<ConversationSummaryDto> getAllConversations() {
         var user = currentUserProvider.getCurrentUser();
         List<Conversation> conversations = conversationRepository.findAllByUserOrderByLastMessage(user);
@@ -159,6 +160,7 @@ public class ConversationService {
     }
 
     @Transactional(readOnly = true)
+    @org.springframework.cache.annotation.Cacheable(value = "conversationTimeline", key = "#conversationId")
     public ConversationTimelineDto getConversationTimeline(Long conversationId) {
         var user = currentUserProvider.getCurrentUser();
 
@@ -426,6 +428,7 @@ public class ConversationService {
     }
 
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "conversationList", allEntries = true)
     public ConversationSummaryDto renameConversation(Long conversationId, String newName) {
         var user = currentUserProvider.getCurrentUser();
         Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
@@ -437,6 +440,7 @@ public class ConversationService {
         return toSummaryDto(conversation);
     }
 
+    @org.springframework.cache.annotation.CacheEvict(value = {"conversationList", "conversationMessages", "conversationMessageCount", "conversationTimeline", "contactSummaries"}, allEntries = true)
     public void deleteConversationById(Long conversationId) {
         var user = currentUserProvider.getCurrentUser();
         Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)

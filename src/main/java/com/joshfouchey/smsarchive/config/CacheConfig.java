@@ -20,7 +20,11 @@ public class CacheConfig {
                 "distinctContacts",
                 "conversationMessages",      // Cache full conversation message lists
                 "conversationMessageCount",   // Cache message counts
-                "messageContext"             // Cache message context for search navigation
+                "messageContext",            // Cache message context for search navigation
+                "contactSummaries",          // Cache contact summaries list
+                "conversationList",          // Cache conversation list
+                "conversationTimeline",      // Cache conversation timeline buckets
+                "currentUser"                // Cache user lookups by username
         );
         mgr.setCaffeine(Caffeine.newBuilder()
                 .maximumSize(500)            // Increased to handle more context caching

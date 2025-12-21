@@ -278,7 +278,10 @@ async function fetchDashboard() {
       topLimit: 10,
       perDayDays: dayCount.value
     });
-    lastRefreshed.value = new Date().toLocaleString();
+    // Use server-provided timestamp instead of client time
+    if (dashboard.value?.generatedAt) {
+      lastRefreshed.value = new Date(dashboard.value.generatedAt).toLocaleString();
+    }
   } catch (e: any) {
     error.value = e.message || 'Failed to load dashboard';
   } finally {

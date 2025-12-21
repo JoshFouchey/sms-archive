@@ -138,7 +138,7 @@ public class ImportService {
     private String nullIfBlank(String s) { return StringUtils.isBlank(s) ? null : s; }
 
     // ===== Streaming Import (Large XML) =====
-    @CacheEvict(value = "analyticsDashboard", allEntries = true)
+    @CacheEvict(value = {"analyticsDashboard", "contactSummaries", "conversationList", "distinctContacts", "conversationTimeline"}, allEntries = true)
     public UUID startImportAsync(Path xmlPath) throws Exception {
         ensureMediaHelper();
         UUID jobId = UUID.randomUUID();
@@ -171,7 +171,7 @@ public class ImportService {
      * Start import for a specific user by username (used by ImportDirectoryWatcher).
      * This method does not require an authenticated security context.
      */
-    @CacheEvict(value = "analyticsDashboard", allEntries = true)
+    @CacheEvict(value = {"analyticsDashboard", "contactSummaries", "conversationList", "distinctContacts", "conversationTimeline"}, allEntries = true)
     public UUID startImportAsyncForUser(Path xmlPath, String username) throws Exception {
         ensureMediaHelper();
 

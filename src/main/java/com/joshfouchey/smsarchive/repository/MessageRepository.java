@@ -23,40 +23,35 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
 
     List<Message> findByTimestampBetween(Instant start, Instant end);
 
-    @Query("""
-SELECT new com.joshfouchey.smsarchive.dto.ContactSummaryDto(
-    c.id,
-    COALESCE(c.name, c.number),
-    MAX(m.timestamp),
-    MAX(
-        CASE WHEN m.timestamp = (
-            SELECT MAX(m2.timestamp) 
-            FROM Message m2 
-            JOIN m2.conversation conv 
-            JOIN conv.participants p 
-            WHERE p.id = c.id AND m2.user = :user
-        ) THEN SUBSTRING(COALESCE(m.body, ''), 1, 200) ELSE NULL END
-    ),
-    CASE WHEN MAX(
-        CASE WHEN m.timestamp = (
-            SELECT MAX(m3.timestamp) 
-            FROM Message m3 
-            JOIN m3.conversation conv2 
-            JOIN conv2.participants p2 
-            WHERE p2.id = c.id AND m3.user = :user
-        ) AND EXISTS (
-            SELECT 1 FROM MessagePart p WHERE p.message = m AND p.contentType LIKE 'image/%'
-        ) THEN 1 ELSE 0 END
-    ) = 1 THEN true ELSE false END
+    @Query(value = """
+WITH latest_messages AS (
+    SELECT DISTINCT ON (c.id)
+        c.id AS contact_id,
+        COALESCE(c.name, c.number) AS contact_name,
+        m.timestamp AS last_message_timestamp,
+        SUBSTRING(COALESCE(m.body, ''), 1, 200) AS last_message_preview,
+        EXISTS (
+            SELECT 1 FROM message_parts mp 
+            WHERE mp.message_id = m.id 
+            AND mp.ct LIKE 'image/%'
+        ) AS has_image
+    FROM messages m
+    JOIN conversations conv ON m.conversation_id = conv.id
+    JOIN conversation_contacts cc ON conv.id = cc.conversation_id
+    JOIN contacts c ON cc.contact_id = c.id
+    WHERE m.user_id = :userId
+    ORDER BY c.id, m.timestamp DESC
 )
-FROM Message m 
-JOIN m.conversation conv 
-JOIN conv.participants c
-WHERE m.user = :user
-GROUP BY c.id, c.name
-ORDER BY MAX(m.timestamp) DESC
-""")
-    List<ContactSummaryDto> findAllContactSummaries(@Param("user") com.joshfouchey.smsarchive.model.User user);
+SELECT 
+    contact_id AS contactId,
+    contact_name AS contactName,
+    last_message_timestamp AS lastMessageTimestamp,
+    last_message_preview AS lastMessagePreview,
+    has_image AS hasImage
+FROM latest_messages
+ORDER BY last_message_timestamp DESC
+""", nativeQuery = true)
+    List<ContactSummaryProjection> findAllContactSummaries(@Param("userId") UUID userId);
 
     @Query("""
 SELECT new com.joshfouchey.smsarchive.dto.TopContactDto(
@@ -196,5 +191,13 @@ ORDER BY year, month
         Long getLast_message_id();
         java.sql.Timestamp getFirst_timestamp();
         java.sql.Timestamp getLast_timestamp();
+    }
+
+    interface ContactSummaryProjection {
+        Long getContactId();
+        String getContactName();
+        java.sql.Timestamp getLastMessageTimestamp();
+        String getLastMessagePreview();
+        boolean getHasImage();
     }
 }

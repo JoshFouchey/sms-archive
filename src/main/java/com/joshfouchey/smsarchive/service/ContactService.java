@@ -38,6 +38,7 @@ public class ContactService {
     }
 
     @Transactional(readOnly = true)
+    @org.springframework.cache.annotation.Cacheable(value = "distinctContacts", key = "T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName()")
     public List<ContactDto> getAllDistinctContacts() {
         var user = currentUserProvider.getCurrentUser();
         return contactRepository.findAllByUser(user).stream()
@@ -50,6 +51,7 @@ public class ContactService {
     }
 
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = {"distinctContacts", "contactSummaries"}, allEntries = true)
     public ContactDto updateContactName(Long contactId, String name) {
         var user = currentUserProvider.getCurrentUser();
         var contact = contactRepository.findById(contactId).orElseThrow(java.util.NoSuchElementException::new);
@@ -68,6 +70,7 @@ public class ContactService {
     }
 
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = {"distinctContacts", "contactSummaries", "conversationList", "conversationMessages", "conversationMessageCount", "conversationTimeline"}, allEntries = true)
     public ContactMergeResultDto mergeContacts(Long primaryContactId, Long mergeFromContactId) {
         var user = currentUserProvider.getCurrentUser();
 

@@ -85,12 +85,16 @@ public class AnalyticsService {
         return rows.stream().map(r -> new MessageCountPerDayDto(((java.sql.Date) r[0]).toLocalDate(), ((Number) r[1]).longValue())).collect(Collectors.toList());
     }
 
+    @org.springframework.cache.annotation.Cacheable(
+        value = "analyticsDashboard",
+        key = "T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName() + '_' + #startDate + '_' + #endDate + '_' + (#contactId ?: 'all')"
+    )
     public AnalyticsDashboardDto getDashboard(int topContactDays, int topLimit, int perDayDays, LocalDate startDate, LocalDate endDate, Long contactId) {
         LocalDate derivedEnd = endDate != null ? endDate : LocalDate.now();
         LocalDate derivedStart = startDate != null ? startDate : derivedEnd.minusDays(Math.max(perDayDays, 1) - 1);
         AnalyticsSummaryDto summary = getSummary();
         List<TopContactDto> top = getTopContacts(0, topLimit);
         List<MessageCountPerDayDto> perDay = getMessagesPerDayRange(derivedStart, derivedEnd, contactId);
-        return new AnalyticsDashboardDto(summary, top, perDay);
+        return new AnalyticsDashboardDto(summary, top, perDay, Instant.now());
     }
 }

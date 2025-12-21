@@ -24,9 +24,18 @@ public class MessageService {
         this.currentUserProvider = currentUserProvider;
     }
 
+    @org.springframework.cache.annotation.Cacheable(value = "contactSummaries", key = "T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName()")
     public List<ContactSummaryDto> getAllContactSummaries() {
         var user = currentUserProvider.getCurrentUser();
-        return messageRepository.findAllContactSummaries(user);
+        return messageRepository.findAllContactSummaries(user.getId()).stream()
+                .map(p -> new ContactSummaryDto(
+                        p.getContactId(),
+                        p.getContactName(),
+                        p.getLastMessageTimestamp().toInstant(),
+                        p.getLastMessagePreview(),
+                        p.getHasImage()
+                ))
+                .toList();
     }
 
     @Transactional(readOnly = true)

@@ -103,6 +103,7 @@ export interface AnalyticsDashboardDto {
     summary: AnalyticsSummary;
     topContacts: TopContactDto[];
     messagesPerDay: MessageCountPerDayDto[];
+    generatedAt?: string;
 }
 
 export interface Contact {
