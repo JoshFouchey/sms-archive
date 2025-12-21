@@ -315,36 +315,6 @@ export async function mergeContacts(primaryId: number, mergeFromId: number): Pro
 }
 
 /* ==============================
-   Duplicate Cleanup
-============================== */
-
-export interface DuplicatePreview {
-    duplicateGroups: number;
-    totalDuplicates: number;
-    totalMessages: number;
-    sampleGroups?: Array<{
-        count: number;
-        ids: number[];
-        body: string;
-        timestamp: string;
-    }>;
-}
-
-export async function previewDuplicates(): Promise<DuplicatePreview> {
-    const res = await axios.get(`${API_BASE}/api/admin/cleanup/duplicates/preview`);
-    return res.data;
-}
-
-export async function removeDuplicates(): Promise<{
-    totalGroups: number;
-    totalDeleted: number;
-    totalKept: number;
-}> {
-    const res = await axios.delete(`${API_BASE}/api/admin/cleanup/duplicates`);
-    return res.data;
-}
-
-/* ==============================
    Message Context
 ============================== */
 

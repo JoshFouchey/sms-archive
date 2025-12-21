@@ -107,10 +107,10 @@ public class ConversationService {
         Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
                 .orElseThrow(() -> new RuntimeException("Conversation not found"));
 
-        // Search for matches
-        List<Message> matches = messageRepository.searchWithinConversation(conversationId, query, user);
+        // Search for matches using full-text search
+        List<Message> matches = messageRepository.searchWithinConversation(conversationId, query, user.getId());
 
-        // Sort by timestamp descending (most recent first)
+        // Sort by timestamp descending (most recent first) - already sorted by query but defensive
         matches.sort((a, b) -> b.getTimestamp().compareTo(a.getTimestamp()));
 
         // Return message IDs for navigation
@@ -133,11 +133,9 @@ public class ConversationService {
         Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
                 .orElseThrow(() -> new RuntimeException("Conversation not found"));
 
-        // Load all messages sorted by timestamp ascending (oldest first)
-        List<Message> messages = messageRepository.findAllByConversationIdAndUser(conversationId, user);
-
-        // Sort by timestamp ascending
-        messages.sort((a, b) -> a.getTimestamp().compareTo(b.getTimestamp()));
+        // Load messages with safety limit of 50,000 (sorted by timestamp ascending)
+        Pageable limit = PageRequest.of(0, 50000, Sort.by("timestamp").ascending());
+        List<Message> messages = messageRepository.findAllByConversationIdAndUser(conversationId, user, limit);
 
         return messages.stream()
                 .map(MessageMapper::toLightDto)
@@ -445,8 +443,9 @@ public class ConversationService {
         var user = currentUserProvider.getCurrentUser();
         Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
                 .orElseThrow(() -> new RuntimeException("Conversation not found"));
-        // Fetch messages for this conversation
-        List<Message> messages = messageRepository.findAllByConversationIdAndUser(conversationId, user);
+        // Fetch messages for this conversation (with safety limit, though delete should handle all)
+        Pageable unpaged = Pageable.unpaged();
+        List<Message> messages = messageRepository.findAllByConversationIdAndUser(conversationId, user, unpaged);
         // Delete messages (parts cascade via orphanRemoval)
         if (!messages.isEmpty()) {
             messageRepository.deleteAll(messages);

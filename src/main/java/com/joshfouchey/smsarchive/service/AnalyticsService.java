@@ -38,7 +38,7 @@ public class AnalyticsService {
 
     public AnalyticsSummaryDto getSummary() {
         User user = currentUserProvider.getCurrentUser();
-        long totalContacts = contactRepository.findAllByUser(user).size();
+        long totalContacts = contactRepository.countByUser(user);
         long totalMessages = messageRepository.countByUser(user);
         long totalImages = messagePartRepository.countImageParts(user);
         return new AnalyticsSummaryDto(totalContacts, totalMessages, totalImages);
@@ -62,7 +62,7 @@ public class AnalyticsService {
 
     public long getTotalContacts() {
         User user = currentUserProvider.getCurrentUser();
-        return contactRepository.findAllByUser(user).size();
+        return contactRepository.countByUser(user);
     }
 
     public List<MessageCountPerDayDto> getMessagesPerDayRange(LocalDate startDate, LocalDate endDate, Long contactId) {

@@ -37,15 +37,16 @@ public class SearchController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
         
+        var user = currentUserProvider.getCurrentUser();
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "timestamp"));
         Page<Message> results;
         
         if (contactId != null) {
             // Search with contact filter
-            results = repo.searchByTextAndContactUser(text, contactId, currentUserProvider.getCurrentUser(), pageable);
+            results = repo.searchByTextAndContactUser(text, contactId, user.getId(), pageable);
         } else {
             // Search all messages
-            results = repo.searchByTextUserPaginated(text, currentUserProvider.getCurrentUser(), pageable);
+            results = repo.searchByTextUserPaginated(text, user.getId(), pageable);
         }
         
         return new PagedResponse<>(

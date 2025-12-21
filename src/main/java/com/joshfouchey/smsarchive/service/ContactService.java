@@ -10,10 +10,12 @@ import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.ConversationRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -94,25 +96,21 @@ public class ContactService {
         int messagesTransferred = 0;
         int duplicatesSkipped = 0;
         Set<Long> processedConversations = new HashSet<>();
+        List<Message> messagesToUpdate = new ArrayList<>();
 
         // Process each conversation
         for (Conversation oldConv : oldConversations) {
             // Check if primary contact already has a conversation with the same participants
             // For now, we'll merge messages into the primary contact's conversations
-            List<Message> messages = messageRepository.findAllByConversationIdAndUser(oldConv.getId(), user);
+            Pageable unpaged = Pageable.unpaged();
+            List<Message> messages = messageRepository.findAllByConversationIdAndUser(oldConv.getId(), user, unpaged);
 
             for (Message message : messages) {
-                try {
-                    // Update sender contact if it's the old contact
-                    if (message.getSenderContact() != null &&
-                        message.getSenderContact().getId().equals(mergeFromContactId)) {
-                        message.setSenderContact(primaryContact);
-                    }
-                    messageRepository.save(message);
-                    messagesTransferred++;
-                } catch (DataIntegrityViolationException e) {
-                    // Duplicate message detected by unique constraint
-                    duplicatesSkipped++;
+                // Update sender contact if it's the old contact
+                if (message.getSenderContact() != null &&
+                    message.getSenderContact().getId().equals(mergeFromContactId)) {
+                    message.setSenderContact(primaryContact);
+                    messagesToUpdate.add(message);
                 }
             }
 
@@ -121,6 +119,25 @@ public class ContactService {
                 oldConv.getParticipants().add(primaryContact);
                 conversationRepository.save(oldConv);
                 processedConversations.add(oldConv.getId());
+            }
+        }
+
+        // Batch save all message updates
+        if (!messagesToUpdate.isEmpty()) {
+            try {
+                messageRepository.saveAll(messagesToUpdate);
+                messageRepository.flush();
+                messagesTransferred = messagesToUpdate.size();
+            } catch (DataIntegrityViolationException e) {
+                // If batch fails, fall back to individual saves to count duplicates
+                for (Message message : messagesToUpdate) {
+                    try {
+                        messageRepository.save(message);
+                        messagesTransferred++;
+                    } catch (DataIntegrityViolationException ex) {
+                        duplicatesSkipped++;
+                    }
+                }
             }
         }
 

@@ -18,9 +18,6 @@ import java.util.UUID;
 
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
-    @Query("select m from Message m where lower(m.body) like lower(concat('%', :text, '%'))")
-    List<Message> searchByText(@Param("text") String text);
-
     List<Message> findByTimestampBetween(Instant start, Instant end);
 
     @Query(value = """
@@ -82,20 +79,60 @@ ORDER BY day_ts
     @Query("select m from Message m join m.conversation conv join conv.participants c where c.id = :contactId and m.user = :user")
     Page<Message> findByContactIdAndUser(@Param("contactId") Long contactId, @Param("user") com.joshfouchey.smsarchive.model.User user, Pageable pageable);
 
-    @Query("select m from Message m where m.user = :user and lower(m.body) like lower(concat('%', :text, '%'))")
-    List<Message> searchByTextUser(@Param("text") String text, @Param("user") com.joshfouchey.smsarchive.model.User user);
+    // Full-text search using PostgreSQL GIN index
+    @Query(value = """
+        SELECT m.* FROM messages m 
+        WHERE m.user_id = :userId 
+        AND to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
+        ORDER BY m.timestamp DESC
+        """, nativeQuery = true)
+    List<Message> searchByTextUser(@Param("text") String text, @Param("userId") UUID userId);
 
     // Paginated full-text search
-    @Query("select m from Message m where m.user = :user and lower(m.body) like lower(concat('%', :text, '%'))")
-    Page<Message> searchByTextUserPaginated(@Param("text") String text, @Param("user") com.joshfouchey.smsarchive.model.User user, Pageable pageable);
+    @Query(value = """
+        SELECT m.* FROM messages m 
+        WHERE m.user_id = :userId 
+        AND to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
+        ORDER BY m.timestamp DESC
+        """, 
+        countQuery = """
+        SELECT COUNT(*) FROM messages m 
+        WHERE m.user_id = :userId 
+        AND to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
+        """,
+        nativeQuery = true)
+    Page<Message> searchByTextUserPaginated(@Param("text") String text, @Param("userId") UUID userId, Pageable pageable);
 
     // Paginated full-text search with contact filter
-    @Query("select m from Message m join m.conversation conv join conv.participants c where m.user = :user and c.id = :contactId and lower(m.body) like lower(concat('%', :text, '%'))")
-    Page<Message> searchByTextAndContactUser(@Param("text") String text, @Param("contactId") Long contactId, @Param("user") com.joshfouchey.smsarchive.model.User user, Pageable pageable);
+    @Query(value = """
+        SELECT m.* FROM messages m
+        JOIN conversations conv ON m.conversation_id = conv.id
+        JOIN conversation_contacts cc ON conv.id = cc.conversation_id
+        WHERE m.user_id = :userId 
+        AND cc.contact_id = :contactId
+        AND to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
+        ORDER BY m.timestamp DESC
+        """,
+        countQuery = """
+        SELECT COUNT(*) FROM messages m
+        JOIN conversations conv ON m.conversation_id = conv.id
+        JOIN conversation_contacts cc ON conv.id = cc.conversation_id
+        WHERE m.user_id = :userId 
+        AND cc.contact_id = :contactId
+        AND to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
+        """,
+        nativeQuery = true)
+    Page<Message> searchByTextAndContactUser(@Param("text") String text, @Param("contactId") Long contactId, @Param("userId") UUID userId, Pageable pageable);
 
     // Search within a specific conversation
-    @Query("select m from Message m where m.user = :user and m.conversation.id = :conversationId and lower(m.body) like lower(concat('%', :text, '%'))")
-    List<Message> searchWithinConversation(@Param("conversationId") Long conversationId, @Param("text") String text, @Param("user") com.joshfouchey.smsarchive.model.User user);
+    @Query(value = """
+        SELECT m.* FROM messages m 
+        WHERE m.user_id = :userId 
+        AND m.conversation_id = :conversationId
+        AND to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
+        ORDER BY m.timestamp DESC
+        """, nativeQuery = true)
+    List<Message> searchWithinConversation(@Param("conversationId") Long conversationId, @Param("text") String text, @Param("userId") UUID userId);
 
     @Query("select m from Message m where m.user = :user and m.timestamp between :start and :end")
     List<Message> findByTimestampBetweenUser(@Param("start") Instant start, @Param("end") Instant end, @Param("user") com.joshfouchey.smsarchive.model.User user);
@@ -113,9 +150,10 @@ ORDER BY day_ts
     Message findLastMessageByConversation(@Param("conversationId") Long conversationId,
                                           @Param("user") com.joshfouchey.smsarchive.model.User user);
 
-    @Query("select m from Message m where m.conversation.id = :conversationId and m.user = :user")
+    @Query("select m from Message m where m.conversation.id = :conversationId and m.user = :user order by m.timestamp asc")
     List<Message> findAllByConversationIdAndUser(@Param("conversationId") Long conversationId,
-                                                 @Param("user") com.joshfouchey.smsarchive.model.User user);
+                                                 @Param("user") com.joshfouchey.smsarchive.model.User user,
+                                                 Pageable pageable);
 
     @Query("select count(m) from Message m where m.conversation.id = :conversationId and m.user = :user")
     Long countByConversationIdAndUser(@Param("conversationId") Long conversationId,
