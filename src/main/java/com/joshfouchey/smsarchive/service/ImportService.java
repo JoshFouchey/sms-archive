@@ -577,16 +577,21 @@ public class ImportService {
         if (number == null || number.isBlank()) {
             return UNKNOWN_NORMALIZED;
         }
+        // Strip all non-digits first
         String digits = number.replaceAll("\\D", "");
         if (digits.isEmpty()) return UNKNOWN_NORMALIZED;
+        
         // NANP canonicalization: always 11 digits with leading 1
         if (digits.length() == 10) {
-            return "1" + digits; // add leading country code
+            digits = "1" + digits;
+        } else if (digits.length() == 11 && digits.startsWith("1")) {
+            // already canonical
+        } else {
+            // Keep as-is for non-NANP
         }
-        if (digits.length() == 11 && digits.startsWith("1")) {
-            return digits; // already canonical
-        }
-        return digits; // fallback for non-NANP or other lengths
+        
+        // IMPORTANT: Add + prefix to match database standard (E.164 format)
+        return "+" + digits;
     }
 
     @VisibleForTesting

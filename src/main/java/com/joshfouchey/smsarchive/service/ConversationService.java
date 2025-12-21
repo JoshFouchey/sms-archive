@@ -364,8 +364,8 @@ public class ConversationService {
             Contact c = new Contact();
             c.setUser(user);
             c.setNormalizedNumber(safeNormalized);
-            // Format for display: add + prefix for international format (E.164)
-            String displayNumber = safeNormalized.equals("__unknown__") ? safeNormalized : "+" + safeNormalized;
+            // safeNormalized already has + prefix, use directly for display
+            String displayNumber = safeNormalized.equals("__unknown__") ? safeNormalized : safeNormalized;
             c.setNumber(displayNumber);
             c.setName(suggestedName != null && !suggestedName.isBlank() ? suggestedName : null);
             return contactRepository.save(c);
@@ -380,18 +380,21 @@ public class ConversationService {
         if (number == null || number.isBlank()) {
             return "__unknown__";
         }
-        // Strip all non-digits
+        // Strip all non-digits first
         String digits = number.replaceAll("\\D", "");
         if (digits.isEmpty()) return "__unknown__";
         
         // NANP canonicalization: always 11 digits with leading 1
         if (digits.length() == 10) {
-            return "1" + digits;
+            digits = "1" + digits;
+        } else if (digits.length() == 11 && digits.startsWith("1")) {
+            // already canonical
+        } else {
+            // Keep as-is for non-NANP
         }
-        if (digits.length() == 11 && digits.startsWith("1")) {
-            return digits;
-        }
-        return digits;
+        
+        // IMPORTANT: Add + prefix to match database standard (E.164 format)
+        return "+" + digits;
     }
 
     @Transactional
