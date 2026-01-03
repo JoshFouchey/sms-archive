@@ -17,6 +17,8 @@ public record MessageDto(
         String contactName,                // Primary contact (conversation counterparty)
         String contactNumber,
         String contactNormalizedNumber,
+        String conversationName,           // Conversation display name (for group chats)
+        Integer conversationParticipantCount, // Number of participants in conversation
         Instant timestamp,
         String body,
         Integer msgBox,

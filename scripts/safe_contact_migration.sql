@@ -1,4 +1,4 @@
--- ==========================================
+Here-- ==========================================
 -- SAFE Contact Normalization Migration
 -- Handles duplicates by merging before updating
 -- ==========================================

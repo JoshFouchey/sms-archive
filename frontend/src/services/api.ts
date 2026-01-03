@@ -31,6 +31,8 @@ export interface Message {
     contactName?: string;
     contactNumber?: string;
     contactNormalizedNumber?: string;
+    conversationName?: string;
+    conversationParticipantCount?: number;
     timestamp: string;
     body?: string;
     msgBox?: number;

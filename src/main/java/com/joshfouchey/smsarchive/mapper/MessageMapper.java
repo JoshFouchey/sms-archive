@@ -21,6 +21,16 @@ public final class MessageMapper {
             c = msg.getConversation().getParticipants().iterator().next();
         }
 
+        // Get conversation info
+        String conversationName = null;
+        Integer participantCount = null;
+        if (msg.getConversation() != null) {
+            conversationName = msg.getConversation().getName();
+            participantCount = msg.getConversation().getParticipants() != null 
+                ? msg.getConversation().getParticipants().size() 
+                : 0;
+        }
+
         Contact sender = msg.getSenderContact();
         List<MessagePartDto> parts = msg.getParts() == null ? List.of() : msg.getParts().stream()
                 .map(p -> toPartDto(msg, p))
@@ -35,6 +45,8 @@ public final class MessageMapper {
                 c != null ? c.getName() : null,
                 c != null ? c.getNumber() : null,
                 c != null ? c.getNormalizedNumber() : null,
+                conversationName,
+                participantCount,
                 msg.getTimestamp(),
                 msg.getBody(),
                 msg.getMsgBox(),

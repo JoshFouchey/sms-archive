@@ -121,11 +121,11 @@
         <!-- Header row: Avatar, Contact name and timestamp -->
         <div class="flex items-start gap-3 mb-4">
           <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-white text-lg font-bold shrink-0 shadow-md">
-            {{ (m.contactName || m.contactNumber || 'U').charAt(0).toUpperCase() }}
+            {{ (m.conversationName || m.contactName || m.contactNumber || 'U').charAt(0).toUpperCase() }}
           </div>
           <div class="flex-1 min-w-0">
             <h3 class="font-bold text-lg text-gray-900 dark:text-gray-100 truncate">
-              {{ m.contactName || m.contactNumber || 'Unknown' }}
+              {{ m.conversationName || m.contactName || m.contactNumber || 'Unknown' }}
             </h3>
             <div class="flex items-center gap-2 mt-1">
               <span
@@ -202,59 +202,34 @@
             <!-- Before messages (older than center) -->
             <div v-if="contextData.before.length" class="space-y-2">
               <div class="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Earlier</div>
-              <div v-for="b in beforeChrono" :key="b.id" class="flex flex-col items-start">
-                <div
-                  :class="[
-                    'relative max-w-[90%] rounded-2xl px-4 py-2.5 shadow-md text-sm leading-relaxed space-y-1 transition-all',
-                    b.direction === 'OUTBOUND'
-                      ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white'
-                      : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-700'
-                  ]"
-                >
-                  <div v-if="b.body">{{ b.body }}</div>
-                </div>
-                <span class="mt-1.5 text-[10px] tracking-wide uppercase px-1" :class="b.direction === 'OUTBOUND' ? 'text-blue-600 dark:text-blue-400 self-end' : 'text-gray-400 dark:text-gray-500'">
-                  {{ formatDateTime(b.timestamp) }}
-                </span>
-              </div>
+              <MessageBubble
+                v-for="b in beforeChrono"
+                :key="b.id"
+                :message="b"
+                :is-group-chat="isGroupChat(b)"
+                :participant-color-map="participantColorMap"
+              />
             </div>
 
             <!-- Center message (highlight) -->
-            <div class="flex flex-col items-start">
-              <div
-                :class="[
-                  'relative max-w-[92%] rounded-2xl px-4 py-2.5 shadow-md text-sm leading-relaxed space-y-1 transition-all border-2',
-                  contextData.center.direction === 'OUTBOUND'
-                    ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white border-blue-300'
-                    : 'bg-blue-50 dark:bg-blue-900/20 text-gray-900 dark:text-gray-100 border-blue-300'
-                ]"
-              >
-                <div class="flex items-center gap-2 text-xs">
-                  <span class="text-blue-700 dark:text-blue-300 font-semibold">Search hit</span>
-                  <span class="flex items-center gap-1 text-blue-700 dark:text-blue-300"><i class="pi pi-clock text-[10px]"></i>{{ formatDateTime(contextData.center.timestamp) }}</span>
-                </div>
-                <div v-if="contextData.center.body" class="mt-1">{{ contextData.center.body }}</div>
-              </div>
-            </div>
+            <MessageBubble
+              v-if="contextData.center"
+              :message="contextData.center"
+              :is-group-chat="isGroupChat(contextData.center)"
+              :participant-color-map="participantColorMap"
+              highlight-class="ring-4 ring-yellow-400 dark:ring-yellow-500 shadow-2xl scale-[1.02]"
+            />
 
             <!-- After messages (newer than center) -->
             <div v-if="contextData.after.length" class="space-y-2">
               <div class="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Later</div>
-              <div v-for="a in contextData.after" :key="a.id" class="flex flex-col items-start">
-                <div
-                  :class="[
-                    'relative max-w-[90%] rounded-2xl px-4 py-2.5 shadow-md text-sm leading-relaxed space-y-1 transition-all',
-                    a.direction === 'OUTBOUND'
-                      ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white'
-                      : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-700'
-                  ]"
-                >
-                  <div v-if="a.body">{{ a.body }}</div>
-                </div>
-                <span class="mt-1.5 text-[10px] tracking-wide uppercase px-1" :class="a.direction === 'OUTBOUND' ? 'text-blue-600 dark:text-blue-400 self-end' : 'text-gray-400 dark:text-gray-500'">
-                  {{ formatDateTime(a.timestamp) }}
-                </span>
-              </div>
+              <MessageBubble
+                v-for="a in contextData.after"
+                :key="a.id"
+                :message="a"
+                :is-group-chat="isGroupChat(a)"
+                :participant-color-map="participantColorMap"
+              />
             </div>
           </div>
         </div>
@@ -287,6 +262,7 @@ import {
   type Message,
   type MessageContext,
 } from '../services/api';
+import MessageBubble from '../components/MessageBubble.vue';
 
 const searchText = ref('');
 
@@ -303,6 +279,14 @@ const contextOpen = ref(false);
 const contextLoading = ref(false);
 const contextError = ref<string | null>(null);
 const contextData = ref<MessageContext | null>(null);
+
+// Participant colors for group chats
+const participantColorMap = ref(new Map<string, string>());
+
+// Check if message is part of a group conversation
+function isGroupChat(msg: Message): boolean {
+  return (msg.conversationParticipantCount ?? 0) >= 2;
+}
 
 async function performSearch() {
   touched.value = true;
@@ -378,6 +362,7 @@ async function openContext(m: Message) {
   contextLoading.value = true;
   contextError.value = null;
   contextData.value = null;
+  participantColorMap.value.clear(); // Clear color assignments for new context
   try {
     contextData.value = await getMessageContext(m.id, 25, 25);
   } catch (e: any) {

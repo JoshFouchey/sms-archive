@@ -314,90 +314,17 @@
 
         <!-- Search Results -->
         <div v-else-if="searchContextMessages.length" class="max-w-4xl mx-auto space-y-3">
-          <div
+          <MessageBubble
             v-for="msg in searchContextMessages"
             :key="msg.id"
-            :data-message-id="msg.id"
-            class="flex scroll-mt-24"
-            :class="msg.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'"
-            v-show="!isReactionMessage(msg)"
-          >
-            <div class="max-w-[85%]">
-              <div
-                class="relative"
-                :class="[
-                  'rounded-2xl shadow-md text-sm leading-relaxed transition-all duration-300',
-                  msg.direction === 'OUTBOUND'
-                    ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white'
-                    : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-700',
-                  isCurrentMatch(msg.id) ? 'ring-4 ring-yellow-400 dark:ring-yellow-500 shadow-2xl scale-[1.02]' : '',
-                ]"
-              >
-                <!-- Sender name header for group messages -->
-                <div
-                  v-if="msg.direction === 'INBOUND' && selectedConversation?.participantCount && selectedConversation.participantCount >= 2 && (msg.senderContactName || msg.senderContactNumber)"
-                  class="px-4 pt-2.5 pb-1.5 border-b border-gray-200 dark:border-slate-600"
-                >
-                  <div class="flex items-center gap-2">
-                    <span 
-                      class="w-2 h-2 rounded-full flex-shrink-0"
-                      :class="getParticipantColor(msg.senderContactId)"
-                    ></span>
-                    <span class="font-semibold text-xs text-gray-700 dark:text-gray-300">{{ msg.senderContactName || msg.senderContactNumber || 'Unknown' }}</span>
-                  </div>
-                </div>
-
-                <!-- Message content -->
-                <div class="px-4 py-2.5">
-                  <div v-if="msg.body && msg.body !== '[media]'" class="whitespace-pre-wrap break-words">{{ msg.body }}</div>
-
-                  <!-- Image thumbnails -->
-                  <div v-if="getImageParts(msg).length" class="flex flex-wrap gap-2 mt-2">
-                    <div
-                      v-for="img in getImageParts(msg)"
-                      :key="img.id"
-                      class="relative group cursor-pointer overflow-hidden rounded-xl bg-black/10 dark:bg-black/30 transition-all hover:scale-105"
-                      :class="img.isSingle ? 'w-48 h-48' : 'w-32 h-32'"
-                      @click="openImage(img.globalIndex)"
-                      role="button"
-                      tabindex="0"
-                      aria-label="Open full size image"
-                    >
-                      <img
-                        :src="img.thumbUrl"
-                        :alt="img.contentType || 'attachment'"
-                        class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110"
-                        loading="lazy"
-                        @error="handleImageError"
-                      />
-                    </div>
-                  </div>
-
-                  <div 
-                    class="text-[10px] mt-1 opacity-75"
-                    :class="getGroupedReactions(msg.id).length ? 'mr-16' : ''"
-                  >{{ formatTime(msg.timestamp) }}</div>
-                </div>
-
-                <!-- Reactions overlay -->
-                <ul
-                  v-if="getGroupedReactions(msg.id).length"
-                  class="absolute -bottom-2 right-2 flex gap-1"
-                  :aria-label="'Reactions for message ' + msg.id"
-                >
-                  <li
-                    v-for="(r, idx) in getGroupedReactions(msg.id)"
-                    :key="idx"
-                    class="bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-full px-2.5 py-1 text-xs shadow-md flex items-center gap-1"
-                    :title="r.tooltip"
-                  >
-                    <span>{{ r.emoji }}</span>
-                    <span v-if="r.count > 1" class="text-[10px] font-bold">{{ r.count }}</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
+            :message="msg"
+            :is-group-chat="isGroupConversation"
+            :participant-color-map="participantColorMap"
+            :reaction-index="reactionIndex"
+            :highlight-class="isCurrentMatch(msg.id) ? 'ring-4 ring-yellow-400 dark:ring-yellow-500 shadow-2xl scale-[1.02]' : ''"
+            class="scroll-mt-24"
+            @image-click="openImage"
+          />
 
           <!-- Navigation Controls -->
           <div class="sticky bottom-4 flex justify-center gap-3 mt-6">
@@ -466,92 +393,17 @@
             </div>
           </div>
 
-          <div
+          <MessageBubble
             v-for="msg in messages"
             :key="msg.id"
-            :data-message-id="msg.id"
-            class="flex"
-            :class="msg.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'"
-            v-show="!isReactionMessage(msg)"
-          >
-            <div class="max-w-[85%]">
-              <div
-                class="relative"
-                :class="[
-                  'rounded-2xl shadow-md text-sm leading-relaxed transition-all duration-300',
-                  msg.direction === 'OUTBOUND'
-                    ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white'
-                    : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-700',
-                  isCurrentMatch(msg.id) ? 'ring-4 ring-amber-400 dark:ring-amber-500 shadow-2xl scale-[1.03]' : '',
-                  isMatch(msg.id) && !isCurrentMatch(msg.id) ? (msg.direction === 'OUTBOUND' ? 'ring-2 ring-amber-300/50 dark:ring-amber-400/50' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800') : '',
-                  isSearchActive && !isMatch(msg.id) ? 'opacity-30' : ''
-                ]"
-              >
-                <!-- Sender name header for group messages (inside bubble) -->
-                <div
-                  v-if="msg.direction === 'INBOUND' && selectedConversation?.participantCount && selectedConversation.participantCount >= 2 && (msg.senderContactName || msg.senderContactNumber)"
-                  class="px-4 pt-2.5 pb-1.5 border-b border-gray-200 dark:border-slate-600"
-                >
-                  <div class="flex items-center gap-2">
-                    <span 
-                      class="w-2 h-2 rounded-full flex-shrink-0"
-                      :class="getParticipantColor(msg.senderContactId)"
-                    ></span>
-                    <span class="font-semibold text-xs text-gray-700 dark:text-gray-300">{{ msg.senderContactName || msg.senderContactNumber || 'Unknown' }}</span>
-                  </div>
-                </div>
-                
-                <!-- Message content -->
-                <div class="px-4 py-2.5">
-                  <div v-if="msg.body && msg.body !== '[media]'">{{ msg.body }}</div>
-
-                  <!-- Image thumbnails -->
-                  <div v-if="getImageParts(msg).length" class="flex flex-wrap gap-2 mt-2">
-                    <div
-                      v-for="img in getImageParts(msg)"
-                      :key="img.id"
-                      class="relative group cursor-pointer overflow-hidden rounded-xl bg-black/10 dark:bg-black/30 transition-all hover:scale-105"
-                      :class="img.isSingle ? 'w-48 h-48' : 'w-32 h-32'"
-                      @click="openImage(img.globalIndex)"
-                      role="button"
-                      tabindex="0"
-                      aria-label="Open full size image"
-                    >
-                      <img
-                        :src="img.thumbUrl"
-                        :alt="img.contentType || 'attachment'"
-                        class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110"
-                        loading="lazy"
-                        @error="handleImageError"
-                      />
-                    </div>
-                  </div>
-
-                  <div 
-                    class="text-[10px] mt-1 opacity-75"
-                    :class="getGroupedReactions(msg.id).length ? 'mr-16' : ''"
-                  >{{ formatTime(msg.timestamp) }}</div>
-                </div>
-                
-                <!-- Reactions overlay -->
-                <ul
-                  v-if="getGroupedReactions(msg.id).length"
-                  class="absolute -bottom-2 right-2 flex gap-1"
-                  :aria-label="'Reactions for message ' + msg.id"
-                >
-                  <li
-                    v-for="(r, idx) in getGroupedReactions(msg.id)"
-                    :key="idx"
-                    class="bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-full px-2.5 py-1 text-xs shadow-md flex items-center gap-1"
-                    :title="r.tooltip"
-                  >
-                    <span>{{ r.emoji }}</span>
-                    <span v-if="r.count > 1" class="text-[10px] font-bold">{{ r.count }}</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
+            :message="msg"
+            :is-group-chat="isGroupConversation"
+            :participant-color-map="participantColorMap"
+            :reaction-index="reactionIndex"
+            :highlight-class="getMessageHighlightClass(msg.id)"
+            :dimmed="isSearchActive && !isMatch(msg.id)"
+            @image-click="openImage"
+          />
         </div>
 
         <!-- No messages -->
@@ -622,6 +474,7 @@ import {
   type Message,
 } from '../services/api';
 import ImageViewer from '@/components/ImageViewer.vue';
+import MessageBubble from '@/components/MessageBubble.vue';
 import type { ViewerImage } from '@/components/ImageViewer.vue';
 
 const route = useRoute();
@@ -669,17 +522,6 @@ const showRenameDialog = ref(false);
 const conversationToRename = ref<ConversationSummary | null>(null);
 const newConversationName = ref('');
 const showActionsMenu = ref<number | null>(null); // Track which conversation's menu is open
-
-function formatTime(timestamp: string): string {
-  const d = new Date(timestamp);
-  return d.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 // Image handling functions (matching Messages.vue approach)
 interface ImagePart {
@@ -889,32 +731,6 @@ function rebuildReactionIndex() {
   }
 }
 
-function getGroupedReactions(messageId: number): { emoji: string; count: number; tooltip: string }[] {
-  const reactions = reactionIndex.value.get(messageId) || [];
-  if (!reactions.length) return [];
-  
-  const counts = new Map<string, { emoji: string; count: number; senders: string[] }>();
-  for (const r of reactions) {
-    const key = r.emoji;
-    if (!counts.has(key)) {
-      counts.set(key, { emoji: r.emoji, count: 0, senders: [] });
-    }
-    const entry = counts.get(key)!;
-    entry.count += 1;
-    if (r.senderName) entry.senders.push(r.senderName);
-  }
-  
-  return Array.from(counts.values()).map(e => ({
-    emoji: e.emoji,
-    count: e.count,
-    tooltip: e.senders.length ? `${e.emoji} by ${e.senders.join(', ')}` : `${e.emoji}`
-  }));
-}
-
-function isReactionMessage(msg: Message): boolean {
-  return !!parseReaction(msg);
-}
-
 // Check if a message matches the current search/filter criteria
 // Backend search now handles filtering - no need for client-side messageMatchesSearch function
 
@@ -942,48 +758,28 @@ const filteredConversations = computed(() => {
   });
 });
 
-// Color palette for group conversation participants
-const participantColors = [
-  'bg-blue-700 text-white',
-  'bg-green-700 text-white',
-  'bg-purple-700 text-white',
-  'bg-orange-700 text-white',
-  'bg-pink-700 text-white',
-  'bg-teal-700 text-white',
-  'bg-indigo-700 text-white',
-  'bg-rose-700 text-white',
-  'bg-amber-700 text-white',
-  'bg-cyan-700 text-white',
-];
-
 // Map to store participant -> color assignments for current conversation
 const participantColorMap = ref(new Map<string, string>());
 
-function getParticipantColor(senderContactId: number | undefined | null): string {
-  const defaultColor = 'bg-gray-200 text-gray-900 dark:bg-slate-700 dark:text-gray-100';
+// Check if current conversation is a group chat
+const isGroupConversation = computed(() => {
+  return (selectedConversation.value?.participantCount ?? 0) >= 2;
+});
 
-  // Return default color if no identifier
-  if (!senderContactId) {
-    return defaultColor;
+// Get highlight class for a message (for search matches)
+function getMessageHighlightClass(messageId: number): string {
+  if (!isSearchActive.value) return '';
+  
+  if (isCurrentMatch(messageId)) {
+    return 'ring-4 ring-amber-400 dark:ring-amber-500 shadow-2xl scale-[1.03]';
   }
-
-  const map = participantColorMap.value;
-  const id = String(senderContactId);
-
-  // Assign color if not already assigned
-  if (!map.has(id)) {
-    const colorIndex = map.size % participantColors.length;
-    const color = participantColors[colorIndex] ?? defaultColor;
-    map.set(id, color);
+  
+  if (isMatch(messageId)) {
+    // For non-current matches, use subtle highlight
+    return 'ring-2 ring-amber-300/50 dark:ring-amber-400/50';
   }
-
-  return map.get(id) || defaultColor;
-}
-
-function handleImageError(event: Event) {
-  const img = event.target as HTMLImageElement;
-  console.warn('Failed to load image:', img.src);
-  img.style.display = 'none';
+  
+  return '';
 }
 
 // Image viewer functions
