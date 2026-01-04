@@ -11,6 +11,12 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+    properties:
+      hibernate:
+        # Enable batch fetching to reduce N+1 queries
+        default_batch_fetch_size: 10
+        jdbc:
+          batch_size: 20
   application:
     name: sms-archive
   servlet:

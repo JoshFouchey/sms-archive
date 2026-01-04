@@ -38,7 +38,8 @@ public class SearchController {
             @RequestParam(defaultValue = "50") int size) {
         
         var user = currentUserProvider.getCurrentUser();
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "timestamp"));
+        // Use unsorted Pageable since our query already has ORDER BY clause
+        Pageable pageable = PageRequest.of(page, size);
         Page<Message> results;
         
         if (contactId != null) {

@@ -88,30 +88,62 @@ ORDER BY day_ts
         """, nativeQuery = true)
     List<Message> searchByTextUser(@Param("text") String text, @Param("userId") UUID userId);
 
-    // Paginated full-text search
+    // Paginated full-text search with relevance ranking
+    // Note: Using native query so we fetch associations manually in mapper
     @Query(value = """
         SELECT m.* FROM messages m 
+        JOIN conversations conv ON m.conversation_id = conv.id
         WHERE m.user_id = :userId 
-        AND to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
-        ORDER BY m.timestamp DESC
+        AND (
+            to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
+            OR similarity(COALESCE(m.body, ''), :text) > 0.1
+        )
+        ORDER BY (
+            -- Weighted ranking: conversation name (A=1.0) + message body (B=0.4) + similarity (0.3) + recency boost
+            ts_rank(
+                setweight(to_tsvector('english', COALESCE(conv.name, '')), 'A') ||
+                setweight(to_tsvector('english', COALESCE(m.body, '')), 'B'),
+                plainto_tsquery('english', :text)
+            ) * 2.0 +
+            similarity(COALESCE(m.body, ''), :text) * 1.5 +
+            (EXTRACT(EPOCH FROM (NOW() - m.timestamp)) / 31536000.0) * -0.01
+        ) DESC,
+        m.timestamp DESC
         """, 
         countQuery = """
         SELECT COUNT(*) FROM messages m 
         WHERE m.user_id = :userId 
-        AND to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
+        AND (
+            to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
+            OR similarity(COALESCE(m.body, ''), :text) > 0.1
+        )
         """,
         nativeQuery = true)
     Page<Message> searchByTextUserPaginated(@Param("text") String text, @Param("userId") UUID userId, Pageable pageable);
 
-    // Paginated full-text search with contact filter
+    // Paginated full-text search with contact filter and relevance ranking
+    // Note: Using native query so we fetch associations manually in mapper
     @Query(value = """
         SELECT m.* FROM messages m
         JOIN conversations conv ON m.conversation_id = conv.id
         JOIN conversation_contacts cc ON conv.id = cc.conversation_id
         WHERE m.user_id = :userId 
         AND cc.contact_id = :contactId
-        AND to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
-        ORDER BY m.timestamp DESC
+        AND (
+            to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
+            OR similarity(COALESCE(m.body, ''), :text) > 0.1
+        )
+        ORDER BY (
+            -- Weighted ranking: conversation name + message body + similarity + recency
+            ts_rank(
+                setweight(to_tsvector('english', COALESCE(conv.name, '')), 'A') ||
+                setweight(to_tsvector('english', COALESCE(m.body, '')), 'B'),
+                plainto_tsquery('english', :text)
+            ) * 2.0 +
+            similarity(COALESCE(m.body, ''), :text) * 1.5 +
+            (EXTRACT(EPOCH FROM (NOW() - m.timestamp)) / 31536000.0) * -0.01
+        ) DESC,
+        m.timestamp DESC
         """,
         countQuery = """
         SELECT COUNT(*) FROM messages m
@@ -119,18 +151,35 @@ ORDER BY day_ts
         JOIN conversation_contacts cc ON conv.id = cc.conversation_id
         WHERE m.user_id = :userId 
         AND cc.contact_id = :contactId
-        AND to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
+        AND (
+            to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
+            OR similarity(COALESCE(m.body, ''), :text) > 0.1
+        )
         """,
         nativeQuery = true)
     Page<Message> searchByTextAndContactUser(@Param("text") String text, @Param("contactId") Long contactId, @Param("userId") UUID userId, Pageable pageable);
 
-    // Search within a specific conversation
+    // Search within a specific conversation with relevance ranking
     @Query(value = """
         SELECT m.* FROM messages m 
+        JOIN conversations conv ON m.conversation_id = conv.id
         WHERE m.user_id = :userId 
         AND m.conversation_id = :conversationId
-        AND to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
-        ORDER BY m.timestamp DESC
+        AND (
+            to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
+            OR similarity(COALESCE(m.body, ''), :text) > 0.1
+        )
+        ORDER BY (
+            -- Weighted ranking: conversation name + message body + similarity + recency
+            ts_rank(
+                setweight(to_tsvector('english', COALESCE(conv.name, '')), 'A') ||
+                setweight(to_tsvector('english', COALESCE(m.body, '')), 'B'),
+                plainto_tsquery('english', :text)
+            ) * 2.0 +
+            similarity(COALESCE(m.body, ''), :text) * 1.5 +
+            (EXTRACT(EPOCH FROM (NOW() - m.timestamp)) / 31536000.0) * -0.01
+        ) DESC,
+        m.timestamp DESC
         """, nativeQuery = true)
     List<Message> searchWithinConversation(@Param("conversationId") Long conversationId, @Param("text") String text, @Param("userId") UUID userId);
 
