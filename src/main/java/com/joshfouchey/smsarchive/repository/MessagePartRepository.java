@@ -30,4 +30,8 @@ public interface MessagePartRepository extends JpaRepository<MessagePart, Long> 
 
     @Query("SELECT p FROM MessagePart p JOIN p.message m JOIN m.conversation conv JOIN conv.participants c WHERE p.contentType LIKE 'image/%' AND p.filePath IS NOT NULL AND c.id = :contactId AND m.user = :user ORDER BY p.id ASC")
     List<MessagePart> findImagePartsByContactId(@Param("contactId") Long contactId, @Param("user") User user);
+
+    // Bulk fetch all parts for a list of message IDs (optimization for getAllConversationMessages)
+    @Query("SELECT p FROM MessagePart p WHERE p.message.id IN :messageIds ORDER BY p.message.id, p.seq")
+    List<MessagePart> findByMessageIds(@Param("messageIds") List<Long> messageIds);
 }

@@ -44,6 +44,7 @@ public class Conversation {
     @JoinTable(name = "conversation_contacts",
             joinColumns = @JoinColumn(name = "conversation_id"),
             inverseJoinColumns = @JoinColumn(name = "contact_id"))
+    @org.hibernate.annotations.BatchSize(size = 25)
     @Builder.Default
     private Set<Contact> participants = new HashSet<>();
 

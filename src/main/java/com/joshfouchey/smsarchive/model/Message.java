@@ -82,6 +82,7 @@ public class Message {
     private Instant updatedAt;
 
     @OneToMany(mappedBy = "message", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<MessagePart> parts = new ArrayList<>();
 
     @PrePersist

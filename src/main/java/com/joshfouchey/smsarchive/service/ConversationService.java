@@ -33,25 +33,68 @@ public class ConversationService {
     private final MessageRepository messageRepository;
     private final ContactRepository contactRepository;
     private final CurrentUserProvider currentUserProvider;
+    private final com.joshfouchey.smsarchive.repository.MessagePartRepository messagePartRepository;
 
     public ConversationService(ConversationRepository conversationRepository,
                               MessageRepository messageRepository,
                               ContactRepository contactRepository,
-                              CurrentUserProvider currentUserProvider) {
+                              CurrentUserProvider currentUserProvider,
+                              com.joshfouchey.smsarchive.repository.MessagePartRepository messagePartRepository) {
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
         this.contactRepository = contactRepository;
         this.currentUserProvider = currentUserProvider;
+        this.messagePartRepository = messagePartRepository;
     }
 
     @Transactional(readOnly = true)
     @org.springframework.cache.annotation.Cacheable(value = "conversationList", key = "T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName()")
     public List<ConversationSummaryDto> getAllConversations() {
         var user = currentUserProvider.getCurrentUser();
+        
+        // Use optimized query that fetches conversations with last message in single query
+        List<ConversationRepository.ConversationWithLastMessageProjection> projections = 
+                conversationRepository.findAllByUserWithLastMessage(user.getId());
+        
+        // Fetch full conversations to get participants (batch fetched due to @EntityGraph)
         List<Conversation> conversations = conversationRepository.findAllByUserOrderByLastMessage(user);
-
-        return conversations.stream()
-                .map(this::toSummaryDto)
+        Map<Long, Conversation> conversationMap = conversations.stream()
+                .collect(java.util.stream.Collectors.toMap(Conversation::getId, c -> c));
+        
+        return projections.stream()
+                .map(proj -> {
+                    Conversation conv = conversationMap.get(proj.getConversationId());
+                    if (conv == null) return null;
+                    
+                    List<String> participantNames = conv.getParticipants().stream()
+                            .map(contact -> contact.getName() != null ? contact.getName() : contact.getNumber())
+                            .collect(Collectors.toList());
+                    
+                    // Last message data comes from projection (no extra query!)
+                    String lastMessagePreview = null;
+                    boolean lastMessageHasImage = false;
+                    
+                    if (proj.getLastMessageBody() != null) {
+                        lastMessagePreview = proj.getLastMessageBody().substring(
+                                0, Math.min(200, proj.getLastMessageBody().length()));
+                    }
+                    
+                    if (proj.getLastMessageMedia() != null) {
+                        lastMessageHasImage = !proj.getLastMessageMedia().isEmpty();
+                    }
+                    
+                    return new ConversationSummaryDto(
+                            conv.getId(),
+                            conv.getName(),
+                            participantNames,
+                            conv.getParticipants().size(),
+                            conv.getLastMessageAt(),
+                            lastMessagePreview,
+                            lastMessageHasImage,
+                            0L
+                    );
+                })
+                .filter(java.util.Objects::nonNull)
                 .toList();
     }
 
@@ -73,20 +116,37 @@ public class ConversationService {
         sort = "asc".equalsIgnoreCase(sortDir) ? sort.ascending() : sort.descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        Page<Message> result = messageRepository.findByConversationIdAndUser(conversationId, user, pageable);
+        // Two-query approach to avoid Hibernate pagination warning with @EntityGraph
+        // Step 1: Get paginated IDs only (fast, no joins)
+        Page<Long> idsPage = messageRepository.findIdsByConversationIdAndUser(conversationId, user, pageable);
+        
+        // Step 2: Fetch full entities with associations (uses @EntityGraph)
+        List<Message> messages;
+        if (!idsPage.getContent().isEmpty()) {
+            messages = messageRepository.findByIdsWithAssociations(idsPage.getContent());
+            // Restore original sort order from ID list
+            Map<Long, Message> messageMap = messages.stream()
+                    .collect(java.util.stream.Collectors.toMap(Message::getId, m -> m));
+            messages = idsPage.getContent().stream()
+                    .map(messageMap::get)
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
+        } else {
+            messages = java.util.Collections.emptyList();
+        }
 
-        List<MessageDto> content = result.getContent().stream()
+        List<MessageDto> content = messages.stream()
                 .map(MessageMapper::toDto)
                 .toList();
 
         return new PagedResponse<>(
                 content,
-                result.getNumber(),
-                result.getSize(),
-                result.getTotalElements(),
-                result.getTotalPages(),
-                result.isFirst(),
-                result.isLast()
+                idsPage.getNumber(),
+                idsPage.getSize(),
+                idsPage.getTotalElements(),
+                idsPage.getTotalPages(),
+                idsPage.isFirst(),
+                idsPage.isLast()
         );
     }
 
@@ -134,8 +194,28 @@ public class ConversationService {
                 .orElseThrow(() -> new RuntimeException("Conversation not found"));
 
         // Load messages with safety limit of 50,000 (sorted by timestamp ascending)
+        // Uses batched query without @EntityGraph to avoid in-memory pagination
         Pageable limit = PageRequest.of(0, 50000, Sort.by("timestamp").ascending());
-        List<Message> messages = messageRepository.findAllByConversationIdAndUser(conversationId, user, limit);
+        List<Message> messages = messageRepository.findAllByConversationIdAndUserBatched(conversationId, user, limit);
+
+        // Eagerly fetch all parts in a single query to avoid N batched queries
+        if (!messages.isEmpty()) {
+            List<Long> messageIds = messages.stream().map(Message::getId).toList();
+            List<com.joshfouchey.smsarchive.model.MessagePart> parts = messagePartRepository.findByMessageIds(messageIds);
+            
+            // Group parts by message ID for efficient lookup
+            Map<Long, List<com.joshfouchey.smsarchive.model.MessagePart>> partsByMessageId = parts.stream()
+                    .collect(java.util.stream.Collectors.groupingBy(p -> p.getMessage().getId()));
+            
+            // Manually set parts on messages to avoid lazy loading
+            messages.forEach(msg -> {
+                List<com.joshfouchey.smsarchive.model.MessagePart> msgParts = partsByMessageId.get(msg.getId());
+                if (msgParts != null) {
+                    msg.getParts().clear();
+                    msg.getParts().addAll(msgParts);
+                }
+            });
+        }
 
         return messages.stream()
                 .map(MessageMapper::toLightDto)
@@ -227,21 +307,37 @@ public class ConversationService {
         sort = "asc".equalsIgnoreCase(sortDir) ? sort.ascending() : sort.descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        Page<Message> result = messageRepository.findByConversationAndDateRange(
+        // Two-query approach: Step 1 - Get paginated IDs only
+        Page<Long> idsPage = messageRepository.findIdsByConversationAndDateRange(
                 conversationId, dateFrom, dateTo, user, pageable);
 
-        List<MessageDto> content = result.getContent().stream()
+        // Step 2: Fetch full entities with associations
+        List<Message> messages;
+        if (!idsPage.getContent().isEmpty()) {
+            messages = messageRepository.findByIdsWithAssociations(idsPage.getContent());
+            // Restore original sort order from ID list
+            Map<Long, Message> messageMap = messages.stream()
+                    .collect(java.util.stream.Collectors.toMap(Message::getId, m -> m));
+            messages = idsPage.getContent().stream()
+                    .map(messageMap::get)
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
+        } else {
+            messages = java.util.Collections.emptyList();
+        }
+
+        List<MessageDto> content = messages.stream()
                 .map(MessageMapper::toDto)
                 .toList();
 
         return new PagedResponse<>(
                 content,
-                result.getNumber(),
-                result.getSize(),
-                result.getTotalElements(),
-                result.getTotalPages(),
-                result.isFirst(),
-                result.isLast()
+                idsPage.getNumber(),
+                idsPage.getSize(),
+                idsPage.getTotalElements(),
+                idsPage.getTotalPages(),
+                idsPage.isFirst(),
+                idsPage.isLast()
         );
     }
 
@@ -295,10 +391,9 @@ public class ConversationService {
             lastMessagePreview = lastMessage.getBody() != null && !lastMessage.getBody().isEmpty()
                     ? lastMessage.getBody().substring(0, Math.min(200, lastMessage.getBody().length()))
                     : "";
-            lastMessageHasImage = lastMessage.getParts() != null &&
-                    lastMessage.getParts().stream()
-                            .anyMatch(part -> part.getContentType() != null &&
-                                    part.getContentType().startsWith("image/"));
+            // Check media field instead of loading parts to avoid N+1 query
+            lastMessageHasImage = lastMessage.getMedia() != null && 
+                    !lastMessage.getMedia().isEmpty();
         }
 
         return new ConversationSummaryDto(

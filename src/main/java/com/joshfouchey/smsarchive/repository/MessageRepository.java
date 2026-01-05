@@ -190,19 +190,40 @@ ORDER BY day_ts
 
     long countByUser(com.joshfouchey.smsarchive.model.User user);
 
+    // Two-query approach to avoid Hibernate pagination warning with @EntityGraph
+    // Step 1: Get paginated IDs only
+    @Query("select m.id from Message m where m.conversation.id = :conversationId and m.user = :user")
+    Page<Long> findIdsByConversationIdAndUser(@Param("conversationId") Long conversationId,
+                                              @Param("user") com.joshfouchey.smsarchive.model.User user,
+                                              Pageable pageable);
+
+    // Step 2: Fetch full entities with associations for specific IDs
+    @EntityGraph(attributePaths = {"parts", "senderContact"})
+    @Query("select m from Message m where m.id in :ids")
+    List<Message> findByIdsWithAssociations(@Param("ids") List<Long> ids);
+
+    @EntityGraph(attributePaths = {"parts", "senderContact"})
     @Query("select m from Message m where m.conversation.id = :conversationId and m.user = :user")
     Page<Message> findByConversationIdAndUser(@Param("conversationId") Long conversationId,
                                                @Param("user") com.joshfouchey.smsarchive.model.User user,
                                                Pageable pageable);
 
+    // For conversation list previews - no need to fetch parts (just body text)
     @Query("select m from Message m where m.conversation.id = :conversationId and m.user = :user order by m.timestamp desc limit 1")
     Message findLastMessageByConversation(@Param("conversationId") Long conversationId,
                                           @Param("user") com.joshfouchey.smsarchive.model.User user);
 
+    @EntityGraph(attributePaths = {"parts", "senderContact"})
     @Query("select m from Message m where m.conversation.id = :conversationId and m.user = :user order by m.timestamp asc")
     List<Message> findAllByConversationIdAndUser(@Param("conversationId") Long conversationId,
                                                  @Param("user") com.joshfouchey.smsarchive.model.User user,
                                                  Pageable pageable);
+
+    // Version without @EntityGraph for bulk loading (uses @BatchSize instead)
+    @Query("select m from Message m where m.conversation.id = :conversationId and m.user = :user order by m.timestamp asc")
+    List<Message> findAllByConversationIdAndUserBatched(@Param("conversationId") Long conversationId,
+                                                         @Param("user") com.joshfouchey.smsarchive.model.User user,
+                                                         Pageable pageable);
 
     @Query("select count(m) from Message m where m.conversation.id = :conversationId and m.user = :user")
     Long countByConversationIdAndUser(@Param("conversationId") Long conversationId,
@@ -261,6 +282,15 @@ ORDER BY year, month
                                                             @Param("userId") UUID userId);
 
     // Date-range message queries for jump-to-date functionality
+    // Two-query approach: Step 1 - Get IDs only
+    @Query("select m.id from Message m where m.conversation.id = :conversationId and m.user = :user and m.timestamp >= :dateFrom and m.timestamp <= :dateTo")
+    Page<Long> findIdsByConversationAndDateRange(@Param("conversationId") Long conversationId,
+                                                  @Param("dateFrom") Instant dateFrom,
+                                                  @Param("dateTo") Instant dateTo,
+                                                  @Param("user") com.joshfouchey.smsarchive.model.User user,
+                                                  Pageable pageable);
+
+    @EntityGraph(attributePaths = {"parts", "senderContact"})
     @Query("select m from Message m where m.conversation.id = :conversationId and m.user = :user and m.timestamp >= :dateFrom and m.timestamp <= :dateTo order by m.timestamp asc")
     Page<Message> findByConversationAndDateRange(@Param("conversationId") Long conversationId,
                                                   @Param("dateFrom") Instant dateFrom,
