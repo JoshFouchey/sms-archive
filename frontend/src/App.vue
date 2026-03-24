@@ -89,14 +89,12 @@ const username = computed(() => auth.user?.username || 'Guest');
 const initials = computed(() => username.value.substring(0, 2).toUpperCase());
 
 const items = [
-  { label: "Insights", icon: "pi pi-sparkles", route: "/" },
-  { label: "Gallery", icon: "pi pi-images", route: "/gallery" },
+  { label: "Ask", icon: "pi pi-sparkles", route: "/" },
   { label: "Messages", icon: "pi pi-comments", route: "/messages" },
+  { label: "Explore", icon: "pi pi-sitemap", route: "/explore" },
+  { label: "Gallery", icon: "pi pi-images", route: "/gallery" },
   { label: "Contacts", icon: "pi pi-user", route: "/contacts" },
-  { label: "Search", icon: "pi pi-search", route: "/search" },
-  { label: "Knowledge Graph", icon: "pi pi-sitemap", route: "/knowledge-graph" },
-  { label: "AI Settings", icon: "pi pi-microchip", route: "/ai-settings" },
-  { label: "Import", icon: "pi pi-upload", route: "/import" }
+  { label: "Admin", icon: "pi pi-cog", route: "/admin" },
 ];
 
 function navigateTo(routePath: string) {
@@ -110,7 +108,7 @@ async function handleLogout() {
 
 // Check if we're on a full-height page (manages its own layout)
 const isFullHeightPage = computed(() => {
-  return route.path.startsWith('/messages') || route.path === '/knowledge-graph';
+  return route.path.startsWith('/messages') || route.path === '/explore' || route.path === '/';
 });
 
 // Compute main container classes based on route

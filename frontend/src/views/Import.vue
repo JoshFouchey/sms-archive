@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <!-- Header Section -->
-    <div class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 rounded-2xl shadow-lg p-6 text-white">
+    <div v-if="!hideHeader" class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 rounded-2xl shadow-lg p-6 text-white">
       <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 class="text-4xl font-bold mb-2 flex items-center gap-3">
@@ -258,6 +258,8 @@
 import { ref, computed, onUnmounted } from 'vue';
 import { startStreamingImport, getImportProgress, type ImportProgress } from '../services/api';
 import FileUpload, { type FileUploadSelectEvent } from 'primevue/fileupload';
+
+defineProps<{ hideHeader?: boolean }>();
 
 const selectedFile = ref<File | null>(null);
 const starting = ref(false);

@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-violet-600 to-purple-500 rounded-2xl p-6 text-white shadow-lg">
+    <div v-if="!hideHeader" class="bg-gradient-to-r from-violet-600 to-purple-500 rounded-2xl p-6 text-white shadow-lg">
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-bold flex items-center gap-3">
@@ -323,6 +323,8 @@ import {
   type ResolutionResult,
   type MergeSuggestion,
 } from '../services/api';
+
+defineProps<{ hideHeader?: boolean }>();
 
 const embeddingStats = ref<EmbeddingStats | null>(null);
 const kgStats = ref<KgStats | null>(null);
