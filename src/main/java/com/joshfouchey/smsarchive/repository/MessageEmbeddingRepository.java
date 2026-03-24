@@ -13,7 +13,8 @@ import java.util.UUID;
 public interface MessageEmbeddingRepository extends JpaRepository<MessageEmbedding, Long> {
 
     @Query(value = """
-            SELECT m.* FROM messages m
+            SELECT m.*, (1 - (me.embedding <=> CAST(:queryVector AS vector))) AS similarity
+            FROM messages m
             JOIN message_embeddings me ON me.message_id = m.id
             WHERE me.user_id = :userId
             ORDER BY me.embedding <=> CAST(:queryVector AS vector)

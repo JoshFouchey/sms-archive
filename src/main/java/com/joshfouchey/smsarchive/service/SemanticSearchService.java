@@ -85,11 +85,9 @@ public class SemanticSearchService {
             Message msg = messageMap.get(msgId);
             if (msg == null) continue;
 
-            // Similarity score from SELECT when available, otherwise approximate from rank
+            // Similarity score is the last column in all queries
             Object[] row = rawResults.get(i);
-            double similarity = row.length > 1 && row[row.length - 1] instanceof Number
-                    ? ((Number) row[row.length - 1]).doubleValue()
-                    : 1.0 - (i * 0.02);
+            double similarity = ((Number) row[row.length - 1]).doubleValue();
 
             if (similarity >= similarityThreshold) {
                 hits.add(new SemanticSearchHit(MessageMapper.toDto(msg), similarity));
