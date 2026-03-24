@@ -91,3 +91,5 @@ smsarchive.ai:
     model: ${SMSARCHIVE_AI_CHAT_MODEL:phi3:3.8b}
     batch-size: 10
     window-size: 20
+    min-body-length: 20
+    auto-extract: true

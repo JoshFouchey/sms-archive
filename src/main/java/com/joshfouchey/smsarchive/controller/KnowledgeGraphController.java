@@ -1,9 +1,11 @@
 package com.joshfouchey.smsarchive.controller;
 
 import com.joshfouchey.smsarchive.dto.KgEntityDto;
+import com.joshfouchey.smsarchive.dto.KgExtractionJobDto;
 import com.joshfouchey.smsarchive.dto.KgTripleDto;
 import com.joshfouchey.smsarchive.dto.KnowledgeGraphDto;
 import com.joshfouchey.smsarchive.service.CurrentUserProvider;
+import com.joshfouchey.smsarchive.service.KnowledgeGraphExtractionService;
 import com.joshfouchey.smsarchive.service.KnowledgeGraphService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/knowledge-graph")
@@ -25,11 +28,14 @@ import java.util.NoSuchElementException;
 public class KnowledgeGraphController {
 
     private final KnowledgeGraphService knowledgeGraphService;
+    private final KnowledgeGraphExtractionService extractionService;
     private final CurrentUserProvider currentUserProvider;
 
     public KnowledgeGraphController(KnowledgeGraphService knowledgeGraphService,
+                                    KnowledgeGraphExtractionService extractionService,
                                     CurrentUserProvider currentUserProvider) {
         this.knowledgeGraphService = knowledgeGraphService;
+        this.extractionService = extractionService;
         this.currentUserProvider = currentUserProvider;
     }
 
@@ -97,6 +103,41 @@ public class KnowledgeGraphController {
     public Map<String, Long> getStats() {
         var user = currentUserProvider.getCurrentUser();
         return knowledgeGraphService.getStats(user);
+    }
+
+    // ---- Extraction job endpoints ----
+
+    @PostMapping("/extraction/start")
+    public ResponseEntity<KgExtractionJobDto> startExtraction() {
+        var user = currentUserProvider.getCurrentUser();
+        try {
+            UUID jobId = extractionService.startExtraction(user);
+            return ResponseEntity.ok(extractionService.getJobStatus(jobId, user));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/extraction/jobs")
+    public List<KgExtractionJobDto> getExtractionJobs() {
+        var user = currentUserProvider.getCurrentUser();
+        return extractionService.getJobHistory(user);
+    }
+
+    @GetMapping("/extraction/jobs/{id}")
+    public ResponseEntity<KgExtractionJobDto> getExtractionJob(@PathVariable UUID id) {
+        var user = currentUserProvider.getCurrentUser();
+        try {
+            return ResponseEntity.ok(extractionService.getJobStatus(id, user));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PostMapping("/extraction/jobs/{id}/cancel")
+    public ResponseEntity<Void> cancelExtraction(@PathVariable UUID id) {
+        extractionService.cancelJob(id);
+        return ResponseEntity.ok().build();
     }
 
     public record MergeRequest(Long primaryId, Long mergeFromId) {}
