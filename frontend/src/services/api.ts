@@ -478,3 +478,78 @@ export async function getKgStats(): Promise<KgStats> {
   const res = await axios.get(`${API_BASE}/api/knowledge-graph/stats`);
   return res.data;
 }
+
+/* ==============================
+   Knowledge Graph API
+============================== */
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  type: string;
+  linkedContactId?: number | null;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  label: string;
+  confidence: number;
+}
+
+export interface KnowledgeGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+export interface KgEntity {
+  id: number;
+  canonicalName: string;
+  entityType: string;
+  description?: string;
+  aliases: string[];
+  linkedContactId?: number | null;
+  createdAt: string;
+}
+
+export interface KgTriple {
+  id: number;
+  subjectId: number;
+  subjectName: string;
+  subjectType: string;
+  predicate: string;
+  objectId?: number | null;
+  objectName?: string;
+  objectType?: string;
+  objectValue?: string;
+  confidence: number;
+  isVerified: boolean;
+  createdAt: string;
+}
+
+export async function getKnowledgeGraph(
+  entityId?: number | null,
+  depth: number = 2,
+  maxNodes: number = 100,
+): Promise<KnowledgeGraph> {
+  const params: any = { depth, maxNodes };
+  if (entityId) params.entityId = entityId;
+  const res = await axios.get(`${API_BASE}/api/knowledge-graph/graph`, { params });
+  return res.data;
+}
+
+export async function getKgEntities(
+  type?: string,
+  search?: string,
+): Promise<KgEntity[]> {
+  const params: any = {};
+  if (type) params.type = type;
+  if (search) params.search = search;
+  const res = await axios.get(`${API_BASE}/api/knowledge-graph/entities`, { params });
+  return res.data;
+}
+
+export async function getKgEntityFacts(entityId: number): Promise<KgTriple[]> {
+  const res = await axios.get(`${API_BASE}/api/knowledge-graph/entities/${entityId}/facts`);
+  return res.data;
+}

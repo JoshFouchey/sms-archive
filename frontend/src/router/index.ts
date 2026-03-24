@@ -8,6 +8,7 @@ import Import from "../views/Import.vue";
 import Login from "../views/Login.vue";
 import Register from "../views/Register.vue";
 import Contacts from "../views/Contacts.vue";
+import KnowledgeGraph from "../views/KnowledgeGraph.vue";
 
 const routes: Array<RouteRecordRaw> = [
     { path: "/", name: "Dashboard", component: Dashboard },
@@ -15,6 +16,7 @@ const routes: Array<RouteRecordRaw> = [
     { path: "/gallery", name: "Gallery", component: Gallery },
     { path: "/messages", name: "Messages", component: Messages },
     { path: "/messages/:id", name: "MessagesDetail", component: Messages },
+    { path: "/knowledge-graph", name: "KnowledgeGraph", component: KnowledgeGraph },
     { path: "/import", name: "Import", component: Import },
     { path: "/login", name: "Login", component: Login },
     { path: "/register", name: "Register", component: Register },

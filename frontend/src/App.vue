@@ -62,7 +62,7 @@
     <!-- Main Content Area -->
     <div :class="[
       'flex-1 flex flex-col',
-      isMessagesPage ? 'overflow-hidden' : 'overflow-y-auto'
+      isFullHeightPage ? 'overflow-hidden' : 'overflow-y-auto'
     ]">
       <!-- Toast Container -->
       <Toast position="top-right" />
@@ -94,6 +94,7 @@ const items = [
   { label: "Messages", icon: "pi pi-comments", route: "/messages" },
   { label: "Contacts", icon: "pi pi-user", route: "/contacts" },
   { label: "Search", icon: "pi pi-search", route: "/search" },
+  { label: "Knowledge Graph", icon: "pi pi-sitemap", route: "/knowledge-graph" },
   { label: "Import", icon: "pi pi-upload", route: "/import" }
 ];
 
@@ -106,16 +107,16 @@ async function handleLogout() {
   router.push('/login');
 }
 
-// Check if we're on the messages page (full-height layout)
-const isMessagesPage = computed(() => {
-  return route.path.startsWith('/messages');
+// Check if we're on a full-height page (manages its own layout)
+const isFullHeightPage = computed(() => {
+  return route.path.startsWith('/messages') || route.path === '/knowledge-graph';
 });
 
 // Compute main container classes based on route
 const mainClasses = computed(() => {
-  if (isMessagesPage.value) {
-    // Full width, no padding, no scroll for messages (it manages its own layout)
-    return 'flex-1 w-full overflow-hidden';
+  if (isFullHeightPage.value) {
+    // Full width with light padding, no scroll (page manages its own layout)
+    return 'flex-1 w-full p-4 overflow-hidden';
   }
   // Wider layout with more breathing room and normal scrolling for other pages
   return 'flex-1 p-4 sm:p-6 lg:p-8 w-full max-w-[1920px] mx-auto overflow-y-auto';
