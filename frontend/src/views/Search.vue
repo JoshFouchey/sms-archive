@@ -8,11 +8,11 @@
             <i class="pi pi-search"></i>
             Search Messages
           </h1>
-          <p class="text-blue-100 dark:text-blue-200">Search across all conversations and messages</p>
+          <p class="text-blue-100 dark:text-blue-200">Just type naturally — AI picks the best search strategy</p>
         </div>
         <div v-if="filteredResults.length" class="flex items-center gap-3">
           <div v-if="activeMode" class="bg-white/10 backdrop-blur-sm rounded-lg px-3 py-2 border border-white/20">
-            <p class="text-xs text-blue-200">Search Mode</p>
+            <p class="text-xs text-blue-200">Strategy</p>
             <p class="text-sm font-bold">{{ activeMode }}</p>
           </div>
           <div class="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
@@ -21,7 +21,6 @@
               <div class="text-left">
                 <p class="text-xs text-blue-100">Results Found</p>
                 <p class="text-2xl font-bold">{{ totalResults.toLocaleString() }}</p>
-                <p class="text-xs text-blue-100">Showing {{ filteredResults.length }}</p>
               </div>
             </div>
           </div>
@@ -31,40 +30,58 @@
 
     <!-- Search Form -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 border border-gray-200 dark:border-gray-700">
-      <!-- Search Mode Toggle -->
-      <div class="flex items-center gap-2 mb-4">
-        <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mr-1">Mode:</span>
-        <button
-          v-for="m in searchModes"
-          :key="m.value"
-          @click="searchMode = m.value"
-          :class="[
-            'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5',
-            searchMode === m.value
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-          ]"
-          :title="m.description"
-        >
-          <i :class="m.icon" class="text-[11px]"></i>
-          {{ m.label }}
-        </button>
-      </div>
-
       <form
         class="flex gap-4 items-end"
         @submit.prevent="performSearch"
       >
         <div class="flex-1 flex flex-col gap-2">
-          <label for="searchText" class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-            <i class="pi pi-search text-xs mr-1"></i>
-            Search Text
-          </label>
+          <div class="flex items-center gap-2">
+            <label for="searchText" class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+              <i class="pi pi-search text-xs mr-1"></i>
+              Search
+            </label>
+            <!-- Search Tips Tooltip -->
+            <div class="relative" @mouseenter="showTips = true" @mouseleave="showTips = false">
+              <button type="button" class="text-gray-400 hover:text-blue-500 transition-colors" aria-label="Search tips">
+                <i class="pi pi-question-circle text-sm"></i>
+              </button>
+              <div
+                v-if="showTips"
+                class="absolute left-0 top-6 z-50 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 text-sm"
+              >
+                <h4 class="font-bold text-gray-800 dark:text-gray-100 mb-2 flex items-center gap-1.5">
+                  <i class="pi pi-info-circle text-blue-500"></i>
+                  Search Tips
+                </h4>
+                <ul class="space-y-2 text-gray-600 dark:text-gray-400">
+                  <li class="flex items-start gap-2">
+                    <span class="inline-block px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold mt-0.5 shrink-0">KEYWORD</span>
+                    <span>Use <strong class="text-gray-800 dark:text-gray-200">quotes</strong> for exact match: <code class="text-xs bg-gray-100 dark:bg-gray-800 px-1 rounded">"Ford Mustang"</code></span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <span class="inline-block px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold mt-0.5 shrink-0">KEYWORD</span>
+                    <span>Short terms (1-2 words) search by keyword: <code class="text-xs bg-gray-100 dark:bg-gray-800 px-1 rounded">birthday</code></span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <span class="inline-block px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold mt-0.5 shrink-0">SEMANTIC</span>
+                    <span>Ask questions for meaning-based search: <code class="text-xs bg-gray-100 dark:bg-gray-800 px-1 rounded">when did we talk about vacation?</code></span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <span class="inline-block px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[10px] font-bold mt-0.5 shrink-0">HYBRID</span>
+                    <span>Longer phrases use both keyword + AI: <code class="text-xs bg-gray-100 dark:bg-gray-800 px-1 rounded">planning the family road trip</code></span>
+                  </li>
+                </ul>
+                <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-3 border-t border-gray-100 dark:border-gray-800 pt-2">
+                  The search engine automatically picks the best strategy based on your query.
+                </p>
+              </div>
+            </div>
+          </div>
           <input
             id="searchText"
             v-model="searchText"
             type="text"
-            placeholder="Enter text to search..."
+            placeholder="Try &quot;birthday party&quot; or &quot;what does Tom drive?&quot;"
             class="px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
             @keyup.enter="performSearch"
           />
@@ -113,7 +130,7 @@
         </div>
         <div>
           <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">No Results Found</h3>
-          <p class="text-gray-600 dark:text-gray-400">Try adjusting your search terms</p>
+          <p class="text-gray-600 dark:text-gray-400">Try rephrasing your search or using different terms</p>
         </div>
       </div>
     </div>
@@ -127,7 +144,11 @@
         </div>
         <div>
           <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">Ready to Search</h3>
-          <p class="text-gray-600 dark:text-gray-400">Enter text above and click Search to find messages</p>
+          <p class="text-gray-600 dark:text-gray-400">Type a question, phrase, or keyword to find messages</p>
+          <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+            <i class="pi pi-question-circle mr-1"></i>
+            Hover the <strong>?</strong> icon above for search tips
+          </p>
         </div>
       </div>
     </div>
@@ -166,6 +187,23 @@
                 <i class="pi pi-clock text-[10px]"></i>
                 {{ formatDateTime(m.timestamp) }}
               </span>
+              <!-- Provenance badges inline -->
+              <span v-if="m._source" :class="{
+                'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300': m._source === 'KEYWORD',
+                'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300': m._source === 'SEMANTIC',
+                'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300': m._source === 'BOTH',
+              }" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                <i :class="{
+                  'pi pi-search': m._source === 'KEYWORD',
+                  'pi pi-lightbulb': m._source === 'SEMANTIC',
+                  'pi pi-bolt': m._source === 'BOTH',
+                }" class="text-[8px]"></i>
+                {{ m._source === 'BOTH' ? 'Keyword + Semantic' : m._source === 'KEYWORD' ? 'Keyword Match' : 'Semantic Match' }}
+              </span>
+              <span v-if="m._score != null && m._score > 0" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                <i class="pi pi-star-fill text-[8px]"></i>
+                {{ formatScore(m._score) }}
+              </span>
             </div>
           </div>
           <!-- Actions -->
@@ -185,38 +223,6 @@
         <div class="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <p class="text-sm text-gray-800 dark:text-gray-200 leading-relaxed break-words whitespace-pre-wrap">{{ m.body }}</p>
         </div>
-        <!-- Score badge (unified search) -->
-        <div v-if="m._score != null || m._source" class="flex items-center gap-2 mt-2">
-          <span v-if="m._score != null" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
-            <i class="pi pi-star-fill text-[8px]"></i>
-            {{ (m._score * 100).toFixed(0) }}% match
-          </span>
-          <span v-if="m._source" :class="{
-            'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300': m._source === 'KEYWORD',
-            'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300': m._source === 'SEMANTIC',
-            'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300': m._source === 'BOTH',
-          }" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold">
-            <i :class="{
-              'pi pi-search': m._source === 'KEYWORD',
-              'pi pi-lightbulb': m._source === 'SEMANTIC',
-              'pi pi-bolt': m._source === 'BOTH',
-            }" class="text-[8px]"></i>
-            {{ m._source === 'BOTH' ? 'Hybrid' : m._source === 'KEYWORD' ? 'Keyword' : 'Semantic' }}
-          </span>
-        </div>
-      </div>
-      
-      <!-- Load More Button -->
-      <div v-if="hasMore" class="flex justify-center">
-        <button
-          @click="loadMore"
-          :disabled="loading"
-          class="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg px-6 py-3 disabled:opacity-50 transition-all font-semibold shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-        >
-          <i v-if="!loading" class="pi pi-angle-down"></i>
-          <i v-else class="pi pi-spin pi-spinner"></i>
-          <span>{{ loading ? 'Loading...' : 'Load More Results' }}</span>
-        </button>
       </div>
     </div>
 
@@ -300,12 +306,10 @@
 import { ref, computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
-  searchByText,
   searchUnified,
   getMessageContext,
   type Message,
   type MessageContext,
-  type SearchMode,
 } from '../services/api';
 import MessageBubble from '../components/MessageBubble.vue';
 
@@ -315,24 +319,15 @@ interface SearchMessage extends Message {
   _source?: string;
 }
 
-const searchModes = [
-  { value: 'AUTO' as SearchMode, label: 'Auto', icon: 'pi pi-bolt', description: 'Automatically picks the best search mode' },
-  { value: 'KEYWORD' as SearchMode, label: 'Keyword', icon: 'pi pi-search', description: 'Exact text matching (tsvector + trigram)' },
-  { value: 'SEMANTIC' as SearchMode, label: 'Semantic', icon: 'pi pi-lightbulb', description: 'Meaning-based search (AI embeddings)' },
-  { value: 'HYBRID' as SearchMode, label: 'Hybrid', icon: 'pi pi-shuffle', description: 'Combined keyword + semantic results' },
-];
-
 const searchText = ref('');
-const searchMode = ref<SearchMode>('AUTO');
+const showTips = ref(false);
 
 const results = ref<SearchMessage[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const touched = ref(false);
-const currentPage = ref(0);
-const hasMore = ref(false);
 const totalResults = ref(0);
-const activeMode = ref<string>(''); // the mode actually used
+const activeMode = ref<string>('');
 
 // Context modal state
 const contextOpen = ref(false);
@@ -343,7 +338,6 @@ const contextData = ref<MessageContext | null>(null);
 // Participant colors for group chats
 const participantColorMap = ref(new Map<string, string>());
 
-// Check if message is part of a group conversation
 function isGroupChat(msg: Message): boolean {
   return (msg.conversationParticipantCount ?? 0) >= 2;
 }
@@ -356,47 +350,18 @@ async function performSearch() {
     return;
   }
   loading.value = true;
-  currentPage.value = 0;
   results.value = [];
   try {
-    if (searchMode.value === 'KEYWORD') {
-      // Use legacy keyword search (supports pagination)
-      const response = await searchByText(searchText.value.trim(), null, 0, 50);
-      results.value = response.content.map(m => ({ ...m, _source: 'KEYWORD' }));
-      hasMore.value = !response.last;
-      totalResults.value = response.totalElements;
-      activeMode.value = 'KEYWORD';
-    } else {
-      // Use unified search
-      const response = await searchUnified(searchText.value.trim(), searchMode.value, 50);
-      results.value = response.hits.map(h => ({
-        ...h.message,
-        _score: h.score,
-        _source: h.source,
-      }));
-      hasMore.value = false;
-      totalResults.value = response.totalHits;
-      activeMode.value = response.mode;
-    }
+    const response = await searchUnified(searchText.value.trim(), 'AUTO', 50);
+    results.value = response.hits.map(h => ({
+      ...h.message,
+      _score: h.score,
+      _source: h.source,
+    }));
+    totalResults.value = response.totalHits;
+    activeMode.value = response.mode;
   } catch (e: any) {
     error.value = e?.message || 'Search failed';
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function loadMore() {
-  if (!hasMore.value || loading.value) return;
-  // Only keyword mode supports pagination
-  if (activeMode.value !== 'KEYWORD') return;
-  loading.value = true;
-  try {
-    const response = await searchByText(searchText.value.trim(), null, currentPage.value + 1, 50);
-    results.value = [...results.value, ...response.content.map(m => ({ ...m, _source: 'KEYWORD' as string }))];
-    currentPage.value++;
-    hasMore.value = !response.last;
-  } catch (e: any) {
-    error.value = e?.message || 'Failed to load more results';
   } finally {
     loading.value = false;
   }
@@ -407,13 +372,10 @@ function clearSearch() {
   results.value = [];
   error.value = null;
   touched.value = false;
-  currentPage.value = 0;
-  hasMore.value = false;
   totalResults.value = 0;
   activeMode.value = '';
 }
 
-// Filtering is now done on backend, so filteredResults just returns results
 const filteredResults = computed(() => results.value);
 
 function formatDateTime(iso: string) {
@@ -425,12 +387,18 @@ function formatDateTime(iso: string) {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
   });
 }
 
+function formatScore(score: number): string {
+  // Semantic scores are 0-1 (show as %), RRF scores are small decimals (show raw)
+  if (score > 0 && score <= 1) {
+    return `${(score * 100).toFixed(0)}% match`;
+  }
+  return `${score.toFixed(3)} relevance`;
+}
+
 const beforeChrono = computed(() => {
-  // API returns "before" newest-first; reverse for chronological display
   if (!contextData.value) return [] as Message[];
   return [...contextData.value.before].reverse();
 });
@@ -440,7 +408,7 @@ async function openContext(m: Message) {
   contextLoading.value = true;
   contextError.value = null;
   contextData.value = null;
-  participantColorMap.value.clear(); // Clear color assignments for new context
+  participantColorMap.value.clear();
   try {
     contextData.value = await getMessageContext(m.id, 25, 25);
   } catch (e: any) {
