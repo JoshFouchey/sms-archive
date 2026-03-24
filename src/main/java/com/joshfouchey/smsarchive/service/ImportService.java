@@ -1,6 +1,7 @@
 package com.joshfouchey.smsarchive.service;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.joshfouchey.smsarchive.event.ImportCompletedEvent;
 import com.joshfouchey.smsarchive.model.*;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
@@ -10,6 +11,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import lombok.Getter;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -74,6 +76,7 @@ public class ImportService {
     private final UserRepository userRepository;
     private TaskExecutor importTaskExecutor; // executor for async jobs (optional)
     private final CurrentUserProvider currentUserProvider;
+    private final ApplicationEventPublisher eventPublisher;
     // ThreadLocal to hold the user for async import tasks (SecurityContext not propagated)
     private final ThreadLocal<User> threadLocalImportUser = new ThreadLocal<>();
 
@@ -103,13 +106,15 @@ public class ImportService {
 
     public ImportService(MessageRepository messageRepo, ContactRepository contactRepo,
                          CurrentUserProvider currentUserProvider, ThumbnailService thumbnailService,
-                         ConversationService conversationService, UserRepository userRepository) {
+                         ConversationService conversationService, UserRepository userRepository,
+                         ApplicationEventPublisher eventPublisher) {
         this.messageRepo = messageRepo;
         this.contactRepo = contactRepo;
         this.currentUserProvider = currentUserProvider;
         this.thumbnailService = thumbnailService;
         this.conversationService = conversationService;
         this.userRepository = userRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     // Remove multi-arg constructors added earlier
@@ -322,6 +327,17 @@ public class ImportService {
             progress.setStatus("COMPLETED");
             progress.setFinishedAt(Instant.now());
             log.info("Streaming import {} completed: imported={}, duplicates={}", jobId, progress.getImportedMessages(), progress.getDuplicateMessages());
+
+            // Notify listeners (e.g., EmbeddingService) that new messages are available
+            User importUser = threadLocalImportUser.get();
+            if (importUser != null && progress.getImportedMessages() > 0) {
+                try {
+                    eventPublisher.publishEvent(
+                            new ImportCompletedEvent(this, importUser, progress.getImportedMessages()));
+                } catch (Exception e) {
+                    log.warn("Failed to publish import completed event: {}", e.getMessage());
+                }
+            }
         } catch (Exception e) {
             log.error("Streaming import {} failed", jobId, e);
             progress.setStatus("FAILED");

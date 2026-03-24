@@ -2,6 +2,7 @@ package com.joshfouchey.smsarchive.service;
 
 import com.joshfouchey.smsarchive.dto.EmbeddingJobDto;
 import com.joshfouchey.smsarchive.dto.EmbeddingStatsDto;
+import com.joshfouchey.smsarchive.event.ImportCompletedEvent;
 import com.joshfouchey.smsarchive.model.EmbeddingJob;
 import com.joshfouchey.smsarchive.model.Message;
 import com.joshfouchey.smsarchive.model.MessageEmbedding;
@@ -9,7 +10,6 @@ import com.joshfouchey.smsarchive.model.User;
 import com.joshfouchey.smsarchive.repository.EmbeddingJobRepository;
 import com.joshfouchey.smsarchive.repository.MessageEmbeddingRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
-import com.joshfouchey.smsarchive.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingRequest;
 import org.springframework.ai.embedding.EmbeddingResponse;
@@ -18,8 +18,8 @@ import org.springframework.ai.ollama.api.OllamaOptions;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.event.EventListener;
 import org.springframework.core.task.TaskExecutor;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -36,7 +36,6 @@ public class EmbeddingService {
     private final MessageRepository messageRepository;
     private final MessageEmbeddingRepository embeddingRepository;
     private final EmbeddingJobRepository jobRepository;
-    private final UserRepository userRepository;
     private final TaskExecutor aiTaskExecutor;
     private final TransactionTemplate transactionTemplate;
 
@@ -60,14 +59,12 @@ public class EmbeddingService {
             MessageRepository messageRepository,
             MessageEmbeddingRepository embeddingRepository,
             EmbeddingJobRepository jobRepository,
-            UserRepository userRepository,
             @Qualifier("aiTaskExecutor") TaskExecutor aiTaskExecutor,
             TransactionTemplate transactionTemplate) {
         this.embeddingModel = embeddingModel;
         this.messageRepository = messageRepository;
         this.embeddingRepository = embeddingRepository;
         this.jobRepository = jobRepository;
-        this.userRepository = userRepository;
         this.aiTaskExecutor = aiTaskExecutor;
         this.transactionTemplate = transactionTemplate;
     }
@@ -202,31 +199,30 @@ public class EmbeddingService {
     }
 
     /**
-     * Periodically check for unembedded messages and auto-start embedding jobs.
-     * Same @Scheduled pattern as ImportDirectoryWatcher.
-     * Runs every 5 minutes (300 seconds), initial delay 60 seconds to let app boot.
+     * Auto-embed new messages after an import completes.
+     * Triggered by ImportCompletedEvent published from ImportService.
      */
-    @Scheduled(fixedDelayString = "${smsarchive.ai.embedding.auto-embed-interval-ms:300000}", initialDelay = 60000)
-    public void autoEmbedNewMessages() {
+    @EventListener
+    public void onImportCompleted(ImportCompletedEvent event) {
         if (!autoEmbed) return;
 
-        for (User user : userRepository.findAll()) {
-            // Skip if a job is already running for this user
-            Optional<EmbeddingJob> running = jobRepository
-                    .findFirstByUserAndStatusOrderByCreatedAtDesc(user, "RUNNING");
-            if (running.isPresent()) continue;
+        User user = event.getUser();
+        log.info("Import completed for user {} ({} messages). Checking for unembedded messages...",
+                user.getUsername(), event.getImportedCount());
 
-            List<Long> unembedded = embeddingRepository
-                    .findUnembeddedMessageIds(user.getId(), modelName);
-            if (unembedded.isEmpty()) continue;
+        // Skip if a job is already running for this user
+        Optional<EmbeddingJob> running = jobRepository
+                .findFirstByUserAndStatusOrderByCreatedAtDesc(user, "RUNNING");
+        if (running.isPresent()) {
+            log.info("Embedding job already running for {}. New messages will be picked up.", user.getUsername());
+            return;
+        }
 
-            log.info("Auto-embedding: found {} unembedded messages for user {}",
-                    unembedded.size(), user.getUsername());
-            try {
-                startBatchEmbedding(user);
-            } catch (IllegalStateException e) {
-                log.debug("Skipping auto-embed for {}: {}", user.getUsername(), e.getMessage());
-            }
+        try {
+            UUID jobId = startBatchEmbedding(user);
+            log.info("Auto-started embedding job {} for user {}", jobId, user.getUsername());
+        } catch (IllegalStateException e) {
+            log.debug("Skipping auto-embed for {}: {}", user.getUsername(), e.getMessage());
         }
     }
 
