@@ -1,10 +1,8 @@
 package com.joshfouchey.smsarchive.controller;
 
-import com.joshfouchey.smsarchive.dto.KgEntityDto;
-import com.joshfouchey.smsarchive.dto.KgExtractionJobDto;
-import com.joshfouchey.smsarchive.dto.KgTripleDto;
-import com.joshfouchey.smsarchive.dto.KnowledgeGraphDto;
+import com.joshfouchey.smsarchive.dto.*;
 import com.joshfouchey.smsarchive.service.CurrentUserProvider;
+import com.joshfouchey.smsarchive.service.EntityResolutionService;
 import com.joshfouchey.smsarchive.service.KnowledgeGraphExtractionService;
 import com.joshfouchey.smsarchive.service.KnowledgeGraphService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -29,13 +27,16 @@ public class KnowledgeGraphController {
 
     private final KnowledgeGraphService knowledgeGraphService;
     private final KnowledgeGraphExtractionService extractionService;
+    private final EntityResolutionService resolutionService;
     private final CurrentUserProvider currentUserProvider;
 
     public KnowledgeGraphController(KnowledgeGraphService knowledgeGraphService,
                                     KnowledgeGraphExtractionService extractionService,
+                                    EntityResolutionService resolutionService,
                                     CurrentUserProvider currentUserProvider) {
         this.knowledgeGraphService = knowledgeGraphService;
         this.extractionService = extractionService;
+        this.resolutionService = resolutionService;
         this.currentUserProvider = currentUserProvider;
     }
 
@@ -138,6 +139,20 @@ public class KnowledgeGraphController {
     public ResponseEntity<Void> cancelExtraction(@PathVariable UUID id) {
         extractionService.cancelJob(id);
         return ResponseEntity.ok().build();
+    }
+
+    // ---- Entity resolution endpoints ----
+
+    @PostMapping("/resolution/run")
+    public ResolutionResult runResolution() {
+        var user = currentUserProvider.getCurrentUser();
+        return resolutionService.runResolution(user);
+    }
+
+    @GetMapping("/resolution/suggestions")
+    public List<MergeSuggestion> getMergeSuggestions() {
+        var user = currentUserProvider.getCurrentUser();
+        return resolutionService.getSuggestions(user);
     }
 
     public record MergeRequest(Long primaryId, Long mergeFromId) {}

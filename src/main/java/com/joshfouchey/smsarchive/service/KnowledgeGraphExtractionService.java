@@ -13,6 +13,7 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.ollama.api.OllamaOptions;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -75,6 +76,13 @@ public class KnowledgeGraphExtractionService {
     private final TransactionTemplate transactionTemplate;
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
+
+    private EntityResolutionService resolutionService;
+
+    @Autowired
+    public void setResolutionService(EntityResolutionService resolutionService) {
+        this.resolutionService = resolutionService;
+    }
 
     private final Map<UUID, Boolean> cancelledJobs = new ConcurrentHashMap<>();
 
@@ -240,6 +248,15 @@ public class KnowledgeGraphExtractionService {
             job.setCompletedAt(Instant.now());
             log.info("Extraction job {} completed: {} triples, {} entities from {} messages",
                     jobId, job.getTriplesFound(), job.getEntitiesFound(), job.getProcessed());
+
+            // Run entity resolution (auto-merge duplicates, link contacts)
+            if (resolutionService != null) {
+                try {
+                    resolutionService.runResolution(user);
+                } catch (Exception e) {
+                    log.warn("Post-extraction entity resolution failed: {}", e.getMessage());
+                }
+            }
 
         } catch (Exception e) {
             job.setStatus("FAILED");
