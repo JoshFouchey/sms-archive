@@ -44,6 +44,13 @@ dependencies {
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
     implementation("com.googlecode.libphonenumber:libphonenumber:8.13.47")
 
+    // Spring AI — Ollama integration for embeddings & LLM
+    implementation platform('org.springframework.ai:spring-ai-bom:1.0.0')
+    implementation 'org.springframework.ai:spring-ai-starter-model-ollama'
+
+    // pgvector JDBC type support
+    implementation 'com.pgvector:pgvector:0.1.6'
+
     // Security & Auth additions
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
