@@ -28,6 +28,16 @@ public interface KgTripleRepository extends JpaRepository<KgTriple, Long> {
             @Param("userId") java.util.UUID userId,
             @Param("predicate") String predicate);
 
+    @Query(value = """
+            SELECT t.* FROM kg_triples t
+            WHERE t.user_id = :userId
+            ORDER BY t.created_at DESC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<KgTriple> findRecentByUser(
+            @Param("userId") java.util.UUID userId,
+            @Param("limit") int limit);
+
     @Modifying
     @Query("UPDATE KgTriple t SET t.subject.id = :newId WHERE t.subject.id = :oldId")
     int updateSubjectEntity(@Param("oldId") Long oldId, @Param("newId") Long newId);

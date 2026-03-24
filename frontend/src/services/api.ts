@@ -554,6 +554,16 @@ export async function getKgEntityFacts(entityId: number): Promise<KgTriple[]> {
   return res.data;
 }
 
+export async function getRecentTriples(limit: number = 20): Promise<KgTriple[]> {
+  const res = await axios.get(`${API_BASE}/api/knowledge-graph/triples/recent`, { params: { limit } });
+  return res.data;
+}
+
+export async function getContactFacts(contactId: number): Promise<KgTriple[]> {
+  const res = await axios.get(`${API_BASE}/api/knowledge-graph/contacts/${contactId}/facts`);
+  return res.data;
+}
+
 /* ==============================
    AI Job Management
 ============================== */

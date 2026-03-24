@@ -89,7 +89,7 @@ const username = computed(() => auth.user?.username || 'Guest');
 const initials = computed(() => username.value.substring(0, 2).toUpperCase());
 
 const items = [
-  { label: "Dashboard", icon: "pi pi-home", route: "/" },
+  { label: "Insights", icon: "pi pi-sparkles", route: "/" },
   { label: "Gallery", icon: "pi pi-images", route: "/gallery" },
   { label: "Messages", icon: "pi pi-comments", route: "/messages" },
   { label: "Contacts", icon: "pi pi-user", route: "/contacts" },

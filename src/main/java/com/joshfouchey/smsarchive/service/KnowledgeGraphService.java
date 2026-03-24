@@ -85,6 +85,27 @@ public class KnowledgeGraphService {
     }
 
     @Transactional(readOnly = true)
+    public List<KgTripleDto> getRecentTriples(User user, int limit) {
+        List<KgTriple> triples = tripleRepository.findRecentByUser(user.getId(), limit);
+        return triples.stream().map(this::toTripleDto).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<KgTripleDto> getContactFacts(User user, Long contactId) {
+        List<KgEntityContactLink> links = contactLinkRepository.findByContactId(contactId);
+        if (links.isEmpty()) return List.of();
+
+        List<KgTripleDto> allFacts = new ArrayList<>();
+        for (KgEntityContactLink link : links) {
+            KgEntity entity = link.getEntity();
+            if (!entity.getUser().getId().equals(user.getId())) continue;
+            List<KgTriple> triples = tripleRepository.findByEntityId(entity.getId());
+            triples.stream().map(this::toTripleDto).forEach(allFacts::add);
+        }
+        return allFacts;
+    }
+
+    @Transactional(readOnly = true)
     public List<KgTripleDto> getTriplesByPredicate(User user, String predicate) {
         List<KgTriple> triples = tripleRepository.findByUserAndPredicate(user.getId(), predicate);
         return triples.stream().map(this::toTripleDto).toList();

@@ -74,6 +74,18 @@ public class KnowledgeGraphController {
         return knowledgeGraphService.getTriplesByPredicate(user, predicate);
     }
 
+    @GetMapping("/triples/recent")
+    public List<KgTripleDto> getRecentTriples(@RequestParam(defaultValue = "20") int limit) {
+        var user = currentUserProvider.getCurrentUser();
+        return knowledgeGraphService.getRecentTriples(user, Math.min(limit, 100));
+    }
+
+    @GetMapping("/contacts/{contactId}/facts")
+    public List<KgTripleDto> getContactFacts(@PathVariable Long contactId) {
+        var user = currentUserProvider.getCurrentUser();
+        return knowledgeGraphService.getContactFacts(user, contactId);
+    }
+
     @PostMapping("/entities/merge")
     public ResponseEntity<KgEntityDto> mergeEntities(@RequestBody MergeRequest request) {
         var user = currentUserProvider.getCurrentUser();
