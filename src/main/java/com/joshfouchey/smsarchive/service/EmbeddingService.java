@@ -9,6 +9,7 @@ import com.joshfouchey.smsarchive.model.User;
 import com.joshfouchey.smsarchive.repository.EmbeddingJobRepository;
 import com.joshfouchey.smsarchive.repository.MessageEmbeddingRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
+import com.joshfouchey.smsarchive.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingRequest;
 import org.springframework.ai.embedding.EmbeddingResponse;
@@ -18,6 +19,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -34,6 +36,7 @@ public class EmbeddingService {
     private final MessageRepository messageRepository;
     private final MessageEmbeddingRepository embeddingRepository;
     private final EmbeddingJobRepository jobRepository;
+    private final UserRepository userRepository;
     private final TaskExecutor aiTaskExecutor;
     private final TransactionTemplate transactionTemplate;
 
@@ -49,17 +52,22 @@ public class EmbeddingService {
     @Value("${smsarchive.ai.embedding.max-body-chars:7500}")
     private int maxBodyChars;
 
+    @Value("${smsarchive.ai.embedding.auto-embed:true}")
+    private boolean autoEmbed;
+
     public EmbeddingService(
             OllamaEmbeddingModel embeddingModel,
             MessageRepository messageRepository,
             MessageEmbeddingRepository embeddingRepository,
             EmbeddingJobRepository jobRepository,
+            UserRepository userRepository,
             @Qualifier("aiTaskExecutor") TaskExecutor aiTaskExecutor,
             TransactionTemplate transactionTemplate) {
         this.embeddingModel = embeddingModel;
         this.messageRepository = messageRepository;
         this.embeddingRepository = embeddingRepository;
         this.jobRepository = jobRepository;
+        this.userRepository = userRepository;
         this.aiTaskExecutor = aiTaskExecutor;
         this.transactionTemplate = transactionTemplate;
     }
@@ -191,6 +199,35 @@ public class EmbeddingService {
 
     public void cancelJob(UUID jobId) {
         cancelledJobs.put(jobId, true);
+    }
+
+    /**
+     * Periodically check for unembedded messages and auto-start embedding jobs.
+     * Same @Scheduled pattern as ImportDirectoryWatcher.
+     * Runs every 5 minutes (300 seconds), initial delay 60 seconds to let app boot.
+     */
+    @Scheduled(fixedDelayString = "${smsarchive.ai.embedding.auto-embed-interval-ms:300000}", initialDelay = 60000)
+    public void autoEmbedNewMessages() {
+        if (!autoEmbed) return;
+
+        for (User user : userRepository.findAll()) {
+            // Skip if a job is already running for this user
+            Optional<EmbeddingJob> running = jobRepository
+                    .findFirstByUserAndStatusOrderByCreatedAtDesc(user, "RUNNING");
+            if (running.isPresent()) continue;
+
+            List<Long> unembedded = embeddingRepository
+                    .findUnembeddedMessageIds(user.getId(), modelName);
+            if (unembedded.isEmpty()) continue;
+
+            log.info("Auto-embedding: found {} unembedded messages for user {}",
+                    unembedded.size(), user.getUsername());
+            try {
+                startBatchEmbedding(user);
+            } catch (IllegalStateException e) {
+                log.debug("Skipping auto-embed for {}: {}", user.getUsername(), e.getMessage());
+            }
+        }
     }
 
     public EmbeddingJobDto getJobStatus(UUID jobId, User user) {
