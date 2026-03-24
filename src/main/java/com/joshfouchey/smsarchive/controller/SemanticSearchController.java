@@ -3,9 +3,11 @@ package com.joshfouchey.smsarchive.controller;
 import com.joshfouchey.smsarchive.dto.EmbeddingJobDto;
 import com.joshfouchey.smsarchive.dto.EmbeddingStatsDto;
 import com.joshfouchey.smsarchive.dto.SemanticSearchResult;
+import com.joshfouchey.smsarchive.dto.UnifiedSearchResult;
 import com.joshfouchey.smsarchive.service.CurrentUserProvider;
 import com.joshfouchey.smsarchive.service.EmbeddingService;
 import com.joshfouchey.smsarchive.service.SemanticSearchService;
+import com.joshfouchey.smsarchive.service.UnifiedSearchService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,15 +22,35 @@ public class SemanticSearchController {
 
     private final SemanticSearchService searchService;
     private final EmbeddingService embeddingService;
+    private final UnifiedSearchService unifiedSearchService;
     private final CurrentUserProvider currentUserProvider;
 
     public SemanticSearchController(
             SemanticSearchService searchService,
             EmbeddingService embeddingService,
+            UnifiedSearchService unifiedSearchService,
             CurrentUserProvider currentUserProvider) {
         this.searchService = searchService;
         this.embeddingService = embeddingService;
+        this.unifiedSearchService = unifiedSearchService;
         this.currentUserProvider = currentUserProvider;
+    }
+
+    @GetMapping("/unified")
+    public UnifiedSearchResult unifiedSearch(
+            @RequestParam String q,
+            @RequestParam(defaultValue = "AUTO") String mode,
+            @RequestParam(required = false) Long conversationId,
+            @RequestParam(required = false) Long contactId,
+            @RequestParam(required = false) Integer topK) {
+        var user = currentUserProvider.getCurrentUser();
+        UnifiedSearchService.SearchMode searchMode;
+        try {
+            searchMode = UnifiedSearchService.SearchMode.valueOf(mode.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            searchMode = UnifiedSearchService.SearchMode.AUTO;
+        }
+        return unifiedSearchService.search(q, searchMode, user.getId(), conversationId, contactId, topK);
     }
 
     @GetMapping("/semantic")
