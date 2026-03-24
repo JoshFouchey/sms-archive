@@ -3,6 +3,7 @@ package com.joshfouchey.smsarchive.repository;
 import com.joshfouchey.smsarchive.model.MessageEmbedding;
 import com.joshfouchey.smsarchive.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -71,4 +72,16 @@ public interface MessageEmbeddingRepository extends JpaRepository<MessageEmbeddi
     long countByUserAndModelName(User user, String modelName);
 
     boolean existsByMessageId(Long messageId);
+
+    @Modifying
+    @Query(value = """
+            INSERT INTO message_embeddings (message_id, user_id, embedding, model_name, created_at)
+            VALUES (:messageId, :userId, CAST(:embedding AS vector), :modelName, now())
+            ON CONFLICT (message_id, model_name) DO NOTHING
+            """, nativeQuery = true)
+    void insertEmbedding(
+            @Param("messageId") Long messageId,
+            @Param("userId") UUID userId,
+            @Param("embedding") String embedding,
+            @Param("modelName") String modelName);
 }

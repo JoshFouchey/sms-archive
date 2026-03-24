@@ -161,17 +161,15 @@ public class EmbeddingService {
                         .model(modelName)
                         .build()));
 
-        // Persist embeddings
-        List<MessageEmbedding> embeddings = new ArrayList<>();
+        // Persist embeddings via native INSERT (avoids Hibernate varchar→vector type mismatch)
         for (int i = 0; i < messages.size(); i++) {
-            MessageEmbedding me = new MessageEmbedding();
-            me.setMessage(messages.get(i));
-            me.setUser(user);
-            me.setEmbedding(toVectorString(response.getResults().get(i).getOutput()));
-            me.setModelName(modelName);
-            embeddings.add(me);
+            String vectorStr = toVectorString(response.getResults().get(i).getOutput());
+            embeddingRepository.insertEmbedding(
+                    messages.get(i).getId(),
+                    user.getId(),
+                    vectorStr,
+                    modelName);
         }
-        embeddingRepository.saveAll(embeddings);
     }
 
     /**
