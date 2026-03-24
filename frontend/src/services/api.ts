@@ -665,3 +665,34 @@ export async function mergeKgEntities(primaryId: number, mergeFromId: number): P
   const res = await axios.post(`${API_BASE}/api/knowledge-graph/entities/merge`, { primaryId, mergeFromId });
   return res.data;
 }
+
+// --- Q&A ---
+
+export interface QaRequest {
+  question: string;
+  conversationId?: number | null;
+  contactId?: number | null;
+}
+
+export interface QaSource {
+  messageId: number;
+  body: string;
+  contactName: string;
+  timestamp: string;
+  relevance: number;
+}
+
+export interface QaResponse {
+  intent: 'FACTUAL' | 'ANALYTICS' | 'SEARCH';
+  answer: string | null;
+  sources: QaSource[];
+  kgFacts: KgTriple[];
+  analyticsData: any;
+  searchResults: UnifiedSearchResult | null;
+  processingTimeMs: number;
+}
+
+export async function askQuestion(request: QaRequest): Promise<QaResponse> {
+  const res = await axios.post(`${API_BASE}/api/qa/ask`, request);
+  return res.data;
+}
