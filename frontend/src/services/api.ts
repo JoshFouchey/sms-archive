@@ -423,3 +423,58 @@ export async function getConversationMessagesByDateRange(
   const res = await axios.get(`${API_BASE}/api/conversations/${conversationId}/messages`, { params });
   return res.data;
 }
+
+/* ==============================
+   AI / Unified Search API
+============================== */
+
+export type SearchMode = 'AUTO' | 'KEYWORD' | 'SEMANTIC' | 'HYBRID';
+
+export interface UnifiedSearchHit {
+  message: Message;
+  score: number;
+  source: string; // KEYWORD | SEMANTIC | BOTH
+}
+
+export interface UnifiedSearchResult {
+  query: string;
+  mode: string;
+  hits: UnifiedSearchHit[];
+  totalHits: number;
+}
+
+export interface EmbeddingStats {
+  totalMessages: number;
+  embeddedMessages: number;
+  percentComplete: number;
+  modelName: string;
+}
+
+export interface KgStats {
+  entities: number;
+  triples: number;
+}
+
+export async function searchUnified(
+  q: string,
+  mode: SearchMode = 'AUTO',
+  topK: number = 20,
+  conversationId?: number | null,
+  contactId?: number | null,
+): Promise<UnifiedSearchResult> {
+  const params: any = { q, mode, topK };
+  if (conversationId) params.conversationId = conversationId;
+  if (contactId) params.contactId = contactId;
+  const res = await axios.get(`${API_BASE}/api/search/unified`, { params });
+  return res.data;
+}
+
+export async function getEmbeddingStats(): Promise<EmbeddingStats> {
+  const res = await axios.get(`${API_BASE}/api/search/embeddings/stats`);
+  return res.data;
+}
+
+export async function getKgStats(): Promise<KgStats> {
+  const res = await axios.get(`${API_BASE}/api/knowledge-graph/stats`);
+  return res.data;
+}

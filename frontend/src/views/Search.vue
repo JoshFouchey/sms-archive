@@ -10,7 +10,11 @@
           </h1>
           <p class="text-blue-100 dark:text-blue-200">Search across all conversations and messages</p>
         </div>
-        <div v-if="filteredResults.length" class="flex items-center gap-2">
+        <div v-if="filteredResults.length" class="flex items-center gap-3">
+          <div v-if="activeMode" class="bg-white/10 backdrop-blur-sm rounded-lg px-3 py-2 border border-white/20">
+            <p class="text-xs text-blue-200">Search Mode</p>
+            <p class="text-sm font-bold">{{ activeMode }}</p>
+          </div>
           <div class="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
             <div class="flex items-center gap-2">
               <i class="pi pi-check-circle text-lg"></i>
@@ -27,6 +31,26 @@
 
     <!-- Search Form -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 border border-gray-200 dark:border-gray-700">
+      <!-- Search Mode Toggle -->
+      <div class="flex items-center gap-2 mb-4">
+        <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mr-1">Mode:</span>
+        <button
+          v-for="m in searchModes"
+          :key="m.value"
+          @click="searchMode = m.value"
+          :class="[
+            'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5',
+            searchMode === m.value
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+          ]"
+          :title="m.description"
+        >
+          <i :class="m.icon" class="text-[11px]"></i>
+          {{ m.label }}
+        </button>
+      </div>
+
       <form
         class="flex gap-4 items-end"
         @submit.prevent="performSearch"
@@ -161,6 +185,25 @@
         <div class="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <p class="text-sm text-gray-800 dark:text-gray-200 leading-relaxed break-words whitespace-pre-wrap">{{ m.body }}</p>
         </div>
+        <!-- Score badge (unified search) -->
+        <div v-if="m._score != null || m._source" class="flex items-center gap-2 mt-2">
+          <span v-if="m._score != null" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+            <i class="pi pi-star-fill text-[8px]"></i>
+            {{ (m._score * 100).toFixed(0) }}% match
+          </span>
+          <span v-if="m._source" :class="{
+            'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300': m._source === 'KEYWORD',
+            'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300': m._source === 'SEMANTIC',
+            'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300': m._source === 'BOTH',
+          }" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold">
+            <i :class="{
+              'pi pi-search': m._source === 'KEYWORD',
+              'pi pi-lightbulb': m._source === 'SEMANTIC',
+              'pi pi-bolt': m._source === 'BOTH',
+            }" class="text-[8px]"></i>
+            {{ m._source === 'BOTH' ? 'Hybrid' : m._source === 'KEYWORD' ? 'Keyword' : 'Semantic' }}
+          </span>
+        </div>
       </div>
       
       <!-- Load More Button -->
@@ -258,21 +301,38 @@ import { ref, computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
   searchByText,
+  searchUnified,
   getMessageContext,
   type Message,
   type MessageContext,
+  type SearchMode,
 } from '../services/api';
 import MessageBubble from '../components/MessageBubble.vue';
 
-const searchText = ref('');
+// Extend Message with search metadata
+interface SearchMessage extends Message {
+  _score?: number;
+  _source?: string;
+}
 
-const results = ref<Message[]>([]);
+const searchModes = [
+  { value: 'AUTO' as SearchMode, label: 'Auto', icon: 'pi pi-bolt', description: 'Automatically picks the best search mode' },
+  { value: 'KEYWORD' as SearchMode, label: 'Keyword', icon: 'pi pi-search', description: 'Exact text matching (tsvector + trigram)' },
+  { value: 'SEMANTIC' as SearchMode, label: 'Semantic', icon: 'pi pi-lightbulb', description: 'Meaning-based search (AI embeddings)' },
+  { value: 'HYBRID' as SearchMode, label: 'Hybrid', icon: 'pi pi-shuffle', description: 'Combined keyword + semantic results' },
+];
+
+const searchText = ref('');
+const searchMode = ref<SearchMode>('AUTO');
+
+const results = ref<SearchMessage[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
-const touched = ref(false); // whether search attempted
+const touched = ref(false);
 const currentPage = ref(0);
 const hasMore = ref(false);
 const totalResults = ref(0);
+const activeMode = ref<string>(''); // the mode actually used
 
 // Context modal state
 const contextOpen = ref(false);
@@ -293,16 +353,31 @@ async function performSearch() {
   error.value = null;
   if (!searchText.value.trim()) {
     results.value = [];
-    return; // don't query empty
+    return;
   }
   loading.value = true;
   currentPage.value = 0;
-  results.value = []; // Clear previous results
+  results.value = [];
   try {
-    const response = await searchByText(searchText.value.trim(), null, 0, 50);
-    results.value = response.content;
-    hasMore.value = !response.last;
-    totalResults.value = response.totalElements;
+    if (searchMode.value === 'KEYWORD') {
+      // Use legacy keyword search (supports pagination)
+      const response = await searchByText(searchText.value.trim(), null, 0, 50);
+      results.value = response.content.map(m => ({ ...m, _source: 'KEYWORD' }));
+      hasMore.value = !response.last;
+      totalResults.value = response.totalElements;
+      activeMode.value = 'KEYWORD';
+    } else {
+      // Use unified search
+      const response = await searchUnified(searchText.value.trim(), searchMode.value, 50);
+      results.value = response.hits.map(h => ({
+        ...h.message,
+        _score: h.score,
+        _source: h.source,
+      }));
+      hasMore.value = false;
+      totalResults.value = response.totalHits;
+      activeMode.value = response.mode;
+    }
   } catch (e: any) {
     error.value = e?.message || 'Search failed';
   } finally {
@@ -312,10 +387,12 @@ async function performSearch() {
 
 async function loadMore() {
   if (!hasMore.value || loading.value) return;
+  // Only keyword mode supports pagination
+  if (activeMode.value !== 'KEYWORD') return;
   loading.value = true;
   try {
     const response = await searchByText(searchText.value.trim(), null, currentPage.value + 1, 50);
-    results.value = [...results.value, ...response.content];
+    results.value = [...results.value, ...response.content.map(m => ({ ...m, _source: 'KEYWORD' as string }))];
     currentPage.value++;
     hasMore.value = !response.last;
   } catch (e: any) {
@@ -333,6 +410,7 @@ function clearSearch() {
   currentPage.value = 0;
   hasMore.value = false;
   totalResults.value = 0;
+  activeMode.value = '';
 }
 
 // Filtering is now done on backend, so filteredResults just returns results
