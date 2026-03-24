@@ -282,15 +282,9 @@ public class KnowledgeGraphExtractionService {
             return new int[]{0, 0};
         }
 
-        // Call the LLM
+        // Call the LLM with retry (up to 3 attempts with backoff)
         String prompt = String.format(EXTRACTION_PROMPT_TEMPLATE, conversationText);
-        ChatResponse response = chatModel.call(
-                new Prompt(prompt, OllamaOptions.builder()
-                        .model(modelName)
-                        .temperature(0.1)
-                        .build()));
-
-        String llmOutput = response.getResult().getOutput().getText();
+        String llmOutput = callLlmWithRetry(prompt);
         List<ExtractedFact> facts = parseFacts(llmOutput);
 
         // Persist in a transaction
@@ -314,6 +308,32 @@ public class KnowledgeGraphExtractionService {
         });
 
         return counts != null ? counts : new int[]{0, 0};
+    }
+
+    // ---- LLM call with retry ----
+
+    private String callLlmWithRetry(String prompt) {
+        Exception lastException = null;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                ChatResponse response = chatModel.call(
+                        new Prompt(prompt, OllamaOptions.builder()
+                                .model(modelName)
+                                .temperature(0.1)
+                                .build()));
+                return response.getResult().getOutput().getText();
+            } catch (Exception e) {
+                lastException = e;
+                long delay = 2000L * (1 << attempt); // 2s, 4s, 8s
+                log.warn("LLM call attempt {} failed (retrying in {}ms): {}",
+                        attempt + 1, delay, e.getMessage());
+                try { Thread.sleep(delay); } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted during retry", ie);
+                }
+            }
+        }
+        throw new RuntimeException("LLM call failed after 3 attempts", lastException);
     }
 
     // ---- Prompt building ----

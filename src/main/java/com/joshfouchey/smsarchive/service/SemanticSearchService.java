@@ -14,6 +14,11 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Semantic search pipeline: embed query → pgvector ANN → ranked results.
+ * Handles Ollama unavailability gracefully by returning empty results.
+ */
+
 @Slf4j
 @Service
 @ConditionalOnProperty(name = "smsarchive.ai.enabled", havingValue = "true", matchIfMissing = true)
@@ -53,8 +58,14 @@ public class SemanticSearchService {
 
         int k = topK != null ? topK : defaultTopK;
 
-        // Step 1: Embed the query
-        float[] queryVector = embeddingService.embedQuery(naturalLanguageQuery);
+        // Step 1: Embed the query (with retry and graceful failure)
+        float[] queryVector;
+        try {
+            queryVector = embedQueryWithRetry(naturalLanguageQuery);
+        } catch (Exception e) {
+            log.warn("Semantic search unavailable — Ollama embedding failed: {}", e.getMessage());
+            return new SemanticSearchResult(naturalLanguageQuery, List.of(), 0);
+        }
         String vectorString = EmbeddingService.toVectorString(queryVector);
 
         // Step 2: ANN search — retrieve raw results from pgvector
@@ -95,5 +106,28 @@ public class SemanticSearchService {
         }
 
         return new SemanticSearchResult(naturalLanguageQuery, hits, hits.size());
+    }
+
+    /**
+     * Embed a query with retry logic (2 attempts with 1s backoff).
+     * Handles transient Ollama failures gracefully.
+     */
+    private float[] embedQueryWithRetry(String query) {
+        Exception lastException = null;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                return embeddingService.embedQuery(query);
+            } catch (Exception e) {
+                lastException = e;
+                log.debug("Embedding attempt {} failed: {}", attempt + 1, e.getMessage());
+                if (attempt < 1) {
+                    try { Thread.sleep(1000); } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("Interrupted during retry", ie);
+                    }
+                }
+            }
+        }
+        throw new RuntimeException("Ollama embedding unavailable after 2 attempts", lastException);
     }
 }

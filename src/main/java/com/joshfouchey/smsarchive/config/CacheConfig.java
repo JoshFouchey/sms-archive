@@ -24,11 +24,15 @@ public class CacheConfig {
                 "contactSummaries",          // Cache contact summaries list
                 "conversationList",          // Cache conversation list
                 "conversationTimeline",      // Cache conversation timeline buckets
-                "currentUser"                // Cache user lookups by username
+                "currentUser",               // Cache user lookups by username
+                "kgEntities",                // Cache KG entity listings
+                "kgEntityFacts",             // Cache entity fact lookups
+                "kgGraph",                   // Cache KG graph visualization data
+                "kgStats"                    // Cache KG entity/triple counts
         );
         mgr.setCaffeine(Caffeine.newBuilder()
-                .maximumSize(500)            // Increased to handle more context caching
-                .expireAfterWrite(Duration.ofHours(24))  // 24 hour cache
+                .maximumSize(800)
+                .expireAfterWrite(Duration.ofMinutes(15))
                 .recordStats());
         return mgr;
     }

@@ -103,14 +103,19 @@ public class UnifiedSearchService {
     private UnifiedSearchResult semanticSearch(
             String query, UUID userId, Long conversationId, Long contactId, int topK) {
 
-        SemanticSearchResult result = semanticSearchService.search(
-                query, userId, conversationId, contactId, topK);
+        try {
+            SemanticSearchResult result = semanticSearchService.search(
+                    query, userId, conversationId, contactId, topK);
 
-        List<UnifiedSearchHit> hits = result.hits().stream()
-                .map(h -> new UnifiedSearchHit(h.message(), h.similarity(), "SEMANTIC"))
-                .toList();
+            List<UnifiedSearchHit> hits = result.hits().stream()
+                    .map(h -> new UnifiedSearchHit(h.message(), h.similarity(), "SEMANTIC"))
+                    .toList();
 
-        return new UnifiedSearchResult(query, "SEMANTIC", hits, result.totalHits());
+            return new UnifiedSearchResult(query, "SEMANTIC", hits, result.totalHits());
+        } catch (Exception e) {
+            log.warn("Semantic search failed, falling back to keyword: {}", e.getMessage());
+            return keywordSearch(query, userId, contactId, topK);
+        }
     }
 
     /**
@@ -124,8 +129,15 @@ public class UnifiedSearchService {
         Page<Message> keywordPage = messageRepository.searchByTextUserPaginated(
                 query, userId, PageRequest.of(0, topK));
 
-        SemanticSearchResult semanticResult = semanticSearchService.search(
-                query, userId, conversationId, contactId, topK);
+        // Semantic path may fail if Ollama is down — degrade gracefully
+        SemanticSearchResult semanticResult;
+        try {
+            semanticResult = semanticSearchService.search(
+                    query, userId, conversationId, contactId, topK);
+        } catch (Exception e) {
+            log.warn("Semantic path failed in hybrid search, using keyword only: {}", e.getMessage());
+            semanticResult = new SemanticSearchResult(query, List.of(), 0);
+        }
 
         // Build RRF scores by message ID
         Map<Long, Double> rrfScores = new LinkedHashMap<>();

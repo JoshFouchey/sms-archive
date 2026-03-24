@@ -162,11 +162,8 @@ public class EmbeddingService {
                 .map(m -> "search_document: " + truncate(m.getBody()))
                 .toList();
 
-        // Call Ollama embedding API
-        EmbeddingResponse response = embeddingModel.call(
-                new EmbeddingRequest(texts, OllamaOptions.builder()
-                        .model(modelName)
-                        .build()));
+        // Call Ollama embedding API with retry (up to 3 attempts with backoff)
+        EmbeddingResponse response = callEmbeddingWithRetry(texts);
 
         // Persist embeddings in an explicit transaction (processBatch is called from
         // within the same class so @Transactional proxy won't intercept it)
@@ -180,6 +177,28 @@ public class EmbeddingService {
                         modelName);
             }
         });
+    }
+
+    private EmbeddingResponse callEmbeddingWithRetry(List<String> texts) {
+        Exception lastException = null;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                return embeddingModel.call(
+                        new EmbeddingRequest(texts, OllamaOptions.builder()
+                                .model(modelName)
+                                .build()));
+            } catch (Exception e) {
+                lastException = e;
+                long delay = 1000L * (1 << attempt); // 1s, 2s, 4s
+                log.warn("Ollama embedding attempt {} failed (retrying in {}ms): {}",
+                        attempt + 1, delay, e.getMessage());
+                try { Thread.sleep(delay); } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted during retry", ie);
+                }
+            }
+        }
+        throw new RuntimeException("Ollama embedding failed after 3 attempts", lastException);
     }
 
     /**

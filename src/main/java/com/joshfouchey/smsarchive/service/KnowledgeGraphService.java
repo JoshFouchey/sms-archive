@@ -14,6 +14,9 @@ import com.joshfouchey.smsarchive.repository.KgEntityAliasRepository;
 import com.joshfouchey.smsarchive.repository.KgEntityContactLinkRepository;
 import com.joshfouchey.smsarchive.repository.KgEntityRepository;
 import com.joshfouchey.smsarchive.repository.KgTripleRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +30,7 @@ import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.Set;
 
+@Slf4j
 @Service
 public class KnowledgeGraphService {
 
@@ -45,6 +49,7 @@ public class KnowledgeGraphService {
         this.contactLinkRepository = contactLinkRepository;
     }
 
+    @Cacheable(value = "kgEntities", key = "#user.id + '-' + #type + '-' + #search")
     @Transactional(readOnly = true)
     public List<KgEntityDto> getEntities(User user, String type, String search) {
         List<KgEntity> entities;
@@ -70,6 +75,7 @@ public class KnowledgeGraphService {
         return toDto(entity);
     }
 
+    @Cacheable(value = "kgEntityFacts", key = "#entityId")
     @Transactional(readOnly = true)
     public List<KgTripleDto> getEntityFacts(User user, Long entityId) {
         entityRepository.findByIdAndUser(entityId, user)
@@ -84,6 +90,7 @@ public class KnowledgeGraphService {
         return triples.stream().map(this::toTripleDto).toList();
     }
 
+    @Cacheable(value = "kgGraph", key = "#user.id + '-' + #centeredEntityId + '-' + #depth + '-' + #maxNodes")
     @Transactional(readOnly = true)
     public KnowledgeGraphDto getGraph(User user, Long centeredEntityId, int depth, int maxNodes) {
         Map<Long, KgEntity> entityMap = new HashMap<>();
@@ -156,6 +163,7 @@ public class KnowledgeGraphService {
         return new KnowledgeGraphDto(nodes, edges);
     }
 
+    @CacheEvict(value = {"kgEntities", "kgEntityFacts", "kgGraph", "kgStats"}, allEntries = true)
     @Transactional
     public KgEntityDto mergeEntities(User user, Long primaryId, Long mergeFromId) {
         KgEntity primary = entityRepository.findByIdAndUser(primaryId, user)
@@ -200,6 +208,7 @@ public class KnowledgeGraphService {
         return toDto(primary);
     }
 
+    @Cacheable(value = "kgStats", key = "#user.id")
     @Transactional(readOnly = true)
     public Map<String, Long> getStats(User user) {
         long entities = entityRepository.countByUser(user);
