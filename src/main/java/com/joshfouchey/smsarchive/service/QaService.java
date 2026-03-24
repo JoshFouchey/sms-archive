@@ -40,7 +40,7 @@ public class QaService {
             "few", "how", "if", "most", "no", "other", "over", "own", "same",
             "some", "such", "than", "then", "there", "through", "too", "under",
             "until", "up", "when", "where", "while", "why", "tell", "know",
-            "does", "many", "much", "often"
+            "many", "much", "often"
     );
 
     private static final Pattern QUESTION_PATTERN = Pattern.compile(
