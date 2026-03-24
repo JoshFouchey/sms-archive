@@ -19,7 +19,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.util.*;
@@ -35,6 +35,7 @@ public class EmbeddingService {
     private final MessageEmbeddingRepository embeddingRepository;
     private final EmbeddingJobRepository jobRepository;
     private final TaskExecutor aiTaskExecutor;
+    private final TransactionTemplate transactionTemplate;
 
     // Track running jobs to support cancellation
     private final Map<UUID, Boolean> cancelledJobs = new ConcurrentHashMap<>();
@@ -53,12 +54,14 @@ public class EmbeddingService {
             MessageRepository messageRepository,
             MessageEmbeddingRepository embeddingRepository,
             EmbeddingJobRepository jobRepository,
-            @Qualifier("aiTaskExecutor") TaskExecutor aiTaskExecutor) {
+            @Qualifier("aiTaskExecutor") TaskExecutor aiTaskExecutor,
+            TransactionTemplate transactionTemplate) {
         this.embeddingModel = embeddingModel;
         this.messageRepository = messageRepository;
         this.embeddingRepository = embeddingRepository;
         this.jobRepository = jobRepository;
         this.aiTaskExecutor = aiTaskExecutor;
+        this.transactionTemplate = transactionTemplate;
     }
 
     /**
@@ -146,7 +149,6 @@ public class EmbeddingService {
         cancelledJobs.remove(jobId);
     }
 
-    @Transactional
     void processBatch(List<Long> messageIds, User user) {
         List<Message> messages = messageRepository.findAllById(messageIds);
 
@@ -161,15 +163,18 @@ public class EmbeddingService {
                         .model(modelName)
                         .build()));
 
-        // Persist embeddings via native INSERT (avoids Hibernate varchar→vector type mismatch)
-        for (int i = 0; i < messages.size(); i++) {
-            String vectorStr = toVectorString(response.getResults().get(i).getOutput());
-            embeddingRepository.insertEmbedding(
-                    messages.get(i).getId(),
-                    user.getId(),
-                    vectorStr,
-                    modelName);
-        }
+        // Persist embeddings in an explicit transaction (processBatch is called from
+        // within the same class so @Transactional proxy won't intercept it)
+        transactionTemplate.executeWithoutResult(status -> {
+            for (int i = 0; i < messages.size(); i++) {
+                String vectorStr = toVectorString(response.getResults().get(i).getOutput());
+                embeddingRepository.insertEmbedding(
+                        messages.get(i).getId(),
+                        user.getId(),
+                        vectorStr,
+                        modelName);
+            }
+        });
     }
 
     /**
