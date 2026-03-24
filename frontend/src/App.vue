@@ -95,6 +95,7 @@ const items = [
   { label: "Contacts", icon: "pi pi-user", route: "/contacts" },
   { label: "Search", icon: "pi pi-search", route: "/search" },
   { label: "Knowledge Graph", icon: "pi pi-sitemap", route: "/knowledge-graph" },
+  { label: "AI Settings", icon: "pi pi-microchip", route: "/ai-settings" },
   { label: "Import", icon: "pi pi-upload", route: "/import" }
 ];
 

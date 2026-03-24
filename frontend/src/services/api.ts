@@ -553,3 +553,105 @@ export async function getKgEntityFacts(entityId: number): Promise<KgTriple[]> {
   const res = await axios.get(`${API_BASE}/api/knowledge-graph/entities/${entityId}/facts`);
   return res.data;
 }
+
+/* ==============================
+   AI Job Management
+============================== */
+
+export interface EmbeddingJob {
+  id: string;
+  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  totalMessages: number;
+  processed: number;
+  failed: number;
+  modelName: string;
+  percentComplete: number;
+  startedAt: string | null;
+  completedAt: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
+export interface KgExtractionJob {
+  id: string;
+  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  totalMessages: number;
+  processed: number;
+  triplesFound: number;
+  entitiesFound: number;
+  percentComplete: number;
+  modelName: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
+export interface MergeSuggestion {
+  entityId1: number;
+  entityName1: string;
+  entityId2: number;
+  entityName2: string;
+  entityType: string;
+  similarity: number;
+  reason: string;
+}
+
+export interface ResolutionResult {
+  autoMerged: number;
+  contactsLinked: number;
+  suggestions: MergeSuggestion[];
+}
+
+export async function startEmbeddingJob(): Promise<EmbeddingJob> {
+  const res = await axios.post(`${API_BASE}/api/search/embeddings/start`);
+  return res.data;
+}
+
+export async function getEmbeddingJobStatus(jobId: string): Promise<EmbeddingJob> {
+  const res = await axios.get(`${API_BASE}/api/search/embeddings/status/${jobId}`);
+  return res.data;
+}
+
+export async function cancelEmbeddingJob(jobId: string): Promise<void> {
+  await axios.post(`${API_BASE}/api/search/embeddings/cancel/${jobId}`);
+}
+
+export async function getEmbeddingJobHistory(): Promise<EmbeddingJob[]> {
+  const res = await axios.get(`${API_BASE}/api/search/embeddings/history`);
+  return res.data;
+}
+
+export async function startKgExtraction(): Promise<KgExtractionJob> {
+  const res = await axios.post(`${API_BASE}/api/knowledge-graph/extraction/start`);
+  return res.data;
+}
+
+export async function getKgExtractionJobs(): Promise<KgExtractionJob[]> {
+  const res = await axios.get(`${API_BASE}/api/knowledge-graph/extraction/jobs`);
+  return res.data;
+}
+
+export async function getKgExtractionJobStatus(jobId: string): Promise<KgExtractionJob> {
+  const res = await axios.get(`${API_BASE}/api/knowledge-graph/extraction/jobs/${jobId}`);
+  return res.data;
+}
+
+export async function cancelKgExtraction(jobId: string): Promise<void> {
+  await axios.post(`${API_BASE}/api/knowledge-graph/extraction/jobs/${jobId}/cancel`);
+}
+
+export async function runEntityResolution(): Promise<ResolutionResult> {
+  const res = await axios.post(`${API_BASE}/api/knowledge-graph/resolution/run`);
+  return res.data;
+}
+
+export async function getMergeSuggestions(): Promise<MergeSuggestion[]> {
+  const res = await axios.get(`${API_BASE}/api/knowledge-graph/resolution/suggestions`);
+  return res.data;
+}
+
+export async function mergeKgEntities(primaryId: number, mergeFromId: number): Promise<KgEntity> {
+  const res = await axios.post(`${API_BASE}/api/knowledge-graph/entities/merge`, { primaryId, mergeFromId });
+  return res.data;
+}
