@@ -153,14 +153,21 @@
             </div>
           </div>
 
-          <!-- Merge Button -->
-          <div class="mt-3">
+          <!-- Action Buttons -->
+          <div class="mt-3 flex gap-2">
+            <button
+              @click="openProfile(c)"
+              class="flex-1 px-3 py-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-800/40 text-indigo-700 dark:text-indigo-300 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-95"
+            >
+              <i class="pi pi-sparkles"></i>
+              KG Profile
+            </button>
             <button
               @click="openMergeDialog(c)"
-              class="w-full px-3 py-2 rounded-lg bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-800/40 text-purple-700 dark:text-purple-300 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-95"
+              class="flex-1 px-3 py-2 rounded-lg bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-800/40 text-purple-700 dark:text-purple-300 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-95"
             >
               <i class="pi pi-code-branch"></i>
-              Merge Contact
+              Merge
             </button>
           </div>
         </div>
@@ -249,15 +256,105 @@
         </div>
       </template>
     </Dialog>
+
+    <!-- KG Profile Dialog -->
+    <Dialog v-model:visible="profileOpen" modal header="Knowledge Graph Profile" :style="{ width: '40rem' }" :breakpoints="{ '640px': '90vw' }">
+      <div v-if="profileContact" class="space-y-4">
+        <!-- Contact Header -->
+        <div class="flex items-center gap-4 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl border border-indigo-200 dark:border-indigo-800">
+          <div class="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-400 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+            {{ (profileContact.name || profileContact.number).charAt(0).toUpperCase() }}
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ profileContact.name || 'Unnamed' }}</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 font-mono">{{ profileContact.number }}</p>
+          </div>
+        </div>
+
+        <!-- Facts Section -->
+        <div>
+          <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+            <i class="pi pi-link text-amber-500"></i>
+            Known Facts
+            <span v-if="profileFacts.length" class="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">
+              {{ profileFacts.length }}
+            </span>
+          </h4>
+
+          <div v-if="profileLoading" class="flex items-center justify-center py-8">
+            <i class="pi pi-spin pi-spinner text-2xl text-indigo-500"></i>
+          </div>
+
+          <div v-else-if="profileFacts.length === 0" class="text-center py-6 text-gray-400 dark:text-gray-500 text-sm italic">
+            <i class="pi pi-inbox text-2xl mb-2 block"></i>
+            No facts extracted for this contact yet.
+            <br>Run KG extraction from <RouterLink to="/ai-settings" class="text-indigo-500 hover:underline">AI Settings</RouterLink>.
+          </div>
+
+          <div v-else class="space-y-2 max-h-[350px] overflow-y-auto">
+            <div
+              v-for="fact in profileFacts"
+              :key="fact.id"
+              class="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-medium text-sm text-blue-700 dark:text-blue-300">{{ fact.subjectName }}</span>
+                  <span class="text-xs px-1.5 py-0.5 bg-gray-200 dark:bg-gray-600 rounded font-mono text-gray-600 dark:text-gray-300">
+                    {{ fact.predicate.replace(/_/g, ' ') }}
+                  </span>
+                  <span class="font-medium text-sm text-purple-700 dark:text-purple-300">{{ fact.objectName || fact.objectValue || '—' }}</span>
+                </div>
+                <div class="flex items-center gap-2 mt-1">
+                  <span :class="[
+                    'text-[10px] px-1.5 py-0.5 rounded-full font-medium',
+                    fact.confidence >= 0.8 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                    fact.confidence >= 0.5 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                    'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                  ]">
+                    {{ (fact.confidence * 100).toFixed(0) }}%
+                  </span>
+                  <span v-if="fact.isVerified" class="text-[10px] text-green-500 flex items-center gap-0.5">
+                    <i class="pi pi-verified"></i> Verified
+                  </span>
+                  <span class="text-[10px] text-gray-400">{{ formatDate(fact.createdAt) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-between items-center">
+          <RouterLink
+            v-if="profileFacts.length > 0"
+            to="/knowledge-graph"
+            class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+          >
+            <i class="pi pi-sitemap text-xs"></i>
+            View in Knowledge Graph
+          </RouterLink>
+          <div v-else></div>
+          <button
+            @click="profileOpen = false"
+            class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 text-gray-900 dark:text-gray-100 text-sm font-semibold transition-all"
+          >
+            Close
+          </button>
+        </div>
+      </template>
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue';
-import { getDistinctContacts, updateContactName, mergeContacts, type Contact } from '../services/api';
+import { getDistinctContacts, updateContactName, mergeContacts, getContactFacts, type Contact, type KgTriple } from '../services/api';
 import { useToast } from 'primevue/usetoast';
 import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
+import { RouterLink } from 'vue-router';
 
 const contacts = ref<Contact[]>([]);
 const loading = ref(true);
@@ -277,6 +374,12 @@ const mergeDialogOpen = ref(false);
 const contactToMerge = ref<Contact | null>(null);
 const selectedMergeTarget = ref<{ value: number; label: string } | null>(null);
 const merging = ref(false);
+
+// KG Profile state
+const profileOpen = ref(false);
+const profileContact = ref<Contact | null>(null);
+const profileFacts = ref<KgTriple[]>([]);
+const profileLoading = ref(false);
 
 onMounted(async () => {
   try {
@@ -389,6 +492,25 @@ async function saveEdit(c: Contact) {
     saving.value = false;
     cancelEdit();
   }
+}
+
+// KG Profile
+async function openProfile(c: Contact) {
+  profileContact.value = c;
+  profileFacts.value = [];
+  profileOpen.value = true;
+  profileLoading.value = true;
+  try {
+    profileFacts.value = await getContactFacts(c.id);
+  } catch {
+    profileFacts.value = [];
+  } finally {
+    profileLoading.value = false;
+  }
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 </script>
 
