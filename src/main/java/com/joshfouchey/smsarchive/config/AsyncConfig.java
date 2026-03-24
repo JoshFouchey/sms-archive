@@ -18,5 +18,16 @@ public class AsyncConfig {
         exec.initialize();
         return exec;
     }
+
+    @Bean(name = "aiTaskExecutor")
+    public TaskExecutor aiTaskExecutor() {
+        ThreadPoolTaskExecutor exec = new ThreadPoolTaskExecutor();
+        exec.setCorePoolSize(1);      // Only 1 AI task at a time (VRAM constraint)
+        exec.setMaxPoolSize(1);
+        exec.setQueueCapacity(5);
+        exec.setThreadNamePrefix("ai-worker-");
+        exec.initialize();
+        return exec;
+    }
 }
 
