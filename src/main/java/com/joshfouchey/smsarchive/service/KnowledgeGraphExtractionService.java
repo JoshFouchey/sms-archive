@@ -484,6 +484,10 @@ public class KnowledgeGraphExtractionService {
         String json = extractJsonArray(llmOutput);
         if (json == null || json.equals("[]")) return List.of();
 
+        // phi4-mini sometimes returns pretty-printed JSON with newlines inside strings
+        // which causes Jackson parse errors. Normalize to single-line.
+        json = json.replaceAll("\\s*\n\\s*", " ").replaceAll("\\s+", " ");
+
         try {
             return objectMapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
