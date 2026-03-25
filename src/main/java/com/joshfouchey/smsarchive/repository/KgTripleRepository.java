@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface KgTripleRepository extends JpaRepository<KgTriple, Long> {
 
@@ -47,4 +48,17 @@ public interface KgTripleRepository extends JpaRepository<KgTriple, Long> {
     int updateObjectEntity(@Param("oldId") Long oldId, @Param("newId") Long newId);
 
     long countByUser(User user);
+
+    @Query("""
+            SELECT t FROM KgTriple t
+            WHERE t.user = :user AND t.subject = :subject AND t.predicate = :predicate
+              AND (:object IS NULL AND t.object IS NULL OR t.object = :object)
+              AND (:objectValue IS NULL AND t.objectValue IS NULL OR t.objectValue = :objectValue)
+            """)
+    Optional<KgTriple> findByUserAndSubjectAndPredicateAndObjectOrValue(
+            @Param("user") User user,
+            @Param("subject") com.joshfouchey.smsarchive.model.KgEntity subject,
+            @Param("predicate") String predicate,
+            @Param("object") com.joshfouchey.smsarchive.model.KgEntity object,
+            @Param("objectValue") String objectValue);
 }

@@ -47,17 +47,41 @@ public class KnowledgeGraphExtractionService {
             "COMPANY", "ORGANIZATION", "ORG", "ORGANIZATION",
             "THING", "OBJECT", "VALUE", "CONCEPT");
 
+    private static final Set<String> CANONICAL_PREDICATES = Set.of(
+            "owns", "lives_in", "works_at", "works_as", "likes", "dislikes",
+            "is_allergic_to", "has_pet", "drives", "visited", "birthday_is",
+            "related_to", "member_of", "graduated_from", "studies_at",
+            "favorite_food", "phone_number_is", "email_is", "hobby_is",
+            "married_to", "dating", "sibling_of", "parent_of", "child_of",
+            "friend_of", "neighbor_of", "plays", "watches", "diagnosed_with",
+            "takes_medication", "born_in", "moved_to", "traveled_to",
+            "bought", "sold", "broke", "lost", "found", "wants", "plans_to",
+            "nickname_is", "age_is", "prefers");
+
+    private static final Set<String> REJECTED_ENTITY_NAMES = Set.of(
+            "he", "she", "it", "they", "them", "him", "her", "his",
+            "we", "us", "our", "i", "my", "you", "your", "someone",
+            "something", "anyone", "anything", "everyone", "everything",
+            "nobody", "nothing", "that", "this", "those", "these",
+            "the", "a", "an", "some", "other", "one", "here", "there");
+
     private static final String EXTRACTION_PROMPT_TEMPLATE = """
             Extract factual information from this conversation as JSON triples.
             
             Rules:
             - Only extract clearly stated facts, not opinions or questions
-            - Use standardized predicates: owns, lives_in, works_at, likes, dislikes, \
-            is_allergic_to, has_pet, drives, visited, birthday_is, related_to, member_of, \
-            graduated_from, favorite_food, phone_number_is, email_is, hobby_is, etc.
-            - Subject and object should be proper nouns or short descriptive names
+            - Subject and object must be specific names or short descriptive phrases (NOT pronouns like he/she/it/they)
+            - For the user ("Me"), use "Me" as the subject name with type PERSON
+            - Use ONLY predicates from this list (pick the closest match):
+              owns, lives_in, works_at, works_as, likes, dislikes, is_allergic_to,
+              has_pet, drives, visited, birthday_is, related_to, member_of,
+              graduated_from, studies_at, favorite_food, phone_number_is, email_is,
+              hobby_is, married_to, dating, sibling_of, parent_of, child_of,
+              friend_of, neighbor_of, plays, watches, diagnosed_with, takes_medication,
+              born_in, moved_to, traveled_to, bought, sold, broke, lost, found,
+              wants, plans_to, nickname_is, age_is, prefers
             
-            Types: PERSON, PLACE, ORGANIZATION, OBJECT, EVENT, CONCEPT, FOOD, VEHICLE, PET, MEDICAL, DATE
+            Entity types: PERSON, PLACE, ORGANIZATION, OBJECT, EVENT, CONCEPT, FOOD, VEHICLE, PET, MEDICAL, DATE
             
             Conversation:
             %s
@@ -313,7 +337,13 @@ public class KnowledgeGraphExtractionService {
 
             for (ExtractedFact fact : facts) {
                 try {
-                    int created = persistFact(fact, user);
+                    if (!isValidEntity(fact.subject) ||
+                            (fact.object != null && !fact.object.isBlank() && !isValidEntity(fact.object))) {
+                        log.debug("Skipping fact with invalid entity name: [{} {} {}]",
+                                fact.subject, fact.predicate, fact.object);
+                        continue;
+                    }
+                    int created = persistFact(fact, user, messageIds);
                     triples++;
                     newEntities += created;
                 } catch (Exception e) {
@@ -339,6 +369,7 @@ public class KnowledgeGraphExtractionService {
                         new Prompt(prompt, OllamaOptions.builder()
                                 .model(modelName)
                                 .temperature(0.1)
+                                .numCtx(4096)
                                 .build()));
                 return response.getResult().getOutput().getText();
             } catch (Exception e) {
@@ -403,12 +434,28 @@ public class KnowledgeGraphExtractionService {
         return null;
     }
 
+    // ---- Validation ----
+
+    private boolean isValidEntity(String name) {
+        if (name == null) return false;
+        String trimmed = name.trim();
+        if (trimmed.length() < 2) return false;
+        if (REJECTED_ENTITY_NAMES.contains(trimmed.toLowerCase())) return false;
+        // Reject if it's all punctuation or digits
+        if (trimmed.matches("^[\\p{Punct}\\d\\s]+$")) return false;
+        return true;
+    }
+
     // ---- Entity and triple persistence ----
 
+    private static final float CONFIDENCE_BOOST_PER_SOURCE = 0.1f;
+
     /**
-     * Persist a single extracted fact. Returns the number of NEW entities created (0, 1, or 2).
+     * Persist a single extracted fact with dedup and confidence boosting.
+     * If the same triple already exists, boost confidence and link new source messages.
+     * Returns the number of NEW entities created (0, 1, or 2).
      */
-    private int persistFact(ExtractedFact fact, User user) {
+    private int persistFact(ExtractedFact fact, User user, List<Long> sourceMessageIds) {
         if (fact.subject == null || fact.predicate == null) {
             throw new IllegalArgumentException("Subject and predicate are required");
         }
@@ -444,21 +491,48 @@ public class KnowledgeGraphExtractionService {
             objectValue = "";
         }
 
-        // Create triple
+        // Create or update triple (dedup by subject+predicate+object)
         String predicate = normalizePredicate(fact.predicate);
-        float confidence = Math.max(0.1f, Math.min(1.0f,
-                fact.confidence > 0 ? fact.confidence : 0.7f));
+        float baseConfidence = Math.max(0.1f, Math.min(1.0f,
+                fact.confidence > 0 ? fact.confidence : 0.5f));
 
-        KgTriple triple = new KgTriple();
-        triple.setUser(user);
-        triple.setSubject(subject);
-        triple.setPredicate(predicate);
-        triple.setObject(objectEntity);
-        triple.setObjectValue(objectValue);
-        triple.setConfidence(confidence);
-        triple.setIsVerified(false);
-        triple.setIsNegated(false);
-        tripleRepository.save(triple);
+        // Check if this exact fact already exists
+        Optional<KgTriple> existing = tripleRepository.findByUserAndSubjectAndPredicateAndObjectOrValue(
+                user, subject, predicate, objectEntity, objectValue);
+
+        KgTriple triple;
+        if (existing.isPresent()) {
+            // Boost confidence on existing triple
+            triple = existing.get();
+            float boosted = Math.min(1.0f, triple.getConfidence() + CONFIDENCE_BOOST_PER_SOURCE);
+            triple.setConfidence(boosted);
+            tripleRepository.save(triple);
+        } else {
+            // Create new triple
+            triple = new KgTriple();
+            triple.setUser(user);
+            triple.setSubject(subject);
+            triple.setPredicate(predicate);
+            triple.setObject(objectEntity);
+            triple.setObjectValue(objectValue);
+            triple.setConfidence(baseConfidence);
+            triple.setIsVerified(false);
+            triple.setIsNegated(false);
+            // Link to first message in window as primary source
+            if (!sourceMessageIds.isEmpty()) {
+                Message sourceRef = new Message();
+                sourceRef.setId(sourceMessageIds.get(0));
+                triple.setSourceMessage(sourceRef);
+            }
+            tripleRepository.save(triple);
+        }
+
+        // Link all source messages to this triple
+        for (Long msgId : sourceMessageIds) {
+            jdbcTemplate.update(
+                    "INSERT INTO kg_triple_sources (triple_id, message_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+                    triple.getId(), msgId);
+        }
 
         return newEntities;
     }
@@ -493,7 +567,12 @@ public class KnowledgeGraphExtractionService {
 
     private String normalizePredicate(String predicate) {
         if (predicate == null) return "related_to";
-        return predicate.trim().toLowerCase().replaceAll("\\s+", "_");
+        String normalized = predicate.trim().toLowerCase().replaceAll("\\s+", "_");
+        if (CANONICAL_PREDICATES.contains(normalized)) return normalized;
+        // Try common variations
+        String stripped = normalized.replaceAll("^(has_|is_|was_|did_)", "");
+        if (CANONICAL_PREDICATES.contains(stripped)) return stripped;
+        return "related_to";
     }
 
     private String truncate(String text, int maxLen) {
