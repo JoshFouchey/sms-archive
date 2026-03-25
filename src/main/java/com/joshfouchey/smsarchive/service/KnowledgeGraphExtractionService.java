@@ -482,13 +482,9 @@ public class KnowledgeGraphExtractionService {
     // ---- Prompt building ----
 
     private String buildContextHeader(List<Message> messages) {
-        // Identify the conversation partner(s) from message metadata
+        // Identify the conversation partner(s) from already-loaded sender contacts
         Set<String> contacts = new LinkedHashSet<>();
-        String conversationName = null;
         for (Message m : messages) {
-            if (m.getConversation() != null && m.getConversation().getName() != null) {
-                conversationName = m.getConversation().getName();
-            }
             if (m.getDirection() == MessageDirection.INBOUND) {
                 if (m.getSenderContact() != null && m.getSenderContact().getName() != null) {
                     contacts.add(m.getSenderContact().getName());
@@ -498,8 +494,6 @@ public class KnowledgeGraphExtractionService {
         StringBuilder sb = new StringBuilder("Context: This is a text message conversation between Me");
         if (!contacts.isEmpty()) {
             sb.append(" and ").append(String.join(", ", contacts));
-        } else if (conversationName != null) {
-            sb.append(" and ").append(conversationName);
         }
         sb.append(".");
         return sb.toString();
