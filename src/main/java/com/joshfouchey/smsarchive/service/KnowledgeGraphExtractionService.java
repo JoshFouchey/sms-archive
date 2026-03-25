@@ -68,16 +68,24 @@ public class KnowledgeGraphExtractionService {
     private static final String EXTRACTION_PROMPT_TEMPLATE = """
             You are a fact extractor. Read the conversation and extract factual information as JSON.
             
+            IMPORTANT: The speaker of a message is NOT necessarily the subject of the fact.
+            Pay close attention to WHO the fact is actually about, not who said it.
+            
             Example input:
             [10:00] Bob: I just got a new job at Google! Starting next week.
             [10:02] Me: Congrats! I bought a Ford Mustang yesterday.
             [10:03] Bob: My sister Jane is allergic to peanuts so be careful at dinner.
+            [10:05] Me: My boyfriend David works as a lawyer at Smith & Partners downtown.
+            [10:06] Bob: Nice! My mom Linda lives in Chicago now.
             
             Example output:
-            [{"subject":"Bob","subject_type":"PERSON","predicate":"works_at","object":"Google","object_type":"ORGANIZATION","confidence":0.9},{"subject":"Me","subject_type":"PERSON","predicate":"bought","object":"Ford Mustang","object_type":"VEHICLE","confidence":0.9},{"subject":"Jane","subject_type":"PERSON","predicate":"is_allergic_to","object":"peanuts","object_type":"FOOD","confidence":0.9},{"subject":"Bob","subject_type":"PERSON","predicate":"sibling_of","object":"Jane","object_type":"PERSON","confidence":0.9}]
+            [{"subject":"Bob","subject_type":"PERSON","predicate":"works_at","object":"Google","object_type":"ORGANIZATION","confidence":0.9},{"subject":"Me","subject_type":"PERSON","predicate":"bought","object":"Ford Mustang","object_type":"VEHICLE","confidence":0.9},{"subject":"Jane","subject_type":"PERSON","predicate":"is_allergic_to","object":"peanuts","object_type":"FOOD","confidence":0.9},{"subject":"Bob","subject_type":"PERSON","predicate":"sibling_of","object":"Jane","object_type":"PERSON","confidence":0.9},{"subject":"David","subject_type":"PERSON","predicate":"works_as","object":"lawyer","object_type":"OBJECT","confidence":0.9},{"subject":"David","subject_type":"PERSON","predicate":"works_at","object":"Smith & Partners","object_type":"ORGANIZATION","confidence":0.9},{"subject":"Me","subject_type":"PERSON","predicate":"dating","object":"David","object_type":"PERSON","confidence":0.9},{"subject":"Linda","subject_type":"PERSON","predicate":"lives_in","object":"Chicago","object_type":"PLACE","confidence":0.9},{"subject":"Bob","subject_type":"PERSON","predicate":"parent_of","object":"Linda","object_type":"PERSON","confidence":0.5}]
             
             Rules:
             - Only extract clearly stated facts, not opinions or questions
+            - The SPEAKER is who sent the message. The SUBJECT is who the fact is about — they are often different!
+            - If Alice says "My brother Tom lives in Paris", the subject is Tom (not Alice)
+            - If Alice says "I work at Google", the subject IS Alice
             - Subject and object must be specific names (NOT pronouns like he/she/it/they)
             - For the user ("Me"), use "Me" as the subject name with type PERSON
             - Use ONLY predicates from this list (pick the closest match):
