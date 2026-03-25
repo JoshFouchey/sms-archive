@@ -15,4 +15,6 @@ public interface KgExtractionJobRepository extends JpaRepository<KgExtractionJob
     Optional<KgExtractionJob> findByIdAndUser(UUID id, User user);
 
     Optional<KgExtractionJob> findFirstByUserAndStatusOrderByCreatedAtDesc(User user, String status);
+
+    List<KgExtractionJob> findByStatusIn(List<String> statuses);
 }

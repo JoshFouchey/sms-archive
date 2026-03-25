@@ -16,6 +16,7 @@ import org.springframework.ai.ollama.api.OllamaOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.task.TaskExecutor;
@@ -119,6 +120,24 @@ public class KnowledgeGraphExtractionService {
         this.transactionTemplate = transactionTemplate;
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
+    }
+
+    /**
+     * Reset orphaned RUNNING/PENDING jobs on startup so they don't block new extractions.
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void resetOrphanedJobs() {
+        List<KgExtractionJob> orphaned = jobRepository.findByStatusIn(List.of("RUNNING", "PENDING"));
+        for (KgExtractionJob job : orphaned) {
+            log.warn("Resetting orphaned KG extraction job {} (was {})", job.getId(), job.getStatus());
+            job.setStatus("FAILED");
+            job.setErrorMessage("Reset on startup — job was orphaned by a restart");
+            job.setCompletedAt(Instant.now());
+            jobRepository.save(job);
+        }
+        if (!orphaned.isEmpty()) {
+            log.info("Reset {} orphaned KG extraction job(s)", orphaned.size());
+        }
     }
 
     /**

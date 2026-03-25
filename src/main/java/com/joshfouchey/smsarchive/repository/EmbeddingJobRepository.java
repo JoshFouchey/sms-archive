@@ -15,4 +15,6 @@ public interface EmbeddingJobRepository extends JpaRepository<EmbeddingJob, UUID
     Optional<EmbeddingJob> findByIdAndUser(UUID id, User user);
 
     Optional<EmbeddingJob> findFirstByUserAndStatusOrderByCreatedAtDesc(User user, String status);
+
+    List<EmbeddingJob> findByStatusIn(List<String> statuses);
 }
