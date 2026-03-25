@@ -321,7 +321,7 @@ ORDER BY year, month
     // --- KG Extraction queries ---
 
     @Query(value = """
-            SELECT m.id, m.conversation_id FROM messages m
+            SELECT m.id, m.conversation_id, LENGTH(m.body) FROM messages m
             WHERE m.user_id = :userId
               AND m.body IS NOT NULL
               AND LENGTH(m.body) >= :minLength

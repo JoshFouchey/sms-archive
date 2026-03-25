@@ -66,11 +66,19 @@ public class KnowledgeGraphExtractionService {
             "the", "a", "an", "some", "other", "one", "here", "there");
 
     private static final String EXTRACTION_PROMPT_TEMPLATE = """
-            Extract factual information from this conversation as JSON triples.
+            You are a fact extractor. Read the conversation and extract factual information as JSON.
+            
+            Example input:
+            [10:00] Bob: I just got a new job at Google! Starting next week.
+            [10:02] Me: Congrats! I bought a Ford Mustang yesterday.
+            [10:03] Bob: My sister Jane is allergic to peanuts so be careful at dinner.
+            
+            Example output:
+            [{"subject":"Bob","subject_type":"PERSON","predicate":"works_at","object":"Google","object_type":"ORGANIZATION","confidence":0.9},{"subject":"Me","subject_type":"PERSON","predicate":"bought","object":"Ford Mustang","object_type":"VEHICLE","confidence":0.9},{"subject":"Jane","subject_type":"PERSON","predicate":"is_allergic_to","object":"peanuts","object_type":"FOOD","confidence":0.9},{"subject":"Bob","subject_type":"PERSON","predicate":"sibling_of","object":"Jane","object_type":"PERSON","confidence":0.9}]
             
             Rules:
             - Only extract clearly stated facts, not opinions or questions
-            - Subject and object must be specific names or short descriptive phrases (NOT pronouns like he/she/it/they)
+            - Subject and object must be specific names (NOT pronouns like he/she/it/they)
             - For the user ("Me"), use "Me" as the subject name with type PERSON
             - Use ONLY predicates from this list (pick the closest match):
               owns, lives_in, works_at, works_as, likes, dislikes, is_allergic_to,
@@ -80,16 +88,12 @@ public class KnowledgeGraphExtractionService {
               friend_of, neighbor_of, plays, watches, diagnosed_with, takes_medication,
               born_in, moved_to, traveled_to, bought, sold, broke, lost, found,
               wants, plans_to, nickname_is, age_is, prefers
+            - Entity types: PERSON, PLACE, ORGANIZATION, OBJECT, EVENT, FOOD, VEHICLE, PET, MEDICAL, DATE
             
-            Entity types: PERSON, PLACE, ORGANIZATION, OBJECT, EVENT, CONCEPT, FOOD, VEHICLE, PET, MEDICAL, DATE
-            
-            Conversation:
+            Now extract facts from this conversation:
             %s
             
-            Respond with ONLY a JSON array (no other text):
-            [{"subject":"name","subject_type":"PERSON","predicate":"owns","object":"Ford Mustang","object_type":"VEHICLE","confidence":0.9}]
-            
-            If no facts can be extracted, respond with exactly: []""";
+            Respond with ONLY a JSON array (no markdown, no explanation):""";
 
     private final ChatModel chatModel;
     private final MessageRepository messageRepository;
@@ -114,8 +118,11 @@ public class KnowledgeGraphExtractionService {
     @Value("${smsarchive.ai.kg.model:phi4-mini}")
     private String modelName;
 
-    @Value("${smsarchive.ai.kg.window-size:20}")
-    private int windowSize;
+    @Value("${smsarchive.ai.kg.window-char-budget:3000}")
+    private int windowCharBudget;
+
+    @Value("${smsarchive.ai.kg.max-message-chars:3000}")
+    private int maxMessageChars;
 
     @Value("${smsarchive.ai.kg.min-body-length:20}")
     private int minBodyLength;
@@ -250,27 +257,29 @@ public class KnowledgeGraphExtractionService {
             log.info("Extraction job {}: processing {} messages with {}",
                     jobId, rows.size(), modelName);
 
-            // Group message IDs by conversation
-            LinkedHashMap<Long, List<Long>> byConversation = new LinkedHashMap<>();
+            // Group messages by conversation with body lengths for dynamic windowing
+            LinkedHashMap<Long, List<long[]>> byConversation = new LinkedHashMap<>();
             for (Object[] row : rows) {
                 Long msgId = ((Number) row[0]).longValue();
                 Long convId = row[1] != null ? ((Number) row[1]).longValue() : 0L;
-                byConversation.computeIfAbsent(convId, k -> new ArrayList<>()).add(msgId);
+                int bodyLen = ((Number) row[2]).intValue();
+                byConversation.computeIfAbsent(convId, k -> new ArrayList<>())
+                        .add(new long[]{msgId, bodyLen});
             }
 
             for (var entry : byConversation.entrySet()) {
-                List<Long> msgIds = entry.getValue();
+                List<long[]> msgData = entry.getValue();
 
-                for (int i = 0; i < msgIds.size(); i += windowSize) {
+                // Build dynamic windows based on character budget
+                List<List<Long>> windows = buildDynamicWindows(msgData);
+
+                for (List<Long> windowIds : windows) {
                     if (Boolean.TRUE.equals(cancelledJobs.get(jobId))) {
                         job.setStatus("CANCELLED");
                         jobRepository.save(job);
                         log.info("Extraction job {} cancelled", jobId);
                         return;
                     }
-
-                    List<Long> windowIds = msgIds.subList(
-                            i, Math.min(i + windowSize, msgIds.size()));
 
                     try {
                         int[] results = processWindow(windowIds, user);
@@ -330,6 +339,13 @@ public class KnowledgeGraphExtractionService {
         String llmOutput = callLlmWithRetry(prompt);
         List<ExtractedFact> facts = parseFacts(llmOutput);
 
+        if (facts.isEmpty() && llmOutput != null && !llmOutput.isBlank()) {
+            log.info("KG window: LLM returned non-empty output but parsed 0 facts. Output preview: {}",
+                    llmOutput.substring(0, Math.min(200, llmOutput.length())));
+        } else if (!facts.isEmpty()) {
+            log.debug("KG window: parsed {} facts from {} messages", facts.size(), messageIds.size());
+        }
+
         // Persist in a transaction
         int[] counts = transactionTemplate.execute(status -> {
             int triples = 0;
@@ -337,10 +353,22 @@ public class KnowledgeGraphExtractionService {
 
             for (ExtractedFact fact : facts) {
                 try {
+                    if (!isValidFact(fact)) {
+                        log.debug("Skipping invalid fact structure: [{} {} {}]",
+                                fact.subject, fact.predicate, fact.object);
+                        continue;
+                    }
                     if (!isValidEntity(fact.subject) ||
                             (fact.object != null && !fact.object.isBlank() && !isValidEntity(fact.object))) {
                         log.debug("Skipping fact with invalid entity name: [{} {} {}]",
                                 fact.subject, fact.predicate, fact.object);
+                        continue;
+                    }
+                    // Drop facts that fall back to "related_to" — too noisy
+                    String predicate = normalizePredicate(fact.predicate);
+                    if ("related_to".equals(predicate)) {
+                        log.debug("Skipping non-canonical predicate '{}': [{} {} {}]",
+                                fact.predicate, fact.subject, fact.predicate, fact.object);
                         continue;
                     }
                     int created = persistFact(fact, user, messageIds);
@@ -359,6 +387,37 @@ public class KnowledgeGraphExtractionService {
         return counts != null ? counts : new int[]{0, 0};
     }
 
+    /**
+     * Build windows of message IDs based on character budget rather than fixed count.
+     * Each window will contain as many full messages as fit within windowCharBudget.
+     * A single large message gets its own window (truncated to maxMessageChars).
+     */
+    private List<List<Long>> buildDynamicWindows(List<long[]> msgData) {
+        List<List<Long>> windows = new ArrayList<>();
+        List<Long> currentWindow = new ArrayList<>();
+        int currentChars = 0;
+
+        for (long[] data : msgData) {
+            long msgId = data[0];
+            int bodyLen = (int) Math.min(data[1], maxMessageChars);
+
+            if (!currentWindow.isEmpty() && currentChars + bodyLen > windowCharBudget) {
+                windows.add(currentWindow);
+                currentWindow = new ArrayList<>();
+                currentChars = 0;
+            }
+
+            currentWindow.add(msgId);
+            currentChars += bodyLen;
+        }
+
+        if (!currentWindow.isEmpty()) {
+            windows.add(currentWindow);
+        }
+
+        return windows;
+    }
+
     // ---- LLM call with retry ----
 
     private String callLlmWithRetry(String prompt) {
@@ -368,7 +427,7 @@ public class KnowledgeGraphExtractionService {
                 ChatResponse response = chatModel.call(
                         new Prompt(prompt, OllamaOptions.builder()
                                 .model(modelName)
-                                .temperature(0.1)
+                                .temperature(0.3)
                                 .numCtx(4096)
                                 .build()));
                 return response.getResult().getOutput().getText();
@@ -404,7 +463,7 @@ public class KnowledgeGraphExtractionService {
 
             String ts = m.getTimestamp() != null ? TS_FORMAT.format(m.getTimestamp()) : "??";
             sb.append("[").append(ts).append("] ").append(sender).append(": ")
-              .append(truncate(m.getBody(), 500)).append("\n");
+              .append(truncate(m.getBody(), maxMessageChars)).append("\n");
         }
         return sb.toString();
     }
@@ -420,7 +479,8 @@ public class KnowledgeGraphExtractionService {
         try {
             return objectMapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
-            log.debug("Failed to parse LLM output as JSON: {}", e.getMessage());
+            log.info("Failed to parse LLM output as JSON: {} — raw: {}", e.getMessage(),
+                    llmOutput.substring(0, Math.min(200, llmOutput.length())));
             return List.of();
         }
     }
@@ -443,6 +503,20 @@ public class KnowledgeGraphExtractionService {
         if (REJECTED_ENTITY_NAMES.contains(trimmed.toLowerCase())) return false;
         // Reject if it's all punctuation or digits
         if (trimmed.matches("^[\\p{Punct}\\d\\s]+$")) return false;
+        // Reject sentence-length values — real entities/values are short
+        if (trimmed.length() > 80) return false;
+        return true;
+    }
+
+    private boolean isValidFact(ExtractedFact fact) {
+        if (fact.subject == null || fact.subject.isBlank()) return false;
+        if (fact.predicate == null || fact.predicate.isBlank()) return false;
+        // Object must exist and not be a sentence
+        String obj = fact.object;
+        if (obj == null || obj.isBlank()) return false;
+        if (obj.trim().length() > 80) return false;
+        // Reject if the object contains sentence-like patterns (multiple spaces + verb-like words)
+        if (obj.split("\\s+").length > 8) return false;
         return true;
     }
 
