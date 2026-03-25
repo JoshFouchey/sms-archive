@@ -28,7 +28,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 
 @Slf4j
 @Service
@@ -428,26 +428,37 @@ public class KnowledgeGraphExtractionService {
 
     // ---- LLM call with retry ----
 
+    private static final int LLM_TIMEOUT_SECONDS = 90;
+
     private String callLlmWithRetry(String prompt) {
         Exception lastException = null;
         for (int attempt = 0; attempt < 3; attempt++) {
             try {
-                ChatResponse response = chatModel.call(
-                        new Prompt(prompt, OllamaOptions.builder()
-                                .model(modelName)
-                                .temperature(0.3)
-                                .numCtx(4096)
-                                .build()));
-                return response.getResult().getOutput().getText();
-            } catch (Exception e) {
+                Future<String> future = CompletableFuture.supplyAsync(() -> {
+                    ChatResponse response = chatModel.call(
+                            new Prompt(prompt, OllamaOptions.builder()
+                                    .model(modelName)
+                                    .temperature(0.3)
+                                    .numCtx(4096)
+                                    .build()));
+                    return response.getResult().getOutput().getText();
+                });
+                return future.get(LLM_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            } catch (TimeoutException e) {
                 lastException = e;
-                long delay = 2000L * (1 << attempt); // 2s, 4s, 8s
-                log.warn("LLM call attempt {} failed (retrying in {}ms): {}",
-                        attempt + 1, delay, e.getMessage());
-                try { Thread.sleep(delay); } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException("Interrupted during retry", ie);
-                }
+                log.warn("LLM call attempt {} timed out after {}s — skipping window",
+                        attempt + 1, LLM_TIMEOUT_SECONDS);
+            } catch (ExecutionException e) {
+                lastException = e.getCause() instanceof Exception ? (Exception) e.getCause() : e;
+                log.warn("LLM call attempt {} failed: {}", attempt + 1, lastException.getMessage());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Interrupted during LLM call", e);
+            }
+            long delay = 2000L * (1 << attempt); // 2s, 4s, 8s
+            try { Thread.sleep(delay); } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Interrupted during retry", ie);
             }
         }
         throw new RuntimeException("LLM call failed after 3 attempts", lastException);
