@@ -31,7 +31,7 @@ public class SemanticSearchService {
     @Value("${smsarchive.ai.search.default-top-k:20}")
     private int defaultTopK;
 
-    @Value("${smsarchive.ai.search.similarity-threshold:0.65}")
+    @Value("${smsarchive.ai.search.similarity-threshold:0.30}")
     private double similarityThreshold;
 
     public SemanticSearchService(
@@ -96,14 +96,23 @@ public class SemanticSearchService {
             Message msg = messageMap.get(msgId);
             if (msg == null) continue;
 
-            // Similarity score is the last column in all queries
             Object[] row = rawResults.get(i);
             double similarity = ((Number) row[row.length - 1]).doubleValue();
+
+            if (i < 3) {
+                log.info("Semantic top-{}: msgId={} similarity={} body='{}'",
+                        i + 1, msgId, String.format("%.4f", similarity),
+                        msg.getBody() != null ? msg.getBody().substring(0, Math.min(60, msg.getBody().length())) : "null");
+            }
 
             if (similarity >= similarityThreshold) {
                 hits.add(new SemanticSearchHit(MessageMapper.toDto(msg), similarity));
             }
         }
+
+        log.info("Semantic search '{}': {} raw results, {} above threshold ({})",
+                naturalLanguageQuery.substring(0, Math.min(50, naturalLanguageQuery.length())),
+                rawResults.size(), hits.size(), similarityThreshold);
 
         return new SemanticSearchResult(naturalLanguageQuery, hits, hits.size());
     }

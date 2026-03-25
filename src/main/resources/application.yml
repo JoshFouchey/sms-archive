@@ -86,7 +86,7 @@ smsarchive.ai:
     auto-embed: true
   search:
     default-top-k: 20
-    similarity-threshold: 0.65
+    similarity-threshold: 0.30
   kg:
     model: ${SMSARCHIVE_AI_CHAT_MODEL:phi4-mini}
     batch-size: 10
