@@ -25,6 +25,18 @@
             AI Search
           </button>
           <button
+            @click="switchMode('SEARCH')"
+            :class="[
+              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
+              mode === 'SEARCH'
+                ? 'bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            ]"
+          >
+            <i class="pi pi-search text-xs"></i>
+            Message Search
+          </button>
+          <button
             @click="switchMode('DATA')"
             :class="[
               'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
@@ -38,7 +50,7 @@
           </button>
         </div>
         <p class="text-xs text-gray-400 dark:text-gray-500 text-center mt-2">
-          {{ mode === 'AI' ? 'Search your knowledge graph and messages with AI' : 'Ask data questions — the AI writes SQL to query your archive' }}
+          {{ mode === 'AI' ? 'Search your knowledge graph and messages with AI' : mode === 'SEARCH' ? 'Find messages by meaning — great for conversations, arguments, and agreements' : 'Ask data questions — the AI writes SQL to query your archive' }}
         </p>
       </div>
 
@@ -47,7 +59,7 @@
         <div class="relative">
           <i :class="[
             'absolute left-4 top-1/2 -translate-y-1/2 text-lg',
-            mode === 'AI' ? 'pi pi-sparkles text-amber-400' : 'pi pi-database text-blue-400'
+            mode === 'AI' ? 'pi pi-sparkles text-amber-400' : mode === 'SEARCH' ? 'pi pi-search text-emerald-400' : 'pi pi-database text-blue-400'
           ]"></i>
           <input
             ref="searchInput"
@@ -55,11 +67,15 @@
             type="text"
             :placeholder="mode === 'AI'
               ? 'What car does John drive? · Tell me about camping trip · Find birthday plans...'
+              : mode === 'SEARCH'
+              ? 'That argument about the wedding · When we talked about moving · Bob agreed to pay me back...'
               : 'How many texts in 2024? · Who did I message most last month? · First text to Sarah...'"
             :class="[
               'w-full pl-12 pr-14 py-4 text-lg rounded-2xl border-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-4 shadow-lg transition-all',
               mode === 'AI'
                 ? 'border-gray-200 dark:border-gray-600 focus:border-amber-500 dark:focus:border-amber-400 focus:ring-amber-500/10'
+                : mode === 'SEARCH'
+                ? 'border-gray-200 dark:border-gray-600 focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-emerald-500/10'
                 : 'border-gray-200 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500/10'
             ]"
             @keyup.enter="submitQuestion"
@@ -71,6 +87,8 @@
               'absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-xl text-white transition-all active:scale-95',
               mode === 'AI'
                 ? 'bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 dark:disabled:bg-gray-600'
+                : mode === 'SEARCH'
+                ? 'bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-300 dark:disabled:bg-gray-600'
                 : 'bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-600'
             ]"
           >
@@ -88,6 +106,8 @@
               'px-3 py-1.5 rounded-full text-sm transition-all border',
               mode === 'AI'
                 ? 'bg-gray-100 dark:bg-gray-700 hover:bg-amber-100 dark:hover:bg-amber-900/30 text-gray-600 dark:text-gray-300 hover:text-amber-700 dark:hover:text-amber-300 border-gray-200 dark:border-gray-600 hover:border-amber-300'
+                : mode === 'SEARCH'
+                ? 'bg-gray-100 dark:bg-gray-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-gray-600 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 border-gray-200 dark:border-gray-600 hover:border-emerald-300'
                 : 'bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-gray-600 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-300 border-gray-200 dark:border-gray-600 hover:border-blue-300'
             ]"
           >
@@ -240,7 +260,7 @@
             <div
               v-for="hit in response.searchResults.hits"
               :key="hit.message.id"
-              class="p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 transition-colors cursor-pointer"
+              class="p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors cursor-pointer"
               @click="goToMessage(hit.message.id)"
             >
               <div class="flex items-center gap-2 mb-1">
@@ -282,13 +302,21 @@ const loading = ref(false);
 const error = ref('');
 const response = ref<QaResponse | null>(null);
 const showFacts = ref(false);
-const mode = ref<'AI' | 'DATA'>('AI');
+const mode = ref<'AI' | 'SEARCH' | 'DATA'>('SEARCH');
 
 const aiSuggestions = [
   'What car does John drive?',
   'Tell me about Mom\'s allergies',
   'What do I know about camping trips?',
   'Who is Tom\'s girlfriend?',
+];
+
+const searchSuggestions = [
+  'That argument about the wedding',
+  'When we discussed vacation plans',
+  'The time Bob said he\'d pay me back',
+  'Conversation about moving to a new house',
+  'When Alice talked about her new job',
 ];
 
 const dataSuggestions = [
@@ -299,9 +327,11 @@ const dataSuggestions = [
   'How many photos did I send?',
 ];
 
-const activeSuggestions = computed(() => mode.value === 'AI' ? aiSuggestions : dataSuggestions);
+const activeSuggestions = computed(() =>
+  mode.value === 'AI' ? aiSuggestions : mode.value === 'SEARCH' ? searchSuggestions : dataSuggestions
+);
 
-function switchMode(newMode: 'AI' | 'DATA') {
+function switchMode(newMode: 'AI' | 'SEARCH' | 'DATA') {
   mode.value = newMode;
   response.value = null;
   error.value = '';

@@ -123,6 +123,7 @@ public class QaService {
         return switch (mode) {
             case "DATA" -> askData(user, question, request, start);
             case "AI" -> askAi(user, question, request, start);
+            case "SEARCH" -> handleSearch(user, question, request, start);
             default -> askAuto(user, question, request, start);
         };
     }
