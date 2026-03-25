@@ -201,25 +201,6 @@ export async function deleteConversation(conversationId: number): Promise<'delet
 }
 
 /* ==============================
-   Messages (Legacy - deprecated)
-============================== */
-
-/**
- * Fetch paginated messages for a contact by ID (DEPRECATED - use getConversationMessages)
- * Backend endpoint: GET /api/messages/contact/{contactId}?page=&size=&sort=(asc|desc)
- */
-export async function getMessagesByContactId(
-    contactId: number,
-    page: number = 0,
-    size: number = 50,
-    sort: "asc" | "desc" = "desc"
-): Promise<PagedResponse<Message>> {
-    const params = { page, size, sort };
-    const res = await axios.get(`${API_BASE}/api/messages/contact/${contactId}`, { params });
-    return res.data;
-}
-
-/* ==============================
    Media
 ============================== */
 
@@ -272,9 +253,6 @@ export async function getImportProgress(jobId: string): Promise<ImportProgress |
    Search
 ============================== */
 
-export async function searchBySender(sender: string): Promise<Message[]> { const res = await axios.get(`${API_BASE}/search/sender`, { params: { sender }}); return res.data; }
-export async function searchByRecipient(recipient: string): Promise<Message[]> { const res = await axios.get(`${API_BASE}/search/recipient`, { params: { recipient }}); return res.data; }
-
 // Updated to support pagination and contact filtering
 export async function searchByText(
     text: string, 
@@ -287,8 +265,6 @@ export async function searchByText(
     const res = await axios.get(`${API_BASE}/search/text`, { params }); 
     return res.data; 
 }
-
-export async function searchByDateRange(start: string, end: string): Promise<Message[]> { const res = await axios.get(`${API_BASE}/search/dates`, { params: { start, end }}); return res.data; }
 
 /* ==============================
    Contacts
@@ -371,57 +347,6 @@ export async function searchWithinConversation(conversationId: number, query: st
 export async function getConversationMessageCount(conversationId: number): Promise<number> {
   const res = await axios.get(`${API_BASE}/api/conversations/${conversationId}/messages/count`);
   return res.data.count;
-}
-
-/* ==============================
-   Conversation Timeline & Historical Navigation
-============================== */
-
-export interface ConversationTimeline {
-  conversationId: number;
-  years: YearBucket[];
-}
-
-export interface YearBucket {
-  year: number;
-  count: number;
-  months: MonthBucket[];
-}
-
-export interface MonthBucket {
-  year: number;
-  month: number; // 1-12
-  count: number;
-  firstMessageId: number | null;
-  lastMessageId: number | null;
-}
-
-/**
- * Get conversation timeline index with year/month buckets and message counts
- * Backend endpoint: GET /api/conversations/{conversationId}/timeline
- */
-export async function getConversationTimeline(conversationId: number): Promise<ConversationTimeline> {
-  const res = await axios.get(`${API_BASE}/api/conversations/${conversationId}/timeline`);
-  return res.data;
-}
-
-/**
- * Fetch messages by date range within a conversation
- * Backend endpoint: GET /api/conversations/{conversationId}/messages?dateFrom=&dateTo=&page=&size=&sort=
- */
-export async function getConversationMessagesByDateRange(
-  conversationId: number,
-  dateFrom: string | null,
-  dateTo: string | null,
-  page: number = 0,
-  size: number = 50,
-  sort: "asc" | "desc" = "asc"
-): Promise<PagedResponse<Message>> {
-  const params: any = { page, size, sort };
-  if (dateFrom) params.dateFrom = dateFrom;
-  if (dateTo) params.dateTo = dateTo;
-  const res = await axios.get(`${API_BASE}/api/conversations/${conversationId}/messages`, { params });
-  return res.data;
 }
 
 /* ==============================
