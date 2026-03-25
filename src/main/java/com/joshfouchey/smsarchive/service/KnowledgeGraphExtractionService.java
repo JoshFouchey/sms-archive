@@ -68,52 +68,39 @@ public class KnowledgeGraphExtractionService {
             "the", "a", "an", "some", "other", "one", "here", "there");
 
     private static final String EXTRACTION_PROMPT_TEMPLATE = """
-            You are a personal knowledge graph builder. Extract factual information from text conversations.
-            Your goal is to capture facts that would be useful to recall later — things about people,
-            places, events, relationships, preferences, and life milestones.
-            
-            IMPORTANT RULES:
-            1. The SPEAKER is who sent the message. The SUBJECT is who the fact is about — often different!
-               - If Alice says "My brother Tom lives in Paris" → subject is Tom, NOT Alice
-               - If Alice says "I work at Google" → subject IS Alice
-               - If Alice says "David proposed!" → subject is David (proposed_to Alice)
-            2. Extract BOTH explicit facts AND clearly implied relationships
-               - "My boyfriend David works at Google" → [Me dating David] AND [David works_at Google]
-               - "My sister Emily opened a bakery" → [speaker sibling_of Emily] AND [Emily owns bakery]
-            3. Use the person's actual name, not pronouns. Use "Me" for the user's own facts.
-            4. Keep objects SHORT and specific — names, places, things. NOT full sentences.
-            5. If a date or time is mentioned for a fact, include it in the object (e.g., "September 15th")
-            6. Respond with ONLY a compact JSON array — no markdown, no explanation, no newlines inside strings
+            You are a fact extractor for a personal knowledge graph. Extract facts from text messages as JSON.
             
             %s
             
-            Example input:
-            [2025-01-15 10:00] Bob: I just got a new job at Google! Starting next Monday.
-            [2025-01-15 10:02] Me: Congrats! I bought a Tesla Model 3 last week.
-            [2025-01-15 10:03] Bob: My sister Jane is allergic to peanuts, don't forget at dinner.
-            [2025-01-15 10:05] Bob: Jane just graduated from Ohio State in December.
-            [2025-01-15 10:07] Me: That's awesome! My mom's birthday is September 15th btw.
+            RULES:
+            1. The SPEAKER sent the message. The SUBJECT is who the fact is ABOUT — often different!
+               If Alice says "My brother Tom lives in Paris" → subject=Tom, predicate=lives_in, object=Paris
+               Also extract: Alice sibling_of Tom
+            2. Extract BOTH stated facts AND implied relationships
+            3. Use "Me" for the user's own facts. Use real names, never pronouns.
+            4. Keep objects short (names, places, things — not full sentences)
+            5. Return [] if no extractable facts exist
             
-            Example output:
-            [{"subject":"Bob","subject_type":"PERSON","predicate":"works_at","object":"Google","object_type":"ORGANIZATION","confidence":0.9},{"subject":"Me","subject_type":"PERSON","predicate":"bought","object":"Tesla Model 3","object_type":"VEHICLE","confidence":0.9},{"subject":"Jane","subject_type":"PERSON","predicate":"is_allergic_to","object":"peanuts","object_type":"FOOD","confidence":0.9},{"subject":"Bob","subject_type":"PERSON","predicate":"sibling_of","object":"Jane","object_type":"PERSON","confidence":0.9},{"subject":"Jane","subject_type":"PERSON","predicate":"graduated_from","object":"Ohio State","object_type":"ORGANIZATION","confidence":0.9},{"subject":"Me","subject_type":"PERSON","predicate":"friend_of","object":"Bob","object_type":"PERSON","confidence":0.7},{"subject":"Mom","subject_type":"PERSON","predicate":"birthday_is","object":"September 15th","object_type":"DATE","confidence":0.9},{"subject":"Me","subject_type":"PERSON","predicate":"parent_of","object":"Mom","object_type":"PERSON","confidence":0.5}]
+            Example:
+            [10:00] Bob: I just got a new job at Google!
+            [10:02] Me: Nice! My sister Jane is allergic to peanuts.
+            [10:03] Bob: My mom Linda moved to Chicago last month.
             
-            Allowed predicates (pick the closest match):
-              owns, lives_in, works_at, works_as, likes, dislikes, is_allergic_to,
-              has_pet, drives, visited, birthday_is, related_to, member_of,
-              graduated_from, studies_at, favorite_food, phone_number_is, email_is,
-              hobby_is, married_to, engaged_to, dating, sibling_of, parent_of, child_of,
-              friend_of, neighbor_of, plays, watches, diagnosed_with, takes_medication,
-              born_in, moved_to, traveled_to, bought, sold, broke, lost, found,
-              wants, plans_to, nickname_is, age_is, prefers, attended, celebrated,
-              proposed_to, expecting, adopted, coaches, teaches, manages,
-              retired_from, serves_in, volunteers_at
+            Output:
+            [{"subject":"Bob","subject_type":"PERSON","predicate":"works_at","object":"Google","object_type":"ORGANIZATION","confidence":0.9},{"subject":"Jane","subject_type":"PERSON","predicate":"is_allergic_to","object":"peanuts","object_type":"FOOD","confidence":0.9},{"subject":"Me","subject_type":"PERSON","predicate":"sibling_of","object":"Jane","object_type":"PERSON","confidence":0.9},{"subject":"Linda","subject_type":"PERSON","predicate":"moved_to","object":"Chicago","object_type":"PLACE","confidence":0.9},{"subject":"Bob","subject_type":"PERSON","predicate":"parent_of","object":"Linda","object_type":"PERSON","confidence":0.8}]
             
-            Entity types: PERSON, PLACE, ORGANIZATION, OBJECT, EVENT, FOOD, VEHICLE, PET, MEDICAL, DATE
+            Predicates (pick closest match):
+            owns, lives_in, works_at, works_as, likes, dislikes, is_allergic_to, has_pet, drives, visited,
+            birthday_is, member_of, graduated_from, studies_at, favorite_food, hobby_is, married_to,
+            engaged_to, dating, sibling_of, parent_of, child_of, friend_of, neighbor_of, plays, watches,
+            diagnosed_with, born_in, moved_to, traveled_to, bought, sold, wants, plans_to, nickname_is,
+            age_is, prefers, attended, proposed_to, coaches, teaches, manages, retired_from, volunteers_at
             
-            Now extract ALL facts from this conversation:
+            Types: PERSON, PLACE, ORGANIZATION, OBJECT, EVENT, FOOD, VEHICLE, PET, MEDICAL, DATE
+            
+            Extract facts from this conversation (compact JSON array, no markdown):
             %s
-            
-            JSON array:""";
+            JSON:""";
 
     private final ChatModel chatModel;
     private final MessageRepository messageRepository;
@@ -528,15 +515,17 @@ public class KnowledgeGraphExtractionService {
         String json = extractJsonArray(llmOutput);
         if (json == null || json.equals("[]")) return List.of();
 
-        // phi4-mini sometimes returns pretty-printed JSON with newlines inside strings
-        // which causes Jackson parse errors. Normalize to single-line.
+        // Normalize whitespace (phi4-mini sometimes pretty-prints)
         json = json.replaceAll("\\s*\n\\s*", " ").replaceAll("\\s+", " ");
+
+        // Fix unquoted JSON keys: {subject: "Bob"} → {"subject": "Bob"}
+        json = json.replaceAll("(?<=\\{|,)\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*:", " \"$1\":");
 
         try {
             return objectMapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
             log.info("Failed to parse LLM output as JSON: {} — raw: {}", e.getMessage(),
-                    llmOutput.substring(0, Math.min(200, llmOutput.length())));
+                    llmOutput.substring(0, Math.min(500, llmOutput.length())));
             return List.of();
         }
     }
