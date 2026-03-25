@@ -2,32 +2,77 @@
   <div class="h-full flex flex-col">
     <!-- Header with search bar -->
     <div class="shrink-0 px-6 pt-6 pb-4">
-      <div class="max-w-3xl mx-auto text-center mb-6">
+      <div class="max-w-3xl mx-auto text-center mb-4">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1 flex items-center justify-center gap-2">
           <i class="pi pi-sparkles text-amber-500"></i>
           Ask
         </h1>
-        <p class="text-sm text-gray-500 dark:text-gray-400">
-          Ask anything about your messages — facts, search, or stats
+      </div>
+
+      <!-- Mode Tabs -->
+      <div class="max-w-3xl mx-auto mb-4">
+        <div class="flex items-center justify-center gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-fit mx-auto">
+          <button
+            @click="switchMode('AI')"
+            :class="[
+              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
+              mode === 'AI'
+                ? 'bg-white dark:bg-gray-700 text-amber-600 dark:text-amber-400 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            ]"
+          >
+            <i class="pi pi-sparkles text-xs"></i>
+            AI Search
+          </button>
+          <button
+            @click="switchMode('DATA')"
+            :class="[
+              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
+              mode === 'DATA'
+                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            ]"
+          >
+            <i class="pi pi-database text-xs"></i>
+            Data Query
+          </button>
+        </div>
+        <p class="text-xs text-gray-400 dark:text-gray-500 text-center mt-2">
+          {{ mode === 'AI' ? 'Search your knowledge graph and messages with AI' : 'Ask data questions — the AI writes SQL to query your archive' }}
         </p>
       </div>
 
       <!-- Search Bar -->
       <div class="max-w-3xl mx-auto">
         <div class="relative">
-          <i class="pi pi-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
+          <i :class="[
+            'absolute left-4 top-1/2 -translate-y-1/2 text-lg',
+            mode === 'AI' ? 'pi pi-sparkles text-amber-400' : 'pi pi-database text-blue-400'
+          ]"></i>
           <input
             ref="searchInput"
             v-model="query"
             type="text"
-            placeholder="What car does John drive? · Who do I text the most? · camping trip..."
-            class="w-full pl-12 pr-14 py-4 text-lg rounded-2xl border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-4 focus:ring-amber-500/10 shadow-lg transition-all"
+            :placeholder="mode === 'AI'
+              ? 'What car does John drive? · Tell me about camping trip · Find birthday plans...'
+              : 'How many texts in 2024? · Who did I message most last month? · First text to Sarah...'"
+            :class="[
+              'w-full pl-12 pr-14 py-4 text-lg rounded-2xl border-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-4 shadow-lg transition-all',
+              mode === 'AI'
+                ? 'border-gray-200 dark:border-gray-600 focus:border-amber-500 dark:focus:border-amber-400 focus:ring-amber-500/10'
+                : 'border-gray-200 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500/10'
+            ]"
             @keyup.enter="submitQuestion"
           />
           <button
             @click="submitQuestion"
             :disabled="!query.trim() || loading"
-            class="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white transition-all active:scale-95"
+            :class="[
+              'absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-xl text-white transition-all active:scale-95',
+              mode === 'AI'
+                ? 'bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 dark:disabled:bg-gray-600'
+                : 'bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-600'
+            ]"
           >
             <i :class="loading ? 'pi pi-spin pi-spinner' : 'pi pi-arrow-right'" class="text-lg"></i>
           </button>
@@ -36,10 +81,15 @@
         <!-- Suggestion Chips -->
         <div v-if="!response && !loading" class="flex flex-wrap gap-2 mt-3 justify-center">
           <button
-            v-for="chip in suggestions"
+            v-for="chip in activeSuggestions"
             :key="chip"
             @click="query = chip; submitQuestion()"
-            class="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-amber-100 dark:hover:bg-amber-900/30 text-sm text-gray-600 dark:text-gray-300 hover:text-amber-700 dark:hover:text-amber-300 transition-all border border-gray-200 dark:border-gray-600 hover:border-amber-300"
+            :class="[
+              'px-3 py-1.5 rounded-full text-sm transition-all border',
+              mode === 'AI'
+                ? 'bg-gray-100 dark:bg-gray-700 hover:bg-amber-100 dark:hover:bg-amber-900/30 text-gray-600 dark:text-gray-300 hover:text-amber-700 dark:hover:text-amber-300 border-gray-200 dark:border-gray-600 hover:border-amber-300'
+                : 'bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-gray-600 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-300 border-gray-200 dark:border-gray-600 hover:border-blue-300'
+            ]"
           >
             {{ chip }}
           </button>
@@ -221,7 +271,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { askQuestion, type QaResponse } from '../services/api';
 
@@ -232,14 +282,32 @@ const loading = ref(false);
 const error = ref('');
 const response = ref<QaResponse | null>(null);
 const showFacts = ref(false);
+const mode = ref<'AI' | 'DATA'>('AI');
 
-const suggestions = [
-  'Who do I text the most?',
-  'How many messages do I have?',
-  'When did I first text John?',
-  'How many photos did I send in 2024?',
-  'Which month had the most messages?',
+const aiSuggestions = [
+  'What car does John drive?',
+  'Tell me about Mom\'s allergies',
+  'What do I know about camping trips?',
+  'Who is Tom\'s girlfriend?',
 ];
+
+const dataSuggestions = [
+  'How many texts did I send in 2024?',
+  'Who do I text the most?',
+  'When did I first message Sarah?',
+  'Which month had the most messages?',
+  'How many photos did I send?',
+];
+
+const activeSuggestions = computed(() => mode.value === 'AI' ? aiSuggestions : dataSuggestions);
+
+function switchMode(newMode: 'AI' | 'DATA') {
+  mode.value = newMode;
+  response.value = null;
+  error.value = '';
+  showFacts.value = false;
+  searchInput.value?.focus();
+}
 
 onMounted(() => {
   searchInput.value?.focus();
@@ -255,7 +323,7 @@ async function submitQuestion() {
   showFacts.value = false;
 
   try {
-    response.value = await askQuestion({ question: q });
+    response.value = await askQuestion({ question: q, mode: mode.value });
   } catch (e: any) {
     error.value = e?.response?.data?.message || e?.message || 'Failed to get answer';
   } finally {

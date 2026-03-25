@@ -62,6 +62,14 @@ public class QaService {
             Pattern.CASE_INSENSITIVE
     );
 
+    // Detects date/time qualifiers that make regex fast-path insufficient
+    private static final Pattern HAS_DATE_CONTEXT = Pattern.compile(
+            "(in\\s+\\d{4}|since\\s+\\d{4}|\\d{4}|last\\s+(\\d+\\s+)?(month|year|week|day)|" +
+            "this\\s+(month|year|week)|between|january|february|march|april|may|june|july|" +
+            "august|september|october|november|december|today|yesterday|ago)",
+            Pattern.CASE_INSENSITIVE
+    );
+
     private static final List<AnalyticsPattern> ANALYTICS_PATTERNS = List.of(
             new AnalyticsPattern(
                     Pattern.compile("(top|most)\\s+(text|message|contact|talk)", Pattern.CASE_INSENSITIVE),
@@ -110,14 +118,39 @@ public class QaService {
     public QaResponse ask(User user, QaRequest request) {
         long start = System.currentTimeMillis();
         String question = request.question().trim();
+        String mode = request.mode() != null ? request.mode().toUpperCase() : "AUTO";
 
-        // 1. Check analytics patterns first (no LLM needed — fast path)
-        String analyticsType = detectAnalyticsIntent(question);
-        if (analyticsType != null) {
-            return handleAnalytics(analyticsType, System.currentTimeMillis() - start);
+        return switch (mode) {
+            case "DATA" -> askData(user, question, request, start);
+            case "AI" -> askAi(user, question, request, start);
+            default -> askAuto(user, question, request, start);
+        };
+    }
+
+    /** DATA mode: text-to-SQL → regex fast-path fallback */
+    private QaResponse askData(User user, String question, QaRequest request, long start) {
+        // Try text-to-SQL first (handles any data question)
+        if (textToSqlService != null) {
+            try {
+                return handleTextToSql(user, question, start);
+            } catch (TextToSqlException e) {
+                log.info("Text-to-SQL failed, trying regex fast-path: {}", e.getMessage());
+            }
         }
 
-        // 2. Check if it's a factual question with KG entities
+        // Fallback to regex patterns
+        String analyticsType = detectAnalyticsIntent(question);
+        if (analyticsType != null) {
+            return handleAnalytics(analyticsType, start);
+        }
+
+        return QaResponse.analytics("I couldn't generate a query for that question. Try rephrasing it.", null,
+                System.currentTimeMillis() - start);
+    }
+
+    /** AI mode: KG factual → semantic search */
+    private QaResponse askAi(User user, String question, QaRequest request, long start) {
+        // Try KG entity extraction
         if (QUESTION_PATTERN.matcher(question).find()) {
             List<KgEntity> matchedEntities = extractEntities(user, question);
             if (!matchedEntities.isEmpty()) {
@@ -125,16 +158,38 @@ public class QaService {
             }
         }
 
-        // 3. Try text-to-SQL for data/analytics questions
+        // Fall through to semantic/hybrid search
+        return handleSearch(user, question, request, start);
+    }
+
+    /** AUTO mode: original routing — regex → KG factual → text-to-SQL → search */
+    private QaResponse askAuto(User user, String question, QaRequest request, long start) {
+        // 1. Regex fast-path (only if no date/filter context)
+        if (!HAS_DATE_CONTEXT.matcher(question).find()) {
+            String analyticsType = detectAnalyticsIntent(question);
+            if (analyticsType != null) {
+                return handleAnalytics(analyticsType, start);
+            }
+        }
+
+        // 2. KG factual
+        if (QUESTION_PATTERN.matcher(question).find()) {
+            List<KgEntity> matchedEntities = extractEntities(user, question);
+            if (!matchedEntities.isEmpty()) {
+                return handleFactual(user, question, matchedEntities, request, start);
+            }
+        }
+
+        // 3. Text-to-SQL for data questions
         if (textToSqlService != null && DATA_QUESTION_PATTERN.matcher(question).find()) {
             try {
                 return handleTextToSql(user, question, start);
             } catch (TextToSqlException e) {
-                log.info("Text-to-SQL failed, falling through to search: {}", e.getMessage());
+                log.info("Text-to-SQL failed in auto mode: {}", e.getMessage());
             }
         }
 
-        // 4. Default: pass to unified search
+        // 4. Search fallback
         return handleSearch(user, question, request, start);
     }
 

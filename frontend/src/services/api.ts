@@ -670,6 +670,7 @@ export async function mergeKgEntities(primaryId: number, mergeFromId: number): P
 
 export interface QaRequest {
   question: string;
+  mode?: 'AI' | 'DATA' | null;
   conversationId?: number | null;
   contactId?: number | null;
 }
