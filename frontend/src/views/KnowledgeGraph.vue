@@ -248,61 +248,6 @@
         </div>
       </div>
 
-      <!-- Top Contacts & Messages Per Day -->
-      <Accordion v-if="insightsDashboard" :value="[]" multiple class="shadow-sm rounded-xl overflow-hidden">
-        <AccordionPanel value="0">
-          <AccordionHeader class="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            <div class="flex items-center gap-2"><i class="pi pi-star-fill text-yellow-500"></i><span class="font-semibold">Top Contacts</span></div>
-          </AccordionHeader>
-          <AccordionContent class="bg-gray-50 dark:bg-gray-900/50">
-            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 p-4">
-              <div v-for="contact in insightsDashboard.topContacts.slice(0, 12)" :key="contact.contactId"
-                class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm hover:shadow-md transition-all border border-gray-200 dark:border-gray-700 hover:scale-[1.02]">
-                <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-white text-sm font-bold shrink-0">
-                    {{ contact.displayName.charAt(0).toUpperCase() }}
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <h3 class="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">{{ contact.displayName }}</h3>
-                    <span class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ contact.messageCount.toLocaleString() }}</span>
-                    <span class="text-xs text-gray-500 ml-1">msgs</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </AccordionContent>
-        </AccordionPanel>
-        <AccordionPanel value="1">
-          <AccordionHeader class="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            <div class="flex items-center gap-2"><i class="pi pi-chart-line text-green-500"></i><span class="font-semibold">Messages Per Day</span></div>
-          </AccordionHeader>
-          <AccordionContent class="bg-gray-50 dark:bg-gray-900/50">
-            <div class="flex flex-col gap-4 p-4">
-              <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-                <div class="flex flex-wrap items-end gap-4">
-                  <div class="flex flex-col flex-1 min-w-[140px]">
-                    <label class="text-xs font-semibold mb-1 text-gray-700 dark:text-gray-300 uppercase tracking-wide">Start</label>
-                    <Calendar v-model="chartStartDate" dateFormat="yy-mm-dd" :maxDate="chartEndDate" class="w-full" />
-                  </div>
-                  <div class="flex flex-col flex-1 min-w-[140px]">
-                    <label class="text-xs font-semibold mb-1 text-gray-700 dark:text-gray-300 uppercase tracking-wide">End</label>
-                    <Calendar v-model="chartEndDate" dateFormat="yy-mm-dd" :minDate="chartStartDate" class="w-full" />
-                  </div>
-                  <Button label="Apply" size="small" icon="pi pi-check" @click="fetchInsightsDashboard" severity="success" />
-                </div>
-                <div class="flex gap-6 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 text-sm">
-                  <span><strong>{{ messagesPerPeriodTotal }}</strong> total</span>
-                  <span><strong>{{ averageMessagesPerDay }}</strong> avg/day</span>
-                  <span><strong>{{ dayCount }}</strong> days</span>
-                </div>
-              </div>
-              <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-                <Chart type="bar" :data="messagesPerDayChartData" :options="messagesPerDayChartOptions" class="w-full h-64" />
-              </div>
-            </div>
-          </AccordionContent>
-        </AccordionPanel>
-      </Accordion>
     </div>
   </div>
 </template>
@@ -322,18 +267,10 @@ import {
   type KnowledgeGraph,
   type GraphNode,
   type KgTriple,
-  type AnalyticsDashboardDto,
-  type MessageCountPerDayDto,
+  type AnalyticsSummary,
   type ContactSummary,
   type EmbeddingStats,
 } from '../services/api';
-import Accordion from 'primevue/accordion';
-import AccordionPanel from 'primevue/accordionpanel';
-import AccordionHeader from 'primevue/accordionheader';
-import AccordionContent from 'primevue/accordioncontent';
-import Chart from 'primevue/chart';
-import Button from 'primevue/button';
-import Calendar from 'primevue/calendar';
 
 // Tab state
 const activeTab = ref<'graph' | 'insights'>('graph');
@@ -517,8 +454,7 @@ watch(typeFilter, () => {
 });
 
 // ==================== INSIGHTS TAB ====================
-const insightsDashboard = ref<AnalyticsDashboardDto | null>(null);
-const insightsSummary = computed(() => insightsDashboard.value?.summary ?? null);
+const insightsSummary = ref<AnalyticsSummary | null>(null);
 const insightsEmbedding = ref<EmbeddingStats | null>(null);
 const recentTriples = ref<KgTriple[]>([]);
 const contactOptions = ref<{ label: string; value: number }[]>([]);
@@ -531,16 +467,6 @@ const embeddingPct = computed(() => {
   if (!insightsEmbedding.value) return '—';
   return insightsEmbedding.value.percentComplete.toFixed(0);
 });
-
-// Chart date range
-function todayDate(): Date { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
-function addDays(base: Date, delta: number): Date { const d = new Date(base); d.setDate(d.getDate() + delta); return d; }
-const chartEndDate = ref<Date>(todayDate());
-const chartStartDate = ref<Date>(addDays(chartEndDate.value, -29));
-
-function fmtDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 function formatTimeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -557,22 +483,17 @@ async function loadInsightsIfNeeded() {
   if (insightsLoaded) return;
   insightsLoaded = true;
   await Promise.all([
-    fetchInsightsDashboard(),
+    loadInsightsSummary(),
     loadInsightsAiStats(),
     loadRecentTriples(),
     loadInsightsContacts(),
   ]);
 }
 
-async function fetchInsightsDashboard() {
+async function loadInsightsSummary() {
   try {
-    insightsDashboard.value = await getAnalyticsDashboard({
-      startDate: fmtDate(chartStartDate.value),
-      endDate: fmtDate(chartEndDate.value),
-      topContactDays: 30,
-      topLimit: 10,
-      perDayDays: dayCount.value,
-    });
+    const dash = await getAnalyticsDashboard({});
+    insightsSummary.value = dash.summary;
   } catch { /* ignore */ }
 }
 
@@ -598,57 +519,4 @@ async function loadContactFacts() {
   catch { contactFacts.value = []; }
   finally { contactFactsLoading.value = false; }
 }
-
-// Chart computations
-const dayCount = computed(() => {
-  const ms = chartEndDate.value.getTime() - chartStartDate.value.getTime();
-  return Math.floor(ms / 86400000) + 1;
-});
-
-const enumerateDays = () => {
-  const days: string[] = [];
-  const cur = new Date(chartStartDate.value);
-  while (cur <= chartEndDate.value) {
-    days.push(fmtDate(cur));
-    cur.setDate(cur.getDate() + 1);
-  }
-  return days;
-};
-
-const messagesPerDayChartData = computed(() => {
-  const rows: MessageCountPerDayDto[] = insightsDashboard.value?.messagesPerDay || [];
-  const counts = new Map<string, number>();
-  for (const r of rows) counts.set(r.day, r.count as number);
-  const orderedDays = enumerateDays();
-  const data = orderedDays.map(day => counts.get(day) ?? 0);
-  return {
-    labels: orderedDays,
-    datasets: [{ label: 'Messages', data, backgroundColor: 'rgba(99,102,241,0.5)', borderColor: 'rgba(99,102,241,1)', borderWidth: 1 }],
-  };
-});
-
-const messagesPerPeriodTotal = computed(() => {
-  const data = messagesPerDayChartData.value?.datasets?.[0]?.data as number[] | undefined;
-  return data?.reduce((a, b) => a + b, 0) ?? 0;
-});
-
-const averageMessagesPerDay = computed(() => {
-  const dc = dayCount.value;
-  if (!dc) return 0;
-  const avg = messagesPerPeriodTotal.value / dc;
-  return avg < 10 ? avg.toFixed(1) : Math.round(avg);
-});
-
-const messagesPerDayChartOptions = computed(() => {
-  const days = dayCount.value;
-  const step = days <= 14 ? 1 : days <= 45 ? 2 : days <= 90 ? 3 : 5;
-  return {
-    responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx: any) => `${ctx.parsed.y} messages` } } },
-    scales: {
-      x: { ticks: { maxRotation: 60, minRotation: 45, autoSkip: false, callback: function(_value: any, idx: number) { const labels = (this as any).chart.data.labels as string[]; return idx % step === 0 ? (labels?.[idx] || '').slice(5) : ''; } } },
-      y: { beginAtZero: true, precision: 0 },
-    },
-  };
-});
 </script>
