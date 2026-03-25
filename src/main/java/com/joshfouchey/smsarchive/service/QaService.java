@@ -135,16 +135,27 @@ public class QaService {
                 return handleTextToSql(user, question, start);
             } catch (TextToSqlException e) {
                 log.info("Text-to-SQL failed, trying regex fast-path: {}", e.getMessage());
+
+                // Fallback to regex patterns
+                String analyticsType = detectAnalyticsIntent(question);
+                if (analyticsType != null) {
+                    return handleAnalytics(analyticsType, start);
+                }
+
+                // Return the actual error so user knows what happened
+                String errorMsg = "SQL generation failed: " + e.getMessage()
+                        + ". Try rephrasing your question.";
+                return QaResponse.analytics(errorMsg, null, System.currentTimeMillis() - start);
             }
         }
 
-        // Fallback to regex patterns
+        // No text-to-SQL service — regex only
         String analyticsType = detectAnalyticsIntent(question);
         if (analyticsType != null) {
             return handleAnalytics(analyticsType, start);
         }
 
-        return QaResponse.analytics("I couldn't generate a query for that question. Try rephrasing it.", null,
+        return QaResponse.analytics("Data query service is not available. Check that the SQL model is configured.", null,
                 System.currentTimeMillis() - start);
     }
 

@@ -23,8 +23,9 @@ public class TextToSqlService {
     private static final int QUERY_TIMEOUT_SECONDS = 10;
 
     private static final Pattern DANGEROUS_SQL = Pattern.compile(
-            "\\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|EXECUTE|EXEC|CALL|" +
-            "INTO|SET|MERGE|COPY|VACUUM|REINDEX|COMMENT|SECURITY|OWNER|pg_)\\b",
+            "\\b(INSERT\\s+INTO|UPDATE\\s+\\w|DELETE\\s+FROM|DROP\\s|ALTER\\s|CREATE\\s|TRUNCATE\\s|" +
+            "GRANT\\s|REVOKE\\s|EXECUTE\\s|EXEC\\s|CALL\\s|" +
+            "MERGE\\s|COPY\\s|VACUUM\\s|REINDEX\\s|COMMENT\\s+ON|SECURITY\\s|OWNER\\s|pg_sleep)\\b",
             Pattern.CASE_INSENSITIVE);
 
     private static final Pattern SELECT_ONLY = Pattern.compile(
@@ -128,12 +129,15 @@ public class TextToSqlService {
 
     private void validateSql(String sql) {
         if (!SELECT_ONLY.matcher(sql).find()) {
+            log.warn("Text-to-SQL validation failed: not a SELECT query. SQL: {}", sql);
             throw new TextToSqlException("Generated SQL is not a SELECT query");
         }
         if (DANGEROUS_SQL.matcher(sql).find()) {
+            log.warn("Text-to-SQL validation failed: prohibited keywords. SQL: {}", sql);
             throw new TextToSqlException("Generated SQL contains prohibited keywords");
         }
         if (!sql.toLowerCase().contains("user_id")) {
+            log.warn("Text-to-SQL validation failed: missing user_id filter. SQL: {}", sql);
             throw new TextToSqlException("Generated SQL missing user_id filter");
         }
         // Reject multiple statements
