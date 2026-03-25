@@ -52,11 +52,13 @@ public class KnowledgeGraphExtractionService {
             "is_allergic_to", "has_pet", "drives", "visited", "birthday_is",
             "related_to", "member_of", "graduated_from", "studies_at",
             "favorite_food", "phone_number_is", "email_is", "hobby_is",
-            "married_to", "dating", "sibling_of", "parent_of", "child_of",
+            "married_to", "engaged_to", "dating", "sibling_of", "parent_of", "child_of",
             "friend_of", "neighbor_of", "plays", "watches", "diagnosed_with",
             "takes_medication", "born_in", "moved_to", "traveled_to",
             "bought", "sold", "broke", "lost", "found", "wants", "plans_to",
-            "nickname_is", "age_is", "prefers");
+            "nickname_is", "age_is", "prefers", "attended", "celebrated",
+            "proposed_to", "expecting", "adopted", "coaches", "teaches",
+            "manages", "retired_from", "serves_in", "volunteers_at");
 
     private static final Set<String> REJECTED_ENTITY_NAMES = Set.of(
             "he", "she", "it", "they", "them", "him", "her", "his",
@@ -66,42 +68,52 @@ public class KnowledgeGraphExtractionService {
             "the", "a", "an", "some", "other", "one", "here", "there");
 
     private static final String EXTRACTION_PROMPT_TEMPLATE = """
-            You are a fact extractor. Read the conversation and extract factual information as JSON.
+            You are a personal knowledge graph builder. Extract factual information from text conversations.
+            Your goal is to capture facts that would be useful to recall later — things about people,
+            places, events, relationships, preferences, and life milestones.
             
-            IMPORTANT: The speaker of a message is NOT necessarily the subject of the fact.
-            Pay close attention to WHO the fact is actually about, not who said it.
+            IMPORTANT RULES:
+            1. The SPEAKER is who sent the message. The SUBJECT is who the fact is about — often different!
+               - If Alice says "My brother Tom lives in Paris" → subject is Tom, NOT Alice
+               - If Alice says "I work at Google" → subject IS Alice
+               - If Alice says "David proposed!" → subject is David (proposed_to Alice)
+            2. Extract BOTH explicit facts AND clearly implied relationships
+               - "My boyfriend David works at Google" → [Me dating David] AND [David works_at Google]
+               - "My sister Emily opened a bakery" → [speaker sibling_of Emily] AND [Emily owns bakery]
+            3. Use the person's actual name, not pronouns. Use "Me" for the user's own facts.
+            4. Keep objects SHORT and specific — names, places, things. NOT full sentences.
+            5. If a date or time is mentioned for a fact, include it in the object (e.g., "September 15th")
+            6. Respond with ONLY a compact JSON array — no markdown, no explanation, no newlines inside strings
+            
+            %s
             
             Example input:
-            [10:00] Bob: I just got a new job at Google! Starting next week.
-            [10:02] Me: Congrats! I bought a Ford Mustang yesterday.
-            [10:03] Bob: My sister Jane is allergic to peanuts so be careful at dinner.
-            [10:05] Me: My boyfriend David works as a lawyer at Smith & Partners downtown.
-            [10:06] Bob: Nice! My mom Linda lives in Chicago now.
+            [2025-01-15 10:00] Bob: I just got a new job at Google! Starting next Monday.
+            [2025-01-15 10:02] Me: Congrats! I bought a Tesla Model 3 last week.
+            [2025-01-15 10:03] Bob: My sister Jane is allergic to peanuts, don't forget at dinner.
+            [2025-01-15 10:05] Bob: Jane just graduated from Ohio State in December.
+            [2025-01-15 10:07] Me: That's awesome! My mom's birthday is September 15th btw.
             
             Example output:
-            [{"subject":"Bob","subject_type":"PERSON","predicate":"works_at","object":"Google","object_type":"ORGANIZATION","confidence":0.9},{"subject":"Me","subject_type":"PERSON","predicate":"bought","object":"Ford Mustang","object_type":"VEHICLE","confidence":0.9},{"subject":"Jane","subject_type":"PERSON","predicate":"is_allergic_to","object":"peanuts","object_type":"FOOD","confidence":0.9},{"subject":"Bob","subject_type":"PERSON","predicate":"sibling_of","object":"Jane","object_type":"PERSON","confidence":0.9},{"subject":"David","subject_type":"PERSON","predicate":"works_as","object":"lawyer","object_type":"OBJECT","confidence":0.9},{"subject":"David","subject_type":"PERSON","predicate":"works_at","object":"Smith & Partners","object_type":"ORGANIZATION","confidence":0.9},{"subject":"Me","subject_type":"PERSON","predicate":"dating","object":"David","object_type":"PERSON","confidence":0.9},{"subject":"Linda","subject_type":"PERSON","predicate":"lives_in","object":"Chicago","object_type":"PLACE","confidence":0.9},{"subject":"Bob","subject_type":"PERSON","predicate":"parent_of","object":"Linda","object_type":"PERSON","confidence":0.5}]
+            [{"subject":"Bob","subject_type":"PERSON","predicate":"works_at","object":"Google","object_type":"ORGANIZATION","confidence":0.9},{"subject":"Me","subject_type":"PERSON","predicate":"bought","object":"Tesla Model 3","object_type":"VEHICLE","confidence":0.9},{"subject":"Jane","subject_type":"PERSON","predicate":"is_allergic_to","object":"peanuts","object_type":"FOOD","confidence":0.9},{"subject":"Bob","subject_type":"PERSON","predicate":"sibling_of","object":"Jane","object_type":"PERSON","confidence":0.9},{"subject":"Jane","subject_type":"PERSON","predicate":"graduated_from","object":"Ohio State","object_type":"ORGANIZATION","confidence":0.9},{"subject":"Me","subject_type":"PERSON","predicate":"friend_of","object":"Bob","object_type":"PERSON","confidence":0.7},{"subject":"Mom","subject_type":"PERSON","predicate":"birthday_is","object":"September 15th","object_type":"DATE","confidence":0.9},{"subject":"Me","subject_type":"PERSON","predicate":"parent_of","object":"Mom","object_type":"PERSON","confidence":0.5}]
             
-            Rules:
-            - Only extract clearly stated facts, not opinions or questions
-            - The SPEAKER is who sent the message. The SUBJECT is who the fact is about — they are often different!
-            - If Alice says "My brother Tom lives in Paris", the subject is Tom (not Alice)
-            - If Alice says "I work at Google", the subject IS Alice
-            - Subject and object must be specific names (NOT pronouns like he/she/it/they)
-            - For the user ("Me"), use "Me" as the subject name with type PERSON
-            - Use ONLY predicates from this list (pick the closest match):
+            Allowed predicates (pick the closest match):
               owns, lives_in, works_at, works_as, likes, dislikes, is_allergic_to,
               has_pet, drives, visited, birthday_is, related_to, member_of,
               graduated_from, studies_at, favorite_food, phone_number_is, email_is,
-              hobby_is, married_to, dating, sibling_of, parent_of, child_of,
+              hobby_is, married_to, engaged_to, dating, sibling_of, parent_of, child_of,
               friend_of, neighbor_of, plays, watches, diagnosed_with, takes_medication,
               born_in, moved_to, traveled_to, bought, sold, broke, lost, found,
-              wants, plans_to, nickname_is, age_is, prefers
-            - Entity types: PERSON, PLACE, ORGANIZATION, OBJECT, EVENT, FOOD, VEHICLE, PET, MEDICAL, DATE
+              wants, plans_to, nickname_is, age_is, prefers, attended, celebrated,
+              proposed_to, expecting, adopted, coaches, teaches, manages,
+              retired_from, serves_in, volunteers_at
             
-            Now extract facts from this conversation:
+            Entity types: PERSON, PLACE, ORGANIZATION, OBJECT, EVENT, FOOD, VEHICLE, PET, MEDICAL, DATE
+            
+            Now extract ALL facts from this conversation:
             %s
             
-            Respond with ONLY a JSON array (no markdown, no explanation):""";
+            JSON array:""";
 
     private final ChatModel chatModel;
     private final MessageRepository messageRepository;
@@ -342,8 +354,11 @@ public class KnowledgeGraphExtractionService {
             return new int[]{0, 0};
         }
 
+        // Build context header (who is this conversation with?)
+        String contextHeader = buildContextHeader(messages);
+
         // Call the LLM with retry (up to 3 attempts with backoff)
-        String prompt = String.format(EXTRACTION_PROMPT_TEMPLATE, conversationText);
+        String prompt = String.format(EXTRACTION_PROMPT_TEMPLATE, contextHeader, conversationText);
         String llmOutput = callLlmWithRetry(prompt);
         List<ExtractedFact> facts = parseFacts(llmOutput);
 
@@ -439,7 +454,7 @@ public class KnowledgeGraphExtractionService {
                             new Prompt(prompt, OllamaOptions.builder()
                                     .model(modelName)
                                     .temperature(0.3)
-                                    .numCtx(4096)
+                                    .numCtx(8192)
                                     .build()));
                     return response.getResult().getOutput().getText();
                 });
@@ -465,6 +480,30 @@ public class KnowledgeGraphExtractionService {
     }
 
     // ---- Prompt building ----
+
+    private String buildContextHeader(List<Message> messages) {
+        // Identify the conversation partner(s) from message metadata
+        Set<String> contacts = new LinkedHashSet<>();
+        String conversationName = null;
+        for (Message m : messages) {
+            if (m.getConversation() != null && m.getConversation().getName() != null) {
+                conversationName = m.getConversation().getName();
+            }
+            if (m.getDirection() == MessageDirection.INBOUND) {
+                if (m.getSenderContact() != null && m.getSenderContact().getName() != null) {
+                    contacts.add(m.getSenderContact().getName());
+                }
+            }
+        }
+        StringBuilder sb = new StringBuilder("Context: This is a text message conversation between Me");
+        if (!contacts.isEmpty()) {
+            sb.append(" and ").append(String.join(", ", contacts));
+        } else if (conversationName != null) {
+            sb.append(" and ").append(conversationName);
+        }
+        sb.append(".");
+        return sb.toString();
+    }
 
     private String buildConversationText(List<Message> messages) {
         StringBuilder sb = new StringBuilder();
