@@ -91,7 +91,25 @@ public class TextToSqlService {
 
     public TextToSqlResult generateAndExecute(String question, UUID userId) {
         String sql = generateSql(question);
+
+        // If the SQL looks incomplete (no FROM clause), retry once
+        if (!sql.toLowerCase().contains("from")) {
+            log.info("Text-to-SQL looks incomplete (no FROM), retrying...");
+            sql = generateSql(question);
+        }
+
+        if (!sql.toLowerCase().contains("from")) {
+            throw new TextToSqlException("Generated SQL is incomplete (no FROM clause)");
+        }
+
         String safeSql = injectUserId(sql, userId);
+
+        // If model forgot user_id filter, inject it
+        if (!safeSql.toLowerCase().contains("user_id")) {
+            log.info("Text-to-SQL missing user_id, injecting filter");
+            safeSql = injectUserIdFilter(safeSql, userId);
+        }
+
         validateSql(safeSql);
         List<Map<String, Object>> rows = executeSql(safeSql);
         String answer = formatAnswer(question, rows);
@@ -106,6 +124,7 @@ public class TextToSqlService {
                     new Prompt(prompt, OllamaOptions.builder()
                             .model(sqlModelName)
                             .temperature(0.1)
+                            .numCtx(4096)
                             .build()));
 
             String raw = response.getResult().getOutput().getText().trim();
@@ -114,7 +133,7 @@ public class TextToSqlService {
             // Remove trailing semicolons
             raw = raw.replaceAll(";\\s*$", "").trim();
 
-            log.info("Text-to-SQL generated: {}", raw);
+            log.info("Text-to-SQL generated: {}", raw.replace("\n", " "));
             return raw;
         } catch (Exception e) {
             throw new TextToSqlException("Failed to generate SQL: " + e.getMessage(), e);
@@ -125,6 +144,33 @@ public class TextToSqlService {
         // UUID.toString() is safe (hex + dashes only), no injection risk
         return sql.replace("'__USER_ID__'", "'" + userId.toString() + "'")
                   .replace("__USER_ID__", "'" + userId.toString() + "'");
+    }
+
+    /**
+     * If the model forgot the user_id filter, inject it into the WHERE clause.
+     * Finds the first WHERE and appends, or adds WHERE before ORDER BY/GROUP BY/LIMIT.
+     */
+    private String injectUserIdFilter(String sql, UUID userId) {
+        String filter = "m.user_id = '" + userId.toString() + "'";
+        String lower = sql.toLowerCase();
+
+        if (lower.contains("where")) {
+            // Append to existing WHERE
+            int whereIdx = lower.indexOf("where") + 5;
+            return sql.substring(0, whereIdx) + " " + filter + " AND" + sql.substring(whereIdx);
+        }
+
+        // No WHERE — insert before ORDER BY, GROUP BY, or LIMIT
+        String[] insertBefore = {"order by", "group by", "limit"};
+        for (String keyword : insertBefore) {
+            int idx = lower.indexOf(keyword);
+            if (idx > 0) {
+                return sql.substring(0, idx) + "WHERE " + filter + " " + sql.substring(idx);
+            }
+        }
+
+        // Append at end
+        return sql + " WHERE " + filter;
     }
 
     private void validateSql(String sql) {
