@@ -86,7 +86,7 @@ public class KnowledgeGraphExtractionService {
 
     private final Map<UUID, Boolean> cancelledJobs = new ConcurrentHashMap<>();
 
-    @Value("${smsarchive.ai.kg.model:phi3:3.8b}")
+    @Value("${smsarchive.ai.kg.model:phi4-mini}")
     private String modelName;
 
     @Value("${smsarchive.ai.kg.window-size:20}")

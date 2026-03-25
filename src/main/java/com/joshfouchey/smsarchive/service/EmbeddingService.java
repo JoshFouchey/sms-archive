@@ -45,7 +45,7 @@ public class EmbeddingService {
     @Value("${smsarchive.ai.embedding.batch-size:64}")
     private int batchSize;
 
-    @Value("${smsarchive.ai.embedding.model:nomic-embed-text}")
+    @Value("${smsarchive.ai.embedding.model:qwen3-embedding:0.6b}")
     private String modelName;
 
     @Value("${smsarchive.ai.embedding.max-body-chars:7500}")
@@ -157,9 +157,8 @@ public class EmbeddingService {
     void processBatch(List<Long> messageIds, User user) {
         List<Message> messages = messageRepository.findAllById(messageIds);
 
-        // Prepare texts with nomic-embed-text task prefix
         List<String> texts = messages.stream()
-                .map(m -> "search_document: " + truncate(m.getBody()))
+                .map(m -> truncate(m.getBody()))
                 .toList();
 
         // Call Ollama embedding API with retry (up to 3 attempts with backoff)
@@ -203,12 +202,11 @@ public class EmbeddingService {
 
     /**
      * Embed a single query string for search.
-     * Uses "search_query: " prefix per nomic-embed-text spec.
      */
     public float[] embedQuery(String query) {
         EmbeddingResponse response = embeddingModel.call(
                 new EmbeddingRequest(
-                        List.of("search_query: " + query),
+                        List.of(query),
                         OllamaOptions.builder().model(modelName).build()));
         return response.getResults().get(0).getOutput();
     }

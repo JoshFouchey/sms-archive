@@ -75,7 +75,7 @@ public class QaService {
     private final AnalyticsService analyticsService;
     private final KgEntityRepository entityRepository;
 
-    @Value("${smsarchive.ai.kg.model:phi3:3.8b}")
+    @Value("${smsarchive.ai.kg.model:phi4-mini}")
     private String modelName;
 
     public QaService(ChatModel chatModel,

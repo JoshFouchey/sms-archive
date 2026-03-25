@@ -27,9 +27,9 @@ public class MessageEmbedding {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    // Stored as vector(768) in PostgreSQL via pgvector.
+    // Stored as vector(1024) in PostgreSQL via pgvector (qwen3-embedding dimensions).
     // JPA sees it as a String column; we convert to/from float[] in the repository/service.
-    @Column(name = "embedding", columnDefinition = "vector(768)")
+    @Column(name = "embedding", columnDefinition = "vector(1024)")
     private String embedding;
 
     @Column(name = "model_name", length = 100, nullable = false)
