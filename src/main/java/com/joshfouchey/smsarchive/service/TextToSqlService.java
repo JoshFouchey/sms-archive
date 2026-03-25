@@ -31,31 +31,49 @@ public class TextToSqlService {
             "^\\s*SELECT\\b", Pattern.CASE_INSENSITIVE);
 
     private static final String SCHEMA_PROMPT = """
-            You are a PostgreSQL SQL expert. Generate a SELECT query to answer the user's question about their personal message archive.
+            You are a PostgreSQL SQL expert. Generate a SELECT query to answer the user's question about their personal text message archive.
+
+            CONTEXT: This is a personal SMS/MMS archive app. The "user" is the app owner (me). "Contacts" are the people I text with.
 
             DATABASE SCHEMA:
-            - messages(id BIGINT, user_id UUID, sender_contact_id BIGINT, conversation_id BIGINT, timestamp TIMESTAMP, body TEXT, direction VARCHAR, protocol VARCHAR)
-              direction values: 'INBOUND' (received) or 'OUTBOUND' (sent)
-              protocol values: 'SMS', 'MMS', or 'RCS'
-            - contacts(id BIGINT, user_id UUID, number VARCHAR, normalized_number VARCHAR, name VARCHAR)
-              name is the contact's display name
-            - conversations(id BIGINT, user_id UUID, name VARCHAR, last_message_at TIMESTAMP)
-            - conversation_contacts(conversation_id BIGINT, contact_id BIGINT)
-              Join table linking conversations to their participant contacts
-            - message_parts(id BIGINT, message_id BIGINT, ct VARCHAR, name VARCHAR, file_path VARCHAR, size_bytes BIGINT)
-              ct is MIME type (e.g. 'image/jpeg', 'video/mp4', 'text/plain')
 
-            RELATIONSHIPS:
-            - To get a contact's name for a message: JOIN conversation_contacts cc ON cc.conversation_id = m.conversation_id JOIN contacts c ON c.id = cc.contact_id
-            - For group conversations, a conversation may have multiple contacts
-            - sender_contact_id on messages is the contact who sent it (NULL for outbound messages from the user)
+            messages(id BIGINT, user_id UUID, sender_contact_id BIGINT, conversation_id BIGINT, timestamp TIMESTAMP, body TEXT, direction VARCHAR, protocol VARCHAR)
+              - direction = 'INBOUND' means a CONTACT sent a message TO ME (I received it)
+              - direction = 'OUTBOUND' means I sent a message TO A CONTACT
+              - "texts from John" or "John sent me" = INBOUND where the contact is John
+              - "texts to John" or "I sent John" = OUTBOUND in John's conversation
+              - sender_contact_id is the contact who sent it (NULL for OUTBOUND because I sent it)
+              - protocol: 'SMS', 'MMS' (has media), or 'RCS'
+              - MMS messages often have images/photos attached (check message_parts for media)
+              - body contains the text content (may be NULL for image-only MMS)
+
+            contacts(id BIGINT, user_id UUID, number VARCHAR, normalized_number VARCHAR, name VARCHAR)
+              - name is the display name (e.g. 'John Doe', 'Mom')
+              - Use ILIKE for name matching: WHERE c.name ILIKE '%%John%%'
+
+            conversations(id BIGINT, user_id UUID, name VARCHAR, last_message_at TIMESTAMP)
+              - Each conversation is a thread between me and one or more contacts
+
+            conversation_contacts(conversation_id BIGINT, contact_id BIGINT)
+              - Links conversations to their participant contacts
+              - To find messages with a specific contact, join through this table
+
+            message_parts(id BIGINT, message_id BIGINT, ct VARCHAR, name VARCHAR, file_path VARCHAR, size_bytes BIGINT)
+              - ct is MIME type (e.g. 'image/jpeg', 'video/mp4', 'text/plain')
+              - To count photos/images: WHERE ct LIKE 'image/%%'
+              - To count videos: WHERE ct LIKE 'video/%%'
+
+            COMMON QUERY PATTERNS:
+            - Messages with a contact: JOIN conversation_contacts cc ON cc.conversation_id = m.conversation_id JOIN contacts c ON c.id = cc.contact_id WHERE c.name ILIKE '%%Name%%'
+            - Top contacts by message count: GROUP BY contact name, ORDER BY count DESC
+            - Messages in a year: WHERE EXTRACT(YEAR FROM m.timestamp) = 2024
+            - First/last message: ORDER BY m.timestamp ASC/DESC LIMIT 1
 
             RULES:
-            1. ALWAYS filter messages/contacts/conversations by user_id = '__USER_ID__'
+            1. ALWAYS filter by user_id = '__USER_ID__' on every table that has user_id
             2. Return at most %d rows using LIMIT
             3. Use meaningful column aliases (e.g. AS contact_name, AS message_count)
-            4. For date ranges, use timestamp column with standard comparisons
-            5. Output ONLY the raw SQL query — no markdown, no explanation, no code fences
+            4. Output ONLY the raw SQL query — no markdown, no explanation, no code fences
 
             Question: %s""";
 
