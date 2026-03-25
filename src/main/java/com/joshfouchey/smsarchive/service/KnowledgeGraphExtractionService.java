@@ -137,6 +137,15 @@ public class KnowledgeGraphExtractionService {
     @Value("${smsarchive.ai.kg.auto-extract:true}")
     private boolean autoExtract;
 
+    @Value("${smsarchive.ai.gpu-cooldown.enabled:false}")
+    private boolean cooldownEnabled;
+
+    @Value("${smsarchive.ai.gpu-cooldown.interval:100}")
+    private int cooldownInterval;
+
+    @Value("${smsarchive.ai.gpu-cooldown.pause-seconds:60}")
+    private int cooldownPauseSeconds;
+
     public KnowledgeGraphExtractionService(
             ChatModel chatModel,
             MessageRepository messageRepository,
@@ -274,6 +283,7 @@ public class KnowledgeGraphExtractionService {
                         .add(new long[]{msgId, bodyLen});
             }
 
+            int windowCount = 0;
             for (var entry : byConversation.entrySet()) {
                 List<long[]> msgData = entry.getValue();
 
@@ -300,6 +310,16 @@ public class KnowledgeGraphExtractionService {
                     }
 
                     jobRepository.save(job);
+
+                    windowCount++;
+                    if (cooldownEnabled && windowCount % cooldownInterval == 0) {
+                        log.info("GPU cooldown: pausing {}s after {} windows ({} messages processed)",
+                                cooldownPauseSeconds, windowCount, job.getProcessed());
+                        try { Thread.sleep(cooldownPauseSeconds * 1000L); } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                    }
                 }
             }
 

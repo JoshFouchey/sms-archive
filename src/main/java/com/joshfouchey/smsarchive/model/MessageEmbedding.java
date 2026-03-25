@@ -35,6 +35,15 @@ public class MessageEmbedding {
     @Column(name = "model_name", length = 100, nullable = false)
     private String modelName;
 
+    @Column(name = "embedding_text", columnDefinition = "TEXT")
+    private String embeddingText;
+
+    @Column(name = "parent_message_id")
+    private Long parentMessageId;
+
+    @Column(name = "chunk_index")
+    private Integer chunkIndex = 0;
+
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
 

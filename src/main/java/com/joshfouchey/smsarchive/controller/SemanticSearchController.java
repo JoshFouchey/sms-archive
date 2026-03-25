@@ -70,6 +70,13 @@ public class SemanticSearchController {
         return embeddingService.getJobStatus(jobId, user);
     }
 
+    @PostMapping("/embeddings/reembed")
+    public EmbeddingJobDto startReembedJob() {
+        var user = currentUserProvider.getCurrentUser();
+        UUID jobId = embeddingService.startReembedding(user);
+        return embeddingService.getJobStatus(jobId, user);
+    }
+
     @GetMapping("/embeddings/status/{jobId}")
     public EmbeddingJobDto getJobStatus(@PathVariable UUID jobId) {
         var user = currentUserProvider.getCurrentUser();

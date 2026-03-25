@@ -543,6 +543,11 @@ export async function startEmbeddingJob(): Promise<EmbeddingJob> {
   return res.data;
 }
 
+export async function startReembeddingJob(): Promise<EmbeddingJob> {
+  const res = await axios.post(`${API_BASE}/api/search/embeddings/reembed`);
+  return res.data;
+}
+
 export async function getEmbeddingJobStatus(jobId: string): Promise<EmbeddingJob> {
   const res = await axios.get(`${API_BASE}/api/search/embeddings/status/${jobId}`);
   return res.data;

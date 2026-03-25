@@ -50,6 +50,14 @@
             <i class="pi pi-play mr-1"></i>
             {{ activeEmbeddingJob ? 'Running…' : 'Start Embedding' }}
           </button>
+          <button
+            @click="handleReembed"
+            :disabled="activeEmbeddingJob !== null"
+            class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+          >
+            <i class="pi pi-refresh mr-1"></i>
+            Re-embed All
+          </button>
         </div>
 
         <!-- Embedding Coverage -->
@@ -316,6 +324,7 @@ import {
   getEmbeddingStats,
   getKgStats,
   startEmbeddingJob,
+  startReembeddingJob,
   getEmbeddingJobStatus,
   cancelEmbeddingJob,
   getEmbeddingJobHistory,
@@ -455,6 +464,17 @@ async function handleStartEmbedding() {
     startPolling();
   } catch (e: any) {
     console.error('Failed to start embedding job', e);
+  }
+}
+
+async function handleReembed() {
+  if (!confirm('This will delete ALL existing embeddings and re-embed every message with conversational context. This may take a long time. Continue?')) return;
+  try {
+    const job = await startReembeddingJob();
+    activeEmbeddingJob.value = job;
+    startPolling();
+  } catch (e: any) {
+    console.error('Failed to start re-embedding job', e);
   }
 }
 

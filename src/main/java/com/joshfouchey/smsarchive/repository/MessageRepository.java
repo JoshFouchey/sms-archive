@@ -335,6 +335,6 @@ ORDER BY year, month
             @Param("userId") UUID userId,
             @Param("minLength") int minLength);
 
-    @Query("SELECT m FROM Message m LEFT JOIN FETCH m.senderContact WHERE m.id IN :ids ORDER BY m.timestamp")
+    @Query("SELECT m FROM Message m LEFT JOIN FETCH m.senderContact LEFT JOIN FETCH m.conversation WHERE m.id IN :ids ORDER BY m.timestamp")
     List<Message> findAllByIdWithContacts(@Param("ids") List<Long> ids);
 }

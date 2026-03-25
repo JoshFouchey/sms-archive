@@ -76,9 +76,33 @@ public interface MessageEmbeddingRepository extends JpaRepository<MessageEmbeddi
 
     @Modifying
     @Query(value = """
+            INSERT INTO message_embeddings (message_id, user_id, embedding, model_name, embedding_text, created_at)
+            VALUES (:messageId, :userId, CAST(:embedding AS vector), :modelName, :embeddingText, now())
+            ON CONFLICT (message_id, model_name, chunk_index) DO UPDATE
+            SET embedding = CAST(:embedding AS vector),
+                embedding_text = :embeddingText,
+                created_at = now()
+            """, nativeQuery = true)
+    void upsertEmbedding(
+            @Param("messageId") Long messageId,
+            @Param("userId") UUID userId,
+            @Param("embedding") String embedding,
+            @Param("modelName") String modelName,
+            @Param("embeddingText") String embeddingText);
+
+    @Modifying
+    @Query(value = """
+            DELETE FROM message_embeddings WHERE user_id = :userId AND model_name = :modelName
+            """, nativeQuery = true)
+    void deleteAllByUserAndModel(
+            @Param("userId") UUID userId,
+            @Param("modelName") String modelName);
+
+    @Modifying
+    @Query(value = """
             INSERT INTO message_embeddings (message_id, user_id, embedding, model_name, created_at)
             VALUES (:messageId, :userId, CAST(:embedding AS vector), :modelName, now())
-            ON CONFLICT (message_id, model_name) DO NOTHING
+            ON CONFLICT (message_id, model_name, chunk_index) DO NOTHING
             """, nativeQuery = true)
     void insertEmbedding(
             @Param("messageId") Long messageId,

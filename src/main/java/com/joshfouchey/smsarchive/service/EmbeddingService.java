@@ -21,6 +21,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -39,6 +40,7 @@ public class EmbeddingService {
     private final EmbeddingJobRepository jobRepository;
     private final TaskExecutor aiTaskExecutor;
     private final TransactionTemplate transactionTemplate;
+    private final JdbcTemplate jdbcTemplate;
 
     // Track running jobs to support cancellation
     private final Map<UUID, Boolean> cancelledJobs = new ConcurrentHashMap<>();
@@ -55,19 +57,33 @@ public class EmbeddingService {
     @Value("${smsarchive.ai.embedding.auto-embed:true}")
     private boolean autoEmbed;
 
+    @Value("${smsarchive.ai.embedding.context-messages-before:3}")
+    private int contextMessagesBefore;
+
+    @Value("${smsarchive.ai.gpu-cooldown.enabled:false}")
+    private boolean cooldownEnabled;
+
+    @Value("${smsarchive.ai.gpu-cooldown.interval:100}")
+    private int cooldownInterval;
+
+    @Value("${smsarchive.ai.gpu-cooldown.pause-seconds:60}")
+    private int cooldownPauseSeconds;
+
     public EmbeddingService(
             OllamaEmbeddingModel embeddingModel,
             MessageRepository messageRepository,
             MessageEmbeddingRepository embeddingRepository,
             EmbeddingJobRepository jobRepository,
             @Qualifier("aiTaskExecutor") TaskExecutor aiTaskExecutor,
-            TransactionTemplate transactionTemplate) {
+            TransactionTemplate transactionTemplate,
+            JdbcTemplate jdbcTemplate) {
         this.embeddingModel = embeddingModel;
         this.messageRepository = messageRepository;
         this.embeddingRepository = embeddingRepository;
         this.jobRepository = jobRepository;
         this.aiTaskExecutor = aiTaskExecutor;
         this.transactionTemplate = transactionTemplate;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     /**
@@ -93,11 +109,28 @@ public class EmbeddingService {
      * Follows the same async pattern as ImportService.
      */
     public UUID startBatchEmbedding(User user) {
+        return startBatchEmbedding(user, false);
+    }
+
+    /**
+     * Start a full re-embed: clears all existing embeddings and re-embeds with contextual text.
+     */
+    public UUID startReembedding(User user) {
+        return startBatchEmbedding(user, true);
+    }
+
+    private UUID startBatchEmbedding(User user, boolean reembed) {
         // Check for already-running job
         Optional<EmbeddingJob> running = jobRepository
                 .findFirstByUserAndStatusOrderByCreatedAtDesc(user, "RUNNING");
         if (running.isPresent()) {
             throw new IllegalStateException("Embedding job already running: " + running.get().getId());
+        }
+
+        if (reembed) {
+            log.info("Re-embed requested for user {}. Clearing all existing embeddings.", user.getUsername());
+            transactionTemplate.executeWithoutResult(status ->
+                    embeddingRepository.deleteAllByUserAndModel(user.getId(), modelName));
         }
 
         EmbeddingJob job = new EmbeddingJob();
@@ -137,6 +170,7 @@ public class EmbeddingService {
                     jobId, unembeddedIds.size(), modelName);
 
             // Process in batches
+            int batchCount = 0;
             for (int i = 0; i < unembeddedIds.size(); i += batchSize) {
                 if (Boolean.TRUE.equals(cancelledJobs.get(jobId))) {
                     job.setStatus("CANCELLED");
@@ -157,6 +191,16 @@ public class EmbeddingService {
                     job.setFailed(job.getFailed() + batchIds.size());
                 }
                 jobRepository.save(job);
+
+                batchCount++;
+                if (cooldownEnabled && batchCount % cooldownInterval == 0) {
+                    log.info("GPU cooldown: pausing {}s after {} batches ({} messages processed)",
+                            cooldownPauseSeconds, batchCount, job.getProcessed());
+                    try { Thread.sleep(cooldownPauseSeconds * 1000L); } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
             }
 
             job.setStatus("COMPLETED");
@@ -174,27 +218,103 @@ public class EmbeddingService {
     }
 
     void processBatch(List<Long> messageIds, User user) {
-        List<Message> messages = messageRepository.findAllById(messageIds);
+        List<Message> messages = messageRepository.findAllByIdWithContacts(messageIds);
 
-        List<String> texts = messages.stream()
-                .map(m -> truncate(m.getBody()))
-                .toList();
+        // Build contextual embedding text for each message
+        List<String> texts = new ArrayList<>();
+        List<String> embeddingTexts = new ArrayList<>();
+        for (Message m : messages) {
+            String contextualText = buildContextualEmbeddingText(m);
+            texts.add(truncate(contextualText));
+            embeddingTexts.add(contextualText);
+        }
 
         // Call Ollama embedding API with retry (up to 3 attempts with backoff)
         EmbeddingResponse response = callEmbeddingWithRetry(texts);
 
-        // Persist embeddings in an explicit transaction (processBatch is called from
-        // within the same class so @Transactional proxy won't intercept it)
+        // Persist embeddings with the contextual text
         transactionTemplate.executeWithoutResult(status -> {
             for (int i = 0; i < messages.size(); i++) {
                 String vectorStr = toVectorString(response.getResults().get(i).getOutput());
-                embeddingRepository.insertEmbedding(
+                embeddingRepository.upsertEmbedding(
                         messages.get(i).getId(),
                         user.getId(),
                         vectorStr,
-                        modelName);
+                        modelName,
+                        embeddingTexts.get(i));
             }
         });
+    }
+
+    /**
+     * Build a synthetic search document with conversation context.
+     * Instead of embedding just "Yes", we embed:
+     *   [Conversation with: Alice Smith]
+     *   [Alice Smith]: Do you still live at 123 Main St?
+     *   [Me]: Yes
+     */
+    private String buildContextualEmbeddingText(Message message) {
+        String body = message.getBody();
+        if (body == null || body.isBlank()) return "";
+
+        if (contextMessagesBefore <= 0) {
+            return body;
+        }
+
+        // Fetch preceding messages from the same conversation
+        List<Map<String, Object>> contextRows = jdbcTemplate.queryForList("""
+                SELECT m.body, m.direction,
+                       c.name AS sender_name
+                FROM messages m
+                LEFT JOIN contacts c ON c.id = m.sender_contact_id
+                WHERE m.conversation_id = ? AND m.timestamp < ? AND m.body IS NOT NULL
+                ORDER BY m.timestamp DESC
+                LIMIT ?
+                """, message.getConversation() != null ? message.getConversation().getId() : -1,
+                java.sql.Timestamp.from(message.getTimestamp()),
+                contextMessagesBefore);
+
+        if (contextRows.isEmpty()) {
+            return body;
+        }
+
+        // Build the contextual document
+        StringBuilder sb = new StringBuilder();
+
+        // Add conversation partner header
+        String conversationPartner = null;
+        if (message.getSenderContact() != null && message.getSenderContact().getName() != null) {
+            conversationPartner = message.getSenderContact().getName();
+        } else {
+            for (Map<String, Object> row : contextRows) {
+                if (row.get("sender_name") != null && "INBOUND".equals(String.valueOf(row.get("direction")))) {
+                    conversationPartner = String.valueOf(row.get("sender_name"));
+                    break;
+                }
+            }
+        }
+        if (conversationPartner != null) {
+            sb.append("[Conversation with: ").append(conversationPartner).append("]\n");
+        }
+
+        // Add context messages (reversed to chronological order)
+        for (int i = contextRows.size() - 1; i >= 0; i--) {
+            Map<String, Object> row = contextRows.get(i);
+            String sender = "OUTBOUND".equals(String.valueOf(row.get("direction")))
+                    ? "Me"
+                    : (row.get("sender_name") != null ? String.valueOf(row.get("sender_name")) : "Them");
+            String ctxBody = String.valueOf(row.get("body"));
+            // Keep context messages short
+            if (ctxBody.length() > 200) ctxBody = ctxBody.substring(0, 200) + "...";
+            sb.append("[").append(sender).append("]: ").append(ctxBody).append("\n");
+        }
+
+        // Add the target message
+        String targetSender = message.getDirection() != null
+                && message.getDirection().name().equals("OUTBOUND") ? "Me" : (conversationPartner != null ? conversationPartner : "Them");
+        sb.append("[").append(targetSender).append("]: ").append(body);
+
+        return sb.toString();
     }
 
     private EmbeddingResponse callEmbeddingWithRetry(List<String> texts) {

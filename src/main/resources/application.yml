@@ -78,11 +78,16 @@ spring.ai:
 
 smsarchive.ai:
   enabled: ${SMSARCHIVE_AI_ENABLED:true}
+  gpu-cooldown:
+    enabled: false
+    interval: 100          # pause every N batches/windows
+    pause-seconds: 60      # how long to pause
   embedding:
     model: ${SMSARCHIVE_AI_EMBEDDING_MODEL:qwen3-embedding:0.6b}
     dimensions: 1024
     batch-size: 64
     max-body-chars: 7500
+    context-messages-before: 3
     auto-embed: true
   search:
     default-top-k: 20
