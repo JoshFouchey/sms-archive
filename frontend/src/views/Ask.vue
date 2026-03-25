@@ -132,8 +132,38 @@
 
         <!-- Analytics Data (charts/tables) -->
         <div v-if="response && response.intent === 'ANALYTICS' && response.analyticsData">
-          <!-- Top Contacts Table -->
-          <div v-if="Array.isArray(response.analyticsData)" class="mt-2">
+
+          <!-- SQL Result Table (from text-to-SQL) -->
+          <div v-if="response.analyticsData.type === 'sql_result' && response.analyticsData.rows?.length" class="mt-2">
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="bg-gray-50 dark:bg-gray-800">
+                    <th v-for="col in response.analyticsData.columns" :key="col"
+                      class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      {{ col.replace(/_/g, ' ') }}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, i) in response.analyticsData.rows" :key="i"
+                    class="border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                    <td v-for="col in response.analyticsData.columns" :key="col"
+                      class="px-4 py-2.5 text-gray-700 dark:text-gray-300">
+                      {{ formatCell(row[col]) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="text-[10px] text-gray-400 dark:text-gray-500 mt-2 font-mono truncate"
+               :title="response.analyticsData.sql">
+              <i class="pi pi-database mr-1"></i>{{ response.analyticsData.sql }}
+            </p>
+          </div>
+
+          <!-- Top Contacts Table (legacy fast-path) -->
+          <div v-else-if="Array.isArray(response.analyticsData)" class="mt-2">
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div v-for="(item, i) in response.analyticsData" :key="i"
                 class="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700 last:border-0 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
@@ -206,7 +236,9 @@ const showFacts = ref(false);
 const suggestions = [
   'Who do I text the most?',
   'How many messages do I have?',
-  'How many contacts?',
+  'When did I first text John?',
+  'How many photos did I send in 2024?',
+  'Which month had the most messages?',
 ];
 
 onMounted(() => {
@@ -241,5 +273,15 @@ function formatDate(iso: string): string {
 
 function formatScore(score: number): string {
   return score >= 1 ? score.toFixed(1) : (score * 100).toFixed(0) + '%';
+}
+
+function formatCell(val: any): string {
+  if (val == null) return '—';
+  if (typeof val === 'number') {
+    return Number.isInteger(val) ? val.toLocaleString() : val.toFixed(2);
+  }
+  // Truncate long strings (e.g. message bodies)
+  const str = String(val);
+  return str.length > 100 ? str.substring(0, 100) + '…' : str;
 }
 </script>

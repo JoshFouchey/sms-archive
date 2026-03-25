@@ -4,12 +4,15 @@ import com.joshfouchey.smsarchive.dto.*;
 import com.joshfouchey.smsarchive.model.KgEntity;
 import com.joshfouchey.smsarchive.model.User;
 import com.joshfouchey.smsarchive.repository.KgEntityRepository;
+import com.joshfouchey.smsarchive.service.TextToSqlService.TextToSqlException;
+import com.joshfouchey.smsarchive.service.TextToSqlService.TextToSqlResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.ollama.api.OllamaOptions;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -48,6 +51,17 @@ public class QaService {
             Pattern.CASE_INSENSITIVE
     );
 
+    // Broader pattern to detect data/analytics questions that text-to-SQL can handle
+    private static final Pattern DATA_QUESTION_PATTERN = Pattern.compile(
+            "(how\\s+many|how\\s+often|count|total|average|first\\s+(text|message)|last\\s+(text|message)|" +
+            "most\\s+(recent|common|frequent|active)|least|busiest|longest|earliest|latest|" +
+            "per\\s+(day|week|month|year)|since\\s+\\d{4}|in\\s+\\d{4}|between|during|" +
+            "statistics|frequency|percentage|ratio|sent\\s+to|received\\s+from|" +
+            "\\d{4}|which\\s+(month|year|day|week)|when\\s+did\\s+i\\s+(first|last)|" +
+            "compared|rank|breakdown)",
+            Pattern.CASE_INSENSITIVE
+    );
+
     private static final List<AnalyticsPattern> ANALYTICS_PATTERNS = List.of(
             new AnalyticsPattern(
                     Pattern.compile("(top|most)\\s+(text|message|contact|talk)", Pattern.CASE_INSENSITIVE),
@@ -75,6 +89,9 @@ public class QaService {
     private final AnalyticsService analyticsService;
     private final KgEntityRepository entityRepository;
 
+    @Autowired(required = false)
+    private TextToSqlService textToSqlService;
+
     @Value("${smsarchive.ai.kg.model:phi4-mini}")
     private String modelName;
 
@@ -94,7 +111,7 @@ public class QaService {
         long start = System.currentTimeMillis();
         String question = request.question().trim();
 
-        // 1. Check analytics patterns first (no LLM needed)
+        // 1. Check analytics patterns first (no LLM needed — fast path)
         String analyticsType = detectAnalyticsIntent(question);
         if (analyticsType != null) {
             return handleAnalytics(analyticsType, System.currentTimeMillis() - start);
@@ -108,7 +125,16 @@ public class QaService {
             }
         }
 
-        // 3. Default: pass to unified search
+        // 3. Try text-to-SQL for data/analytics questions
+        if (textToSqlService != null && DATA_QUESTION_PATTERN.matcher(question).find()) {
+            try {
+                return handleTextToSql(user, question, start);
+            } catch (TextToSqlException e) {
+                log.info("Text-to-SQL failed, falling through to search: {}", e.getMessage());
+            }
+        }
+
+        // 4. Default: pass to unified search
         return handleSearch(user, question, request, start);
     }
 
@@ -210,6 +236,24 @@ public class QaService {
             }
             default -> QaResponse.analytics("I couldn't process that analytics request.", null, 0);
         };
+    }
+
+    private QaResponse handleTextToSql(User user, String question, long startTime) {
+        TextToSqlResult result = textToSqlService.generateAndExecute(question, user.getId());
+        long elapsed = System.currentTimeMillis() - startTime;
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("type", "sql_result");
+        data.put("sql", result.generatedSql());
+        if (!result.rows().isEmpty()) {
+            data.put("columns", new ArrayList<>(result.rows().get(0).keySet()));
+        } else {
+            data.put("columns", List.of());
+        }
+        data.put("rows", result.rows());
+        data.put("rowCount", result.rows().size());
+
+        return QaResponse.analytics(result.answer(), data, elapsed);
     }
 
     private QaResponse handleFactual(User user, String question, List<KgEntity> entities,

@@ -93,3 +93,5 @@ smsarchive.ai:
     window-size: 20
     min-body-length: 20
     auto-extract: true
+  sql:
+    model: ${SMSARCHIVE_AI_SQL_MODEL:qwen2.5-coder:3b}
