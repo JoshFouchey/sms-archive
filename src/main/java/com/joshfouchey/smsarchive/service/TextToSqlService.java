@@ -215,14 +215,14 @@ public class TextToSqlService {
             Object val = rows.get(0).values().iterator().next();
             String colName = rows.get(0).keySet().iterator().next()
                     .replace("_", " ");
-            return String.format("The %s is **%s**.", colName, formatValue(val));
+            return String.format("The %s is %s.", colName, formatValue(val));
         }
 
         // Single row, multiple columns
         if (rows.size() == 1) {
             Map<String, Object> row = rows.get(0);
             String details = row.entrySet().stream()
-                    .map(e -> e.getKey().replace("_", " ") + ": **" + formatValue(e.getValue()) + "**")
+                    .map(e -> e.getKey().replace("_", " ") + ": " + formatValue(e.getValue()))
                     .collect(Collectors.joining(", "));
             return details;
         }
@@ -244,7 +244,7 @@ public class TextToSqlService {
             StringBuilder sb = new StringBuilder();
             sb.append(String.format("Found %d results:\n\n", count));
             for (int i = 0; i < rows.size(); i++) {
-                sb.append(String.format("%d. **%s** — %s\n",
+                sb.append(String.format("%d. %s — %s\n",
                         i + 1,
                         formatValue(rows.get(i).get(nameCol)),
                         formatValue(rows.get(i).get(countCol))));
