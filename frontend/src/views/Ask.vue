@@ -189,7 +189,7 @@
           <div class="space-y-2">
             <div v-for="src in response.sources" :key="src.messageId"
               class="p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-amber-300 dark:hover:border-amber-700 transition-colors cursor-pointer"
-              @click="goToMessage(src.messageId)">
+              @click="goToMessage(src.messageId, src.contactName)">
               <div class="flex items-center gap-2 mb-1">
                 <span class="text-xs font-semibold text-blue-600 dark:text-blue-400">{{ src.contactName }}</span>
                 <span class="text-[10px] text-gray-400">{{ formatDate(src.timestamp) }}</span>
@@ -261,7 +261,7 @@
               v-for="hit in response.searchResults.hits"
               :key="hit.message.id"
               class="p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors cursor-pointer"
-              @click="goToMessage(hit.message.id)"
+              @click="goToMessage(hit.message.id, hit.message.contactName || hit.message.contactNumber)"
             >
               <div class="flex items-center gap-2 mb-1">
                 <span class="text-xs font-semibold text-blue-600 dark:text-blue-400">{{ hit.message.contactName || hit.message.contactNumber }}</span>
@@ -287,13 +287,54 @@
         </div>
       </div>
     </div>
+
+    <!-- Message Context Modal -->
+    <Teleport to="body">
+      <div v-if="contextModal.open" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="closeContext">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="closeContext"></div>
+        <div class="relative w-full max-w-2xl max-h-[85vh] bg-gray-50 dark:bg-gray-900 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+          <!-- Modal Header -->
+          <div class="shrink-0 flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div class="flex items-center gap-2">
+              <i class="pi pi-comments text-emerald-500"></i>
+              <span class="font-semibold text-sm text-gray-800 dark:text-gray-200">Conversation Context</span>
+              <span v-if="contextModal.contactName" class="text-xs text-gray-400">— {{ contextModal.contactName }}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button @click="openInMessages" class="text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 font-medium">
+                <i class="pi pi-external-link mr-1"></i>Open in Messages
+              </button>
+              <button @click="closeContext" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="pi pi-times text-sm"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Loading -->
+          <div v-if="contextModal.loading" class="flex-1 flex items-center justify-center py-12">
+            <i class="pi pi-spin pi-spinner text-2xl text-emerald-500"></i>
+          </div>
+
+          <!-- Messages -->
+          <div v-else ref="contextScroll" class="flex-1 overflow-y-auto px-4 py-3 space-y-1">
+            <MessageBubble
+              v-for="msg in contextModal.messages"
+              :key="msg.id"
+              :message="msg"
+              :highlight-class="msg.id === contextModal.centerId ? 'ring-4 ring-emerald-400 dark:ring-emerald-500 shadow-2xl scale-[1.02]' : ''"
+            />
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
-import { askQuestion, type QaResponse } from '../services/api';
+import { askQuestion, getMessageContext, type QaResponse, type Message } from '../services/api';
+import MessageBubble from '../components/MessageBubble.vue';
 
 const router = useRouter();
 const searchInput = ref<HTMLInputElement | null>(null);
@@ -361,8 +402,61 @@ async function submitQuestion() {
   }
 }
 
-function goToMessage(messageId: number) {
-  router.push({ path: '/messages', query: { messageId: String(messageId) } });
+const contextScroll = ref<HTMLElement | null>(null);
+const contextModal = ref<{
+  open: boolean;
+  loading: boolean;
+  centerId: number | null;
+  contactName: string;
+  messages: Message[];
+  conversationId: number | null;
+}>({
+  open: false,
+  loading: false,
+  centerId: null,
+  contactName: '',
+  messages: [],
+  conversationId: null,
+});
+
+async function goToMessage(messageId: number, contactName?: string) {
+  contextModal.value = {
+    open: true,
+    loading: true,
+    centerId: messageId,
+    contactName: contactName || '',
+    messages: [],
+    conversationId: null,
+  };
+
+  try {
+    const ctx = await getMessageContext(messageId, 50, 50);
+    const allMessages = [...ctx.before, ctx.center, ...ctx.after];
+    contextModal.value.messages = allMessages;
+    contextModal.value.conversationId = ctx.conversationId;
+    contextModal.value.loading = false;
+
+    // Scroll to the highlighted message after render
+    await nextTick();
+    const el = contextScroll.value?.querySelector(`[data-message-id="${messageId}"]`);
+    if (el) {
+      el.scrollIntoView({ block: 'center' });
+    }
+  } catch (e) {
+    console.error('Failed to load message context', e);
+    contextModal.value.loading = false;
+  }
+}
+
+function closeContext() {
+  contextModal.value.open = false;
+}
+
+function openInMessages() {
+  if (contextModal.value.centerId) {
+    router.push({ path: '/messages', query: { messageId: String(contextModal.value.centerId) } });
+  }
+  closeContext();
 }
 
 function formatDate(iso: string): string {
