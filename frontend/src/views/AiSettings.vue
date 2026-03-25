@@ -136,14 +136,24 @@
               </p>
             </div>
           </div>
-          <button
-            @click="handleStartExtraction"
-            :disabled="activeExtractionJob !== null"
-            class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-          >
-            <i class="pi pi-play mr-1"></i>
-            {{ activeExtractionJob ? 'Running…' : 'Start Extraction' }}
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              @click="handleResetKg"
+              :disabled="activeExtractionJob !== null || resettingKg"
+              class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+            >
+              <i class="pi pi-trash mr-1"></i>
+              {{ resettingKg ? 'Resetting…' : 'Reset KG' }}
+            </button>
+            <button
+              @click="handleStartExtraction"
+              :disabled="activeExtractionJob !== null"
+              class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+            >
+              <i class="pi pi-play mr-1"></i>
+              {{ activeExtractionJob ? 'Running…' : 'Start Extraction' }}
+            </button>
+          </div>
         </div>
 
         <!-- KG Stats -->
@@ -313,6 +323,7 @@ import {
   getKgExtractionJobs,
   getKgExtractionJobStatus,
   cancelKgExtraction,
+  resetKnowledgeGraph,
   runEntityResolution,
   getMergeSuggestions,
   mergeKgEntities,
@@ -333,6 +344,7 @@ const extractionJobs = ref<KgExtractionJob[]>([]);
 const activeEmbeddingJob = ref<EmbeddingJob | null>(null);
 const activeExtractionJob = ref<KgExtractionJob | null>(null);
 const resolutionRunning = ref(false);
+const resettingKg = ref(false);
 const lastResolutionResult = ref<ResolutionResult | null>(null);
 const mergeSuggestions = ref<MergeSuggestion[]>([]);
 
@@ -475,6 +487,22 @@ async function handleCancelExtraction() {
     extractionJobs.value = await getKgExtractionJobs().catch(() => []);
   } catch (e) {
     console.error('Failed to cancel extraction', e);
+  }
+}
+
+async function handleResetKg() {
+  if (!confirm('This will delete ALL Knowledge Graph data (entities, facts, job history) and allow a full re-extraction. Continue?')) return;
+  resettingKg.value = true;
+  try {
+    const result = await resetKnowledgeGraph();
+    console.log('KG reset result:', result);
+    kgStats.value = { entities: 0, triples: 0 };
+    extractionJobs.value = [];
+    activeExtractionJob.value = null;
+  } catch (e) {
+    console.error('Failed to reset KG', e);
+  } finally {
+    resettingKg.value = false;
   }
 }
 

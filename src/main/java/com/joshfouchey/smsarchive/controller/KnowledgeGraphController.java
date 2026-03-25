@@ -153,6 +153,13 @@ public class KnowledgeGraphController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/reset")
+    public ResponseEntity<Map<String, Object>> resetKnowledgeGraph() {
+        var user = currentUserProvider.getCurrentUser();
+        var result = knowledgeGraphService.resetAllData(user);
+        return ResponseEntity.ok(result);
+    }
+
     // ---- Entity resolution endpoints ----
 
     @PostMapping("/resolution/run")

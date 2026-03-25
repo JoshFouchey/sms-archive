@@ -576,6 +576,11 @@ export async function cancelKgExtraction(jobId: string): Promise<void> {
   await axios.post(`${API_BASE}/api/knowledge-graph/extraction/jobs/${jobId}/cancel`);
 }
 
+export async function resetKnowledgeGraph(): Promise<Record<string, number>> {
+  const res = await axios.post(`${API_BASE}/api/knowledge-graph/reset`);
+  return res.data;
+}
+
 export async function runEntityResolution(): Promise<ResolutionResult> {
   const res = await axios.post(`${API_BASE}/api/knowledge-graph/resolution/run`);
   return res.data;

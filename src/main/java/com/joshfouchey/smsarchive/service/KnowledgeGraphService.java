@@ -17,6 +17,7 @@ import com.joshfouchey.smsarchive.repository.KgTripleRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,15 +39,18 @@ public class KnowledgeGraphService {
     private final KgTripleRepository tripleRepository;
     private final KgEntityAliasRepository aliasRepository;
     private final KgEntityContactLinkRepository contactLinkRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     public KnowledgeGraphService(KgEntityRepository entityRepository,
                                  KgTripleRepository tripleRepository,
                                  KgEntityAliasRepository aliasRepository,
-                                 KgEntityContactLinkRepository contactLinkRepository) {
+                                 KgEntityContactLinkRepository contactLinkRepository,
+                                 JdbcTemplate jdbcTemplate) {
         this.entityRepository = entityRepository;
         this.tripleRepository = tripleRepository;
         this.aliasRepository = aliasRepository;
         this.contactLinkRepository = contactLinkRepository;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Cacheable(value = "kgEntities", key = "#user.id + '-' + #type + '-' + #search")
@@ -285,5 +289,41 @@ public class KnowledgeGraphService {
                 triple.getIsVerified(),
                 triple.getIsNegated(),
                 triple.getCreatedAt());
+    }
+
+    @Transactional
+    @CacheEvict(value = {"kgEntities", "kgGraph", "kgStats"}, allEntries = true)
+    public Map<String, Object> resetAllData(User user) {
+        log.info("Resetting all KG data for user {}", user.getUsername());
+
+        String userId = user.getId().toString();
+
+        int sources = jdbcTemplate.update(
+                "DELETE FROM kg_triple_sources WHERE triple_id IN (SELECT id FROM kg_triples WHERE user_id = ?::uuid)", userId);
+        int triples = jdbcTemplate.update(
+                "DELETE FROM kg_triples WHERE user_id = ?::uuid", userId);
+        int aliases = jdbcTemplate.update(
+                "DELETE FROM kg_entity_aliases WHERE entity_id IN (SELECT id FROM kg_entities WHERE user_id = ?::uuid)", userId);
+        int contactLinks = jdbcTemplate.update(
+                "DELETE FROM kg_entity_contact_links WHERE entity_id IN (SELECT id FROM kg_entities WHERE user_id = ?::uuid)", userId);
+        int entities = jdbcTemplate.update(
+                "DELETE FROM kg_entities WHERE user_id = ?::uuid", userId);
+        int processed = jdbcTemplate.update(
+                "DELETE FROM kg_processed_messages WHERE user_id = ?::uuid", userId);
+        int jobs = jdbcTemplate.update(
+                "DELETE FROM kg_extraction_jobs WHERE user_id = ?::uuid", userId);
+
+        log.info("KG reset complete: {} triples, {} entities, {} processed markers, {} jobs cleared",
+                triples, entities, processed, jobs);
+
+        return Map.of(
+                "triples", triples,
+                "entities", entities,
+                "sources", sources,
+                "aliases", aliases,
+                "contactLinks", contactLinks,
+                "processedMessages", processed,
+                "jobs", jobs
+        );
     }
 }
