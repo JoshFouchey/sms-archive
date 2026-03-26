@@ -192,6 +192,22 @@ class KgFactHashTest {
     }
 
     @Test
+    void normalizePredicate_baseFormVerbs() {
+        // phi4-mini sometimes uses base form without trailing 's'
+        assertThat(service.normalizePredicate("live_in")).isEqualTo("lives_in");
+        assertThat(service.normalizePredicate("own")).isEqualTo("owns");
+        assertThat(service.normalizePredicate("play")).isEqualTo("plays");
+        assertThat(service.normalizePredicate("watch")).isEqualTo("watches");
+        assertThat(service.normalizePredicate("teach_at")).isEqualTo("teaches");
+    }
+
+    @Test
+    void normalizePredicate_stillPrefix() {
+        assertThat(service.normalizePredicate("still_plays")).isEqualTo("plays");
+        assertThat(service.normalizePredicate("still_likes")).isEqualTo("likes");
+    }
+
+    @Test
     void normalizePredicate_strippedPrefixes() {
         assertThat(service.normalizePredicate("is_allergic_to")).isEqualTo("is_allergic_to");
         assertThat(service.normalizePredicate("has_pet")).isEqualTo("has_pet");

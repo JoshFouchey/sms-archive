@@ -104,10 +104,26 @@ public class KnowledgeGraphExtractionService {
             Map.entry("attending", "studies_at"),
             Map.entry("coaches_at", "coaches"),
             Map.entry("teaches_at", "teaches"),
+            Map.entry("teach_at", "teaches"),
+            // Base-form verbs phi4-mini uses (missing third-person -s)
+            Map.entry("live_in", "lives_in"),
+            Map.entry("work_at", "works_at"),
+            Map.entry("work_as", "works_as"),
+            Map.entry("study_at", "studies_at"),
+            Map.entry("drive", "drives"),
+            Map.entry("own", "owns"),
+            Map.entry("play", "plays"),
+            Map.entry("watch", "watches"),
             Map.entry("anniversary_with", "married_to"),
             Map.entry("going_with", "friend_of"),
             Map.entry("traveled_with", "traveled_to"),
-            Map.entry("celebrated_anniversary", "married_to")
+            Map.entry("celebrated_anniversary", "married_to"),
+            Map.entry("took_up", "hobby_is"),
+            Map.entry("picked_up", "hobby_is"),
+            Map.entry("started", "hobby_is"),
+            Map.entry("take_medication_for", "takes_medication"),
+            Map.entry("takes_medication_for", "takes_medication"),
+            Map.entry("on_medication_for", "takes_medication")
     );
 
     // Singular predicates: a person can only have ONE value at a time.
@@ -996,18 +1012,30 @@ public class KnowledgeGraphExtractionService {
         // Check alias map
         String aliased = PREDICATE_ALIASES.get(normalized);
         if (aliased != null) return aliased;
-        // Try stripping common prefixes: is_allergic_to → allergic_to
-        String stripped = normalized.replaceAll("^(has_|is_|was_|did_|have_)", "");
+        // Try stripping common prefixes: is_allergic_to → allergic_to, still_plays → plays
+        String stripped = normalized.replaceAll("^(has_|is_|was_|did_|have_|still_)", "");
         if (CANONICAL_PREDICATES.contains(stripped)) return stripped;
         aliased = PREDICATE_ALIASES.get(stripped);
         if (aliased != null) return aliased;
-        // Try removing _ed suffix for past tense: visited → visit (won't match, but tried)
-        // and _ing suffix: planning → plan
+        // Try adding 's' for base forms: live_in → lives_in, own → owns, teach → teaches
+        String withS = normalized.endsWith("_") ? normalized + "s" : normalized + "s";
+        if (CANONICAL_PREDICATES.contains(withS)) return withS;
+        // Try "Xes" for verbs ending in consonant: teach → teaches
+        String withEs = normalized + "es";
+        if (CANONICAL_PREDICATES.contains(withEs)) return withEs;
+        // Try removing suffixes: -ed, -ing
         String stemmed = normalized.replaceAll("(ed|ing)$", "");
         if (CANONICAL_PREDICATES.contains(stemmed)) return stemmed;
+        // Try stem + s: play(ing) → play → plays
+        if (CANONICAL_PREDICATES.contains(stemmed + "s")) return stemmed + "s";
+        if (CANONICAL_PREDICATES.contains(stemmed + "es")) return stemmed + "es";
         // Compound predicates: "plans_to_grab_dinner" → check if starts with canonical
         for (String canonical : CANONICAL_PREDICATES) {
             if (normalized.startsWith(canonical + "_")) return canonical;
+        }
+        // Also try compound after stripping prefix
+        for (String canonical : CANONICAL_PREDICATES) {
+            if (stripped.startsWith(canonical + "_")) return canonical;
         }
         return "related_to";
     }
