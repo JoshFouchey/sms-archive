@@ -445,6 +445,8 @@ export interface KgTriple {
   subjectName: string;
   subjectType: string;
   predicate: string;
+  predicateRaw?: string;
+  isCanonical: boolean;
   objectId?: number | null;
   objectName?: string;
   objectType?: string;

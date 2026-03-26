@@ -39,6 +39,9 @@ public class KgTriple {
     @Column(length = 100, nullable = false)
     private String predicate;
 
+    @Column(name = "predicate_raw", length = 200)
+    private String predicateRaw;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "object_id")
     private KgEntity object;

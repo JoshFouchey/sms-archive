@@ -481,7 +481,6 @@ public class KnowledgeGraphExtractionService {
             int newEntities = 0;
             int skippedInvalid = 0;
             int skippedEntity = 0;
-            int skippedPredicate = 0;
             int skippedError = 0;
 
             // Use earliest message timestamp as fact_date for temporal tracking
@@ -506,14 +505,6 @@ public class KnowledgeGraphExtractionService {
                         skippedEntity++;
                         continue;
                     }
-                    // Drop facts that fall back to "related_to" — too noisy
-                    String predicate = normalizePredicate(fact.predicate);
-                    if ("related_to".equals(predicate)) {
-                        log.debug("Skipping non-canonical predicate '{}': [{} {} {}]",
-                                fact.predicate, fact.subject, fact.predicate, fact.object);
-                        skippedPredicate++;
-                        continue;
-                    }
                     int created = persistFact(fact, user, messageIds, factDate);
                     triples++;
                     newEntities += created;
@@ -524,10 +515,10 @@ public class KnowledgeGraphExtractionService {
                 }
             }
 
-            if (skippedInvalid + skippedEntity + skippedPredicate + skippedError > 0) {
-                log.info("KG window: {} persisted, {} skipped (invalid={}, entity={}, predicate={}, error={})",
-                        triples, skippedInvalid + skippedEntity + skippedPredicate + skippedError,
-                        skippedInvalid, skippedEntity, skippedPredicate, skippedError);
+            if (skippedInvalid + skippedEntity + skippedError > 0) {
+                log.info("KG window: {} persisted, {} skipped (invalid={}, entity={}, error={})",
+                        triples, skippedInvalid + skippedEntity + skippedError,
+                        skippedInvalid, skippedEntity, skippedError);
             }
 
             markMessagesProcessed(messageIds, user.getId());
@@ -814,7 +805,15 @@ public class KnowledgeGraphExtractionService {
             objectValue = "";
         }
 
+        // Normalize predicate: canonical when matched, raw when not
+        String predicateRaw = fact.predicate.trim().toLowerCase().replaceAll("\\s+", "_");
         String predicate = normalizePredicate(fact.predicate);
+        if ("related_to".equals(predicate)) {
+            // No canonical match found — keep the original predicate as-is
+            predicate = predicateRaw;
+            log.debug("KG: keeping raw predicate '{}' for [{} {} {}]",
+                    predicate, fact.subject, fact.predicate, fact.object);
+        }
         float baseConfidence = Math.max(0.1f, Math.min(1.0f,
                 fact.confidence > 0 ? fact.confidence : 0.5f));
 
@@ -908,6 +907,7 @@ public class KnowledgeGraphExtractionService {
         triple.setUser(user);
         triple.setSubject(subject);
         triple.setPredicate(predicate);
+        triple.setPredicateRaw(predicateRaw);
         triple.setObject(finalObjectEntity);
         triple.setObjectValue(finalObjectValue);
         triple.setConfidence(baseConfidence);

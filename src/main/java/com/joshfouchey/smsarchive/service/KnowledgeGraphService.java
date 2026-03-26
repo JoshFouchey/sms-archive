@@ -273,12 +273,17 @@ public class KnowledgeGraphService {
     }
 
     private KgTripleDto toTripleDto(KgTriple triple) {
+        String pred = triple.getPredicate();
+        String predRaw = triple.getPredicateRaw();
+        boolean isCanonical = predRaw == null || !predRaw.equals(pred);
         return new KgTripleDto(
                 triple.getId(),
                 triple.getSubject().getId(),
                 triple.getSubject().getCanonicalName(),
                 triple.getSubject().getEntityType(),
                 triple.getPredicate(),
+                triple.getPredicateRaw(),
+                isCanonical,
                 triple.getObject() != null ? triple.getObject().getId() : null,
                 triple.getObject() != null ? triple.getObject().getCanonicalName() : null,
                 triple.getObject() != null ? triple.getObject().getEntityType() : null,

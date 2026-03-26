@@ -8,6 +8,8 @@ public record KgTripleDto(
     String subjectName,
     String subjectType,
     String predicate,
+    String predicateRaw,
+    boolean isCanonical,
     Long objectId,
     String objectName,
     String objectType,

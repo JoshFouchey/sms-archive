@@ -203,7 +203,7 @@
             <div v-for="triple in recentTriples" :key="triple.id" class="px-6 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
               <div class="flex items-start gap-2">
                 <span class="font-medium text-sm text-blue-700 dark:text-blue-300">{{ triple.subjectName }}</span>
-                <span class="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-gray-400 font-mono">{{ triple.predicate.replace(/_/g, ' ') }}</span>
+                <span :class="['text-xs px-1.5 py-0.5 rounded font-mono', triple.isCanonical ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800']" :title="triple.isCanonical ? '' : 'Raw predicate — not yet normalized'">{{ triple.predicate.replace(/_/g, ' ') }}</span>
                 <span class="font-medium text-sm text-purple-700 dark:text-purple-300">{{ triple.objectName || triple.objectValue || '—' }}</span>
               </div>
               <div class="flex items-center gap-2 mt-1">
@@ -236,7 +236,7 @@
               <div v-for="fact in contactFacts" :key="fact.id" class="px-6 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <div class="flex items-start gap-2">
                   <span class="font-medium text-sm text-blue-700 dark:text-blue-300">{{ fact.subjectName }}</span>
-                  <span class="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-gray-400 font-mono">{{ fact.predicate.replace(/_/g, ' ') }}</span>
+                  <span :class="['text-xs px-1.5 py-0.5 rounded font-mono', fact.isCanonical ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800']" :title="fact.isCanonical ? '' : 'Raw predicate — not yet normalized'">{{ fact.predicate.replace(/_/g, ' ') }}</span>
                   <span class="font-medium text-sm text-purple-700 dark:text-purple-300">{{ fact.objectName || fact.objectValue || '—' }}</span>
                 </div>
                 <span :class="['text-[10px] px-1.5 py-0.5 rounded-full font-medium', fact.confidence >= 0.8 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400']">
