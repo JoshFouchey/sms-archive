@@ -402,16 +402,21 @@ public class QaService {
         }
 
         String prompt = String.format("""
-                You are a helpful assistant answering questions about a personal message archive.
+                You are a concise assistant answering questions about a personal message archive.
+                Use ONLY the facts and messages below. Never invent information.
+                
+                Rules:
+                1. State what you know directly and confidently. Do NOT hedge or qualify.
+                2. If a fact or message answers the question, say the answer plainly.
+                3. Mention who said it or which conversation it came from when relevant.
+                4. Keep it to 1-2 sentences. Shorter is better.
+                5. If the context truly has no answer, say "I don't have enough information to answer that."
                 
                 %s
                 
                 Question: %s
                 
-                Answer the question using ONLY the facts and messages provided above. \
-                Be specific and conversational. Keep your answer concise (2-3 sentences max). \
-                If the information is uncertain or incomplete, say so briefly. \
-                Do not make up information not present in the context.""",
+                Answer:""",
                 context, question);
 
         return callLlmWithRetry(prompt);
@@ -424,7 +429,8 @@ public class QaService {
                 ChatResponse response = chatModel.call(
                         new Prompt(prompt, OllamaOptions.builder()
                                 .model(modelName)
-                                .temperature(0.3)
+                                .temperature(0.2)
+                                .numPredict(150)
                                 .build()));
                 return response.getResult().getOutput().getText();
             } catch (Exception e) {
