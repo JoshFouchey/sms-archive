@@ -359,6 +359,8 @@ export interface UnifiedSearchHit {
   message: Message;
   score: number;
   source: string; // KEYWORD | SEMANTIC | BOTH
+  conversationId?: number;
+  moreFromConversation: number;
 }
 
 export interface UnifiedSearchResult {

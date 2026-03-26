@@ -271,6 +271,10 @@
                   hit.source === 'SEMANTIC' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' :
                   'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
                 ]">{{ hit.source }}</span>
+                <span v-if="hit.moreFromConversation > 0"
+                  class="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                  +{{ hit.moreFromConversation }} more
+                </span>
                 <span class="text-[10px] text-gray-400">{{ formatDate(hit.message.timestamp) }}</span>
                 <span class="ml-auto text-[10px] text-gray-400">{{ formatScore(hit.score) }}</span>
               </div>
