@@ -220,7 +220,7 @@
                     class="border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
                     <td v-for="col in response.analyticsData.columns" :key="col"
                       class="px-4 py-2.5 text-gray-700 dark:text-gray-300">
-                      {{ formatCell(row[col]) }}
+                      {{ formatCell(row[col], col) }}
                     </td>
                   </tr>
                 </tbody>
@@ -479,9 +479,14 @@ function formatScore(score: number): string {
   return score >= 1 ? score.toFixed(1) : (score * 100).toFixed(0) + '%';
 }
 
-function formatCell(val: any): string {
+function formatCell(val: any, col?: string): string {
   if (val == null) return '—';
   if (typeof val === 'number') {
+    const lowerCol = (col || '').toLowerCase();
+    // Don't add commas to year/month/day columns or small ID-like values
+    if (/\b(year|month|day|hour|minute|week)\b/.test(lowerCol)) {
+      return String(val);
+    }
     return Number.isInteger(val) ? val.toLocaleString() : val.toFixed(2);
   }
   // Truncate long strings (e.g. message bodies)
