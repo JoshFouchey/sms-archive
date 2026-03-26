@@ -58,8 +58,23 @@ public interface KgTripleRepository extends JpaRepository<KgTriple, Long> {
             @Param("factHash") String factHash);
 
     /**
-     * Find active facts for the same subject+predicate — used for soft conflict detection.
-     * If Tom lives_in NYC and a new fact says Tom lives_in Chicago, these are in conflict.
+     * Find active facts for a subject+predicate that match a specific object entity.
+     * Used by negation map: "Tom sold Mustang" needs to find "Tom owns Mustang".
+     */
+    @Query("""
+            SELECT t FROM KgTriple t
+            WHERE t.user = :user AND t.subject = :subject AND t.predicate = :predicate
+              AND t.object = :object AND t.status = 'ACTIVE'
+            """)
+    List<KgTriple> findActiveBySubjectPredicateAndObject(
+            @Param("user") User user,
+            @Param("subject") com.joshfouchey.smsarchive.model.KgEntity subject,
+            @Param("predicate") String predicate,
+            @Param("object") com.joshfouchey.smsarchive.model.KgEntity object);
+
+    /**
+     * Find ALL active facts for a subject+predicate (any object).
+     * Used by singular predicate negation: "moved_to Chicago" supersedes ALL "lives_in X".
      */
     @Query("""
             SELECT t FROM KgTriple t

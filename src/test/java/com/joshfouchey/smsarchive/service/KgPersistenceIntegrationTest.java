@@ -254,6 +254,93 @@ class KgPersistenceIntegrationTest extends EnhancedPostgresTestContainer {
         });
     }
 
+    // ---- Negation Map Tests ----
+
+    @Test
+    void persistFact_soldSupersedesOwns() {
+        Instant factDate = Instant.now();
+
+        // Tom owns Mustang
+        var ownsFact = new KnowledgeGraphExtractionService.ExtractedFact(
+                "Tom", "PERSON", "owns", "Mustang", "VEHICLE", 0.9f);
+        kgService.persistFact(ownsFact, user, List.of(), factDate);
+
+        // Tom sold Mustang → should supersede "owns"
+        var soldFact = new KnowledgeGraphExtractionService.ExtractedFact(
+                "Tom", "PERSON", "sold", "Mustang", "VEHICLE", 0.9f);
+        kgService.persistFact(soldFact, user, List.of(), factDate.plus(60, ChronoUnit.DAYS));
+
+        List<KgTriple> triples = tripleRepository.findRecentByUser(user.getId(), 10);
+        assertThat(triples).hasSize(2);
+
+        KgTriple ownsTriple = triples.stream()
+                .filter(t -> t.getPredicate().equals("owns")).findFirst().orElseThrow();
+        KgTriple soldTriple = triples.stream()
+                .filter(t -> t.getPredicate().equals("sold")).findFirst().orElseThrow();
+
+        assertThat(ownsTriple.getStatus()).isEqualTo("SUPERSEDED");
+        assertThat(soldTriple.getStatus()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    void persistFact_soldOnlySupersedes_matchingObject() {
+        Instant factDate = Instant.now();
+
+        // Tom owns Mustang AND Civic
+        var ownsMustang = new KnowledgeGraphExtractionService.ExtractedFact(
+                "Tom", "PERSON", "owns", "Mustang", "VEHICLE", 0.9f);
+        var ownsCivic = new KnowledgeGraphExtractionService.ExtractedFact(
+                "Tom", "PERSON", "owns", "Civic", "VEHICLE", 0.9f);
+        kgService.persistFact(ownsMustang, user, List.of(), factDate);
+        kgService.persistFact(ownsCivic, user, List.of(), factDate);
+
+        // Tom sold Mustang — should only supersede Mustang, not Civic
+        var soldMustang = new KnowledgeGraphExtractionService.ExtractedFact(
+                "Tom", "PERSON", "sold", "Mustang", "VEHICLE", 0.9f);
+        kgService.persistFact(soldMustang, user, List.of(), factDate.plus(30, ChronoUnit.DAYS));
+
+        List<KgTriple> triples = tripleRepository.findRecentByUser(user.getId(), 10);
+        assertThat(triples).hasSize(3);
+
+        KgTriple mustangOwns = triples.stream()
+                .filter(t -> t.getPredicate().equals("owns") &&
+                        t.getObject().getCanonicalName().equals("Mustang"))
+                .findFirst().orElseThrow();
+        KgTriple civicOwns = triples.stream()
+                .filter(t -> t.getPredicate().equals("owns") &&
+                        t.getObject().getCanonicalName().equals("Civic"))
+                .findFirst().orElseThrow();
+
+        assertThat(mustangOwns.getStatus()).isEqualTo("SUPERSEDED");
+        assertThat(civicOwns.getStatus()).isEqualTo("ACTIVE"); // Civic unaffected
+    }
+
+    @Test
+    void persistFact_movedToSupersedesAllLivesIn() {
+        Instant factDate = Instant.now();
+
+        // Tom lives_in NYC (singular predicate)
+        var livesIn = new KnowledgeGraphExtractionService.ExtractedFact(
+                "Tom", "PERSON", "lives_in", "NYC", "PLACE", 0.9f);
+        kgService.persistFact(livesIn, user, List.of(), factDate);
+
+        // Tom moved_to Chicago → should supersede ALL lives_in (singular target)
+        var movedTo = new KnowledgeGraphExtractionService.ExtractedFact(
+                "Tom", "PERSON", "moved_to", "Chicago", "PLACE", 0.9f);
+        kgService.persistFact(movedTo, user, List.of(), factDate.plus(365, ChronoUnit.DAYS));
+
+        List<KgTriple> triples = tripleRepository.findRecentByUser(user.getId(), 10);
+        assertThat(triples).hasSize(2);
+
+        KgTriple livesInTriple = triples.stream()
+                .filter(t -> t.getPredicate().equals("lives_in")).findFirst().orElseThrow();
+        KgTriple movedToTriple = triples.stream()
+                .filter(t -> t.getPredicate().equals("moved_to")).findFirst().orElseThrow();
+
+        assertThat(livesInTriple.getStatus()).isEqualTo("SUPERSEDED");
+        assertThat(movedToTriple.getStatus()).isEqualTo("ACTIVE");
+    }
+
     // ---- Entity Disambiguation Tests ----
 
     @Test

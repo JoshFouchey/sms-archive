@@ -58,7 +58,8 @@ public class KnowledgeGraphExtractionService {
             "bought", "sold", "broke", "lost", "found", "wants", "plans_to",
             "nickname_is", "age_is", "prefers", "attended", "celebrated",
             "proposed_to", "expecting", "adopted", "coaches", "teaches",
-            "manages", "retired_from", "serves_in", "volunteers_at");
+            "manages", "retired_from", "serves_in", "volunteers_at",
+            "quit", "divorced", "dropped_out");
 
     // Singular predicates: a person can only have ONE value at a time.
     // If a new fact contradicts an existing one, it's a real conflict.
@@ -67,6 +68,22 @@ public class KnowledgeGraphExtractionService {
             "lives_in", "works_at", "works_as", "married_to", "engaged_to",
             "dating", "birthday_is", "age_is", "born_in", "email_is",
             "phone_number_is", "nickname_is", "studies_at");
+
+    // Negation map: when a "trigger" predicate is extracted, it supersedes matching facts
+    // with the "target" predicates for the SAME subject+object.
+    // Example: "Tom sold Mustang" → supersedes "Tom owns Mustang" AND "Tom bought Mustang"
+    private static final Map<String, List<String>> NEGATION_MAP = Map.ofEntries(
+            Map.entry("sold", List.of("owns", "bought")),
+            Map.entry("lost", List.of("owns")),
+            Map.entry("broke", List.of("owns")),
+            Map.entry("moved_to", List.of("lives_in")),
+            Map.entry("divorced", List.of("married_to", "engaged_to")),
+            Map.entry("quit", List.of("works_at")),
+            Map.entry("retired_from", List.of("works_at")),
+            Map.entry("dropped_out", List.of("studies_at")),
+            Map.entry("graduated_from", List.of("studies_at")),
+            Map.entry("dislikes", List.of("likes", "favorite_food"))
+    );
 
     private static final Set<String> REJECTED_ENTITY_NAMES = Set.of(
             "he", "she", "it", "they", "them", "him", "her", "his",
@@ -102,7 +119,8 @@ public class KnowledgeGraphExtractionService {
             birthday_is, member_of, graduated_from, studies_at, favorite_food, hobby_is, married_to,
             engaged_to, dating, sibling_of, parent_of, child_of, friend_of, neighbor_of, plays, watches,
             diagnosed_with, born_in, moved_to, traveled_to, bought, sold, wants, plans_to, nickname_is,
-            age_is, prefers, attended, proposed_to, coaches, teaches, manages, retired_from, volunteers_at
+            age_is, prefers, attended, proposed_to, coaches, teaches, manages, retired_from, volunteers_at,
+            quit, divorced, dropped_out, lost, broke
             
             Types: PERSON, PLACE, ORGANIZATION, OBJECT, EVENT, FOOD, VEHICLE, PET, MEDICAL, DATE
             
@@ -674,7 +692,33 @@ public class KnowledgeGraphExtractionService {
             return newEntities;
         }
 
-        // --- Step 2: Soft conflict check — only for SINGULAR predicates ---
+        // --- Step 2: Negation map — "sold Mustang" supersedes "owns Mustang" ---
+        List<String> negatedPredicates = NEGATION_MAP.get(predicate);
+        if (negatedPredicates != null && finalObjectEntity != null) {
+            for (String targetPredicate : negatedPredicates) {
+                // For singular targets (lives_in, works_at), supersede ALL values
+                // For plural targets (owns, bought), supersede only the matching object
+                List<KgTriple> toSupersede;
+                if (SINGULAR_PREDICATES.contains(targetPredicate)) {
+                    toSupersede = tripleRepository.findActiveBySubjectAndPredicate(
+                            user, subject, targetPredicate);
+                } else {
+                    toSupersede = tripleRepository.findActiveBySubjectPredicateAndObject(
+                            user, subject, targetPredicate, finalObjectEntity);
+                }
+
+                for (KgTriple old : toSupersede) {
+                    old.setStatus("SUPERSEDED");
+                    tripleRepository.save(old);
+                    log.info("Negation: [{} {} {}] superseded by [{} {} {}]",
+                            old.getSubject().getCanonicalName(), old.getPredicate(),
+                            old.getObject() != null ? old.getObject().getCanonicalName() : old.getObjectValue(),
+                            subject.getCanonicalName(), predicate, objectKey);
+                }
+            }
+        }
+
+        // --- Step 3: Soft conflict check — only for SINGULAR predicates ---
         // "Tom lives_in NYC" + "Tom lives_in Chicago" → conflict (can only live in one place)
         // "Tom owns Mustang" + "Tom owns Civic" → NOT a conflict (can own multiple cars)
         Long conflictClusterId = null;
