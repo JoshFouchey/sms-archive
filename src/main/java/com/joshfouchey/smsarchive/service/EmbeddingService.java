@@ -60,6 +60,12 @@ public class EmbeddingService {
     @Value("${smsarchive.ai.embedding.context-messages-before:3}")
     private int contextMessagesBefore;
 
+    @Value("${smsarchive.ai.embedding.chunk-max-chars:1500}")
+    private int chunkMaxChars;
+
+    @Value("${smsarchive.ai.embedding.chunk-overlap-chars:200}")
+    private int chunkOverlapChars;
+
     @Value("${smsarchive.ai.gpu-cooldown.enabled:false}")
     private boolean cooldownEnabled;
 
@@ -217,31 +223,63 @@ public class EmbeddingService {
         cancelledJobs.remove(jobId);
     }
 
+    private record ChunkInfo(Message message, String embeddingText, int chunkIndex, boolean isChunked) {}
+
     void processBatch(List<Long> messageIds, User user) {
         List<Message> messages = messageRepository.findAllByIdWithContacts(messageIds);
 
-        // Build contextual embedding text for each message
-        List<String> texts = new ArrayList<>();
-        List<String> embeddingTexts = new ArrayList<>();
+        // Build chunks for all messages — most will have exactly 1
+        List<ChunkInfo> allChunks = new ArrayList<>();
+        List<String> textsToEmbed = new ArrayList<>();
+
         for (Message m : messages) {
-            String contextualText = buildContextualEmbeddingText(m);
-            texts.add(truncate(contextualText));
-            embeddingTexts.add(contextualText);
+            String body = m.getBody();
+            if (body == null || body.isBlank()) continue;
+
+            List<String> bodyChunks = chunkMessage(body);
+            boolean isChunked = bodyChunks.size() > 1;
+
+            if (isChunked) {
+                log.debug("Message {} ({} chars) split into {} chunks",
+                        m.getId(), body.length(), bodyChunks.size());
+            }
+
+            for (int ci = 0; ci < bodyChunks.size(); ci++) {
+                String contextualText = buildContextualEmbeddingText(m, bodyChunks.get(ci));
+                allChunks.add(new ChunkInfo(m, contextualText, ci, isChunked));
+                textsToEmbed.add(truncate(contextualText));
+            }
         }
 
-        // Call Ollama embedding API with retry (up to 3 attempts with backoff)
-        EmbeddingResponse response = callEmbeddingWithRetry(texts);
+        if (textsToEmbed.isEmpty()) return;
 
-        // Persist embeddings with the contextual text
+        // Call Ollama embedding API with retry (up to 3 attempts with backoff)
+        EmbeddingResponse response = callEmbeddingWithRetry(textsToEmbed);
+
+        // Persist embeddings
         transactionTemplate.executeWithoutResult(status -> {
-            for (int i = 0; i < messages.size(); i++) {
+            // For chunked messages, delete old embeddings first to avoid stale chunks
+            Set<Long> deletedIds = new HashSet<>();
+            for (ChunkInfo ci : allChunks) {
+                if (ci.isChunked() && deletedIds.add(ci.message().getId())) {
+                    embeddingRepository.deleteByMessageIdAndModelName(
+                            ci.message().getId(), modelName);
+                }
+            }
+
+            for (int i = 0; i < allChunks.size(); i++) {
+                ChunkInfo ci = allChunks.get(i);
                 String vectorStr = toVectorString(response.getResults().get(i).getOutput());
-                embeddingRepository.upsertEmbedding(
-                        messages.get(i).getId(),
-                        user.getId(),
-                        vectorStr,
-                        modelName,
-                        embeddingTexts.get(i));
+
+                if (ci.isChunked()) {
+                    embeddingRepository.upsertChunkEmbedding(
+                            ci.message().getId(), user.getId(), vectorStr, modelName,
+                            ci.embeddingText(), ci.chunkIndex(), ci.message().getId());
+                } else {
+                    embeddingRepository.upsertEmbedding(
+                            ci.message().getId(), user.getId(), vectorStr, modelName,
+                            ci.embeddingText());
+                }
             }
         });
     }
@@ -252,9 +290,11 @@ public class EmbeddingService {
      *   [Conversation with: Alice Smith]
      *   [Alice Smith]: Do you still live at 123 Main St?
      *   [Me]: Yes
+     *
+     * @param bodyOverride if non-null, use this text instead of message.getBody() (for chunks)
      */
-    private String buildContextualEmbeddingText(Message message) {
-        String body = message.getBody();
+    private String buildContextualEmbeddingText(Message message, String bodyOverride) {
+        String body = bodyOverride != null ? bodyOverride : message.getBody();
         if (body == null || body.isBlank()) return "";
 
         if (contextMessagesBefore <= 0) {
@@ -433,6 +473,70 @@ public class EmbeddingService {
         }
         sb.append("]");
         return sb.toString();
+    }
+
+    /**
+     * Split a long message body into semantic chunks with overlap.
+     * Short messages return as a single chunk. Long messages are split on
+     * paragraph breaks, sentence boundaries, or newlines — never mid-word.
+     */
+    List<String> chunkMessage(String body) {
+        if (body == null || body.isBlank()) return List.of("");
+        if (body.length() <= chunkMaxChars) return List.of(body);
+
+        List<String> chunks = new ArrayList<>();
+        int pos = 0;
+
+        while (pos < body.length()) {
+            int end = Math.min(pos + chunkMaxChars, body.length());
+
+            if (end < body.length()) {
+                int breakAt = findBreakPoint(body, pos, end);
+                if (breakAt > pos) end = breakAt;
+            }
+
+            String chunk = body.substring(pos, end).trim();
+            if (!chunk.isEmpty()) chunks.add(chunk);
+
+            // Advance with overlap, but never go backwards
+            int nextPos = end - chunkOverlapChars;
+            if (nextPos <= pos) nextPos = end;
+            pos = nextPos;
+        }
+
+        return chunks.isEmpty() ? List.of(body) : chunks;
+    }
+
+    /**
+     * Find the best semantic break point searching backwards from {@code end}.
+     * Priority: paragraph break → sentence end → newline → space → hard cut.
+     */
+    private int findBreakPoint(String text, int start, int end) {
+        int minPos = start + chunkMaxChars / 4; // don't break too early
+
+        // 1. Paragraph break (\n\n)
+        int idx = text.lastIndexOf("\n\n", end);
+        if (idx >= minPos) return idx + 2;
+
+        // 2. Sentence-ending punctuation followed by space or newline
+        for (int i = end - 1; i >= minPos; i--) {
+            char c = text.charAt(i);
+            if ((c == '.' || c == '!' || c == '?') && i + 1 < text.length()
+                    && (text.charAt(i + 1) == ' ' || text.charAt(i + 1) == '\n')) {
+                return i + 1;
+            }
+        }
+
+        // 3. Single newline
+        idx = text.lastIndexOf('\n', end - 1);
+        if (idx >= minPos) return idx + 1;
+
+        // 4. Space (don't break mid-word)
+        idx = text.lastIndexOf(' ', end - 1);
+        if (idx >= minPos) return idx + 1;
+
+        // 5. Hard cut at max chars
+        return end;
     }
 
     private String truncate(String text) {

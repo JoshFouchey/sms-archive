@@ -81,8 +81,20 @@ public class SemanticSearchService {
                     userId, vectorString, k);
         }
 
-        // Step 3: Load full message entities with associations for DTO mapping
-        List<Long> messageIds = rawResults.stream()
+        // Step 3: Deduplicate by message_id (chunks of the same message may appear
+        // multiple times — keep the best similarity, which is first since results are
+        // ordered by cosine distance ascending)
+        List<Object[]> dedupedResults = new ArrayList<>();
+        Set<Long> seenMessageIds = new HashSet<>();
+        for (Object[] row : rawResults) {
+            Long msgId = ((Number) row[0]).longValue();
+            if (seenMessageIds.add(msgId)) {
+                dedupedResults.add(row);
+            }
+        }
+
+        // Step 4: Load full message entities with associations for DTO mapping
+        List<Long> messageIds = dedupedResults.stream()
                 .map(row -> ((Number) row[0]).longValue())
                 .toList();
 
@@ -91,12 +103,12 @@ public class SemanticSearchService {
 
         // Build hits preserving vector search order
         List<SemanticSearchHit> hits = new ArrayList<>();
-        for (int i = 0; i < rawResults.size(); i++) {
+        for (int i = 0; i < dedupedResults.size(); i++) {
             Long msgId = messageIds.get(i);
             Message msg = messageMap.get(msgId);
             if (msg == null) continue;
 
-            Object[] row = rawResults.get(i);
+            Object[] row = dedupedResults.get(i);
             double similarity = ((Number) row[row.length - 1]).doubleValue();
 
             if (i < 3) {
@@ -110,9 +122,9 @@ public class SemanticSearchService {
             }
         }
 
-        log.info("Semantic search '{}': {} raw results, {} above threshold ({})",
+        log.info("Semantic search '{}': {} raw results, {} after chunk dedup, {} above threshold ({})",
                 naturalLanguageQuery.substring(0, Math.min(50, naturalLanguageQuery.length())),
-                rawResults.size(), hits.size(), similarityThreshold);
+                rawResults.size(), dedupedResults.size(), hits.size(), similarityThreshold);
 
         return new SemanticSearchResult(naturalLanguageQuery, hits, hits.size());
     }

@@ -87,6 +87,8 @@ smsarchive.ai:
     dimensions: 1024
     batch-size: 64
     max-body-chars: 7500
+    chunk-max-chars: 1500
+    chunk-overlap-chars: 200
     context-messages-before: 3
     auto-embed: true
   search:

@@ -100,6 +100,35 @@ public interface MessageEmbeddingRepository extends JpaRepository<MessageEmbeddi
 
     @Modifying
     @Query(value = """
+            DELETE FROM message_embeddings WHERE message_id = :messageId AND model_name = :modelName
+            """, nativeQuery = true)
+    void deleteByMessageIdAndModelName(
+            @Param("messageId") Long messageId,
+            @Param("modelName") String modelName);
+
+    @Modifying
+    @Query(value = """
+            INSERT INTO message_embeddings (message_id, user_id, embedding, model_name, embedding_text,
+                                            chunk_index, parent_message_id, created_at)
+            VALUES (:messageId, :userId, CAST(:embedding AS vector), :modelName, :embeddingText,
+                    :chunkIndex, :parentMessageId, now())
+            ON CONFLICT (message_id, model_name, chunk_index) DO UPDATE
+            SET embedding = CAST(:embedding AS vector),
+                embedding_text = :embeddingText,
+                parent_message_id = :parentMessageId,
+                created_at = now()
+            """, nativeQuery = true)
+    void upsertChunkEmbedding(
+            @Param("messageId") Long messageId,
+            @Param("userId") UUID userId,
+            @Param("embedding") String embedding,
+            @Param("modelName") String modelName,
+            @Param("embeddingText") String embeddingText,
+            @Param("chunkIndex") int chunkIndex,
+            @Param("parentMessageId") Long parentMessageId);
+
+    @Modifying
+    @Query(value = """
             INSERT INTO message_embeddings (message_id, user_id, embedding, model_name, created_at)
             VALUES (:messageId, :userId, CAST(:embedding AS vector), :modelName, now())
             ON CONFLICT (message_id, model_name, chunk_index) DO NOTHING
