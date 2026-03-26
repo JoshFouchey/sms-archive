@@ -39,13 +39,9 @@ public class TextToSqlService {
             DATABASE SCHEMA:
 
             messages(id BIGINT, user_id UUID, sender_contact_id BIGINT, conversation_id BIGINT, timestamp TIMESTAMP, body TEXT, direction VARCHAR, protocol VARCHAR)
-              - direction = 'INBOUND' means a CONTACT sent a message TO ME (I received it)
-              - direction = 'OUTBOUND' means I sent a message TO A CONTACT
-              - "texts from John" or "John sent me" = INBOUND where the contact is John
-              - "texts to John" or "I sent John" = OUTBOUND in John's conversation
-              - sender_contact_id is the contact who sent it (NULL for OUTBOUND because I sent it)
+              - direction = 'INBOUND' (received from contact), 'OUTBOUND' (sent by me)
+              - sender_contact_id: NULL for OUTBOUND (I am the sender). For INBOUND, this is the contact who sent it.
               - protocol: 'SMS', 'MMS' (has media), or 'RCS'
-              - MMS messages often have images/photos attached (check message_parts for media)
               - body contains the text content (may be NULL for image-only MMS)
 
             contacts(id BIGINT, user_id UUID, number VARCHAR, normalized_number VARCHAR, name VARCHAR)
@@ -57,25 +53,26 @@ public class TextToSqlService {
 
             conversation_contacts(conversation_id BIGINT, contact_id BIGINT)
               - Links conversations to their participant contacts
-              - To find messages with a specific contact, join through this table
 
             message_parts(id BIGINT, message_id BIGINT, ct VARCHAR, name VARCHAR, file_path VARCHAR, size_bytes BIGINT)
               - ct is MIME type (e.g. 'image/jpeg', 'video/mp4', 'text/plain')
-              - To count photos/images: WHERE ct LIKE 'image/%%'
-              - To count videos: WHERE ct LIKE 'video/%%'
+
+            RULES:
+            1. ALWAYS filter by user_id = '__USER_ID__' on every table that has user_id.
+            2. Return at most %d rows using LIMIT.
+            3. Use human-readable aliases: AS contact_name, AS message_count, etc.
+            4. Output ONLY raw SQL — no markdown, no code fences, no explanation.
+            5. TEMPORAL SORTING: When grouping by day or month name, use TO_CHAR for display but ALWAYS include the numeric EXTRACT value in ORDER BY for chronological order (e.g., Monday before Tuesday, January before February).
+            6. SENDER LOGIC: To find messages SENT BY a contact, filter by m.sender_contact_id. To find all messages WITHIN A CONVERSATION with a contact, join through conversation_contacts.
+            7. MEDIA LOGIC: Photos/images are WHERE ct LIKE 'image/%%'. Videos are WHERE ct LIKE 'video/%%'.
+            8. Use WITH (CTE) clauses for complex multi-step aggregations to improve readability.
 
             COMMON QUERY PATTERNS:
             - Messages with a contact: JOIN conversation_contacts cc ON cc.conversation_id = m.conversation_id JOIN contacts c ON c.id = cc.contact_id WHERE c.name ILIKE '%%Name%%'
-            - Top contacts by message count: GROUP BY contact name, ORDER BY count DESC
-            - Messages in a year: WHERE EXTRACT(YEAR FROM m.timestamp) = 2024
+            - Top contacts: GROUP BY contact name, ORDER BY count DESC
+            - Day with most activity: SELECT TO_CHAR(timestamp, 'Day') AS day_name, COUNT(*) AS message_count FROM messages WHERE user_id = '__USER_ID__' GROUP BY day_name, EXTRACT(DOW FROM timestamp) ORDER BY EXTRACT(DOW FROM timestamp)
+            - Average messages per conversation: SELECT AVG(cnt) FROM (SELECT COUNT(*) AS cnt FROM messages WHERE user_id = '__USER_ID__' GROUP BY conversation_id) AS sub
             - First/last message: ORDER BY m.timestamp ASC/DESC LIMIT 1
-
-            RULES:
-            1. ALWAYS filter by user_id = '__USER_ID__' on every table that has user_id
-            2. Return at most %d rows using LIMIT
-            3. Use meaningful column aliases (e.g. AS contact_name, AS message_count)
-            4. Output ONLY the raw SQL query — no markdown, no explanation, no code fences
-            5. Use human-readable values: TO_CHAR(timestamp, 'Day') instead of EXTRACT(DOW), TO_CHAR(timestamp, 'Month') instead of EXTRACT(MONTH), spell out dates with TO_CHAR where possible
 
             Question: %s""";
 
