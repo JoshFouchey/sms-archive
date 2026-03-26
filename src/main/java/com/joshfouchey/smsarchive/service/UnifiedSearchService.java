@@ -75,7 +75,7 @@ public class UnifiedSearchService {
         };
 
         // Apply post-processing: time-decay, min-score filter, conversation dedup
-        List<UnifiedSearchHit> processed = postProcess(raw.hits(), k);
+        List<UnifiedSearchHit> processed = postProcess(raw.hits(), k, query);
 
         return new UnifiedSearchResult(raw.query(), raw.mode(), processed, processed.size());
     }
@@ -97,9 +97,10 @@ public class UnifiedSearchService {
             return SearchMode.KEYWORD;
         }
 
-        // Question-like or natural language → semantic
+        // Question-like or natural language → hybrid
+        // (pure semantic suffers from context-bleeding; hybrid adds keyword grounding)
         if (QUESTION_WORDS.stream().anyMatch(lower::startsWith)) {
-            return SearchMode.SEMANTIC;
+            return SearchMode.HYBRID;
         }
 
         // Longer phrases → hybrid (best of both)
@@ -111,7 +112,7 @@ public class UnifiedSearchService {
 
     // ---- Post-processing pipeline ----
 
-    private List<UnifiedSearchHit> postProcess(List<UnifiedSearchHit> hits, int topK) {
+    private List<UnifiedSearchHit> postProcess(List<UnifiedSearchHit> hits, int topK, String query) {
         if (hits.isEmpty()) return hits;
 
         // 1. Apply time-decay boost
@@ -129,7 +130,7 @@ public class UnifiedSearchService {
 
         // 4. Conversation dedup: keep best per conversation, count others
         if (conversationDedup) {
-            return dedupByConversation(scored, topK);
+            return dedupByConversation(scored, topK, query);
         }
 
         return scored.stream()
@@ -154,8 +155,44 @@ public class UnifiedSearchService {
         return score * (0.8 + 0.2 * decayFactor);
     }
 
-    private List<UnifiedSearchHit> dedupByConversation(List<ScoredHit> scored, int topK) {
-        // Group by conversation — use contactName as grouping key since we don't have conversationId in DTO
+    private static final Set<String> STOP_WORDS = Set.of(
+            "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
+            "have", "has", "had", "do", "does", "did", "will", "would", "shall",
+            "should", "may", "might", "must", "can", "could", "to", "of", "in",
+            "for", "on", "with", "at", "by", "from", "as", "into", "through",
+            "during", "before", "after", "above", "below", "between", "out",
+            "about", "up", "down", "and", "but", "or", "not", "no", "nor",
+            "so", "yet", "both", "each", "few", "more", "most", "other", "some",
+            "such", "than", "too", "very", "just", "also", "now", "here", "there",
+            "when", "where", "why", "how", "what", "which", "who", "whom",
+            "this", "that", "these", "those", "i", "me", "my", "we", "our",
+            "you", "your", "he", "him", "his", "she", "her", "it", "its",
+            "they", "them", "their", "all", "any", "if", "then", "else");
+
+    /**
+     * Extract meaningful keywords from a query, stripping stop words.
+     */
+    private Set<String> extractQueryKeywords(String query) {
+        if (query == null || query.isBlank()) return Set.of();
+        return Arrays.stream(query.toLowerCase().replaceAll("[^a-z0-9\\s]", "").split("\\s+"))
+                .filter(w -> w.length() > 1 && !STOP_WORDS.contains(w))
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * Compute keyword overlap: fraction of query keywords found in message body.
+     */
+    private double keywordOverlap(String body, Set<String> queryKeywords) {
+        if (queryKeywords.isEmpty() || body == null || body.isBlank()) return 0.0;
+        String lower = body.toLowerCase();
+        long found = queryKeywords.stream().filter(lower::contains).count();
+        return (double) found / queryKeywords.size();
+    }
+
+    private List<UnifiedSearchHit> dedupByConversation(List<ScoredHit> scored, int topK, String query) {
+        Set<String> queryKeywords = extractQueryKeywords(query);
+
+        // Group by conversation
         Map<String, List<ScoredHit>> byConversation = new LinkedHashMap<>();
         for (ScoredHit s : scored) {
             String key = Optional.ofNullable(s.hit.conversationId())
@@ -165,10 +202,27 @@ public class UnifiedSearchService {
             byConversation.computeIfAbsent(key, k -> new ArrayList<>()).add(s);
         }
 
-        // Take the best hit from each conversation, track how many more exist
+        // Pick the best hit per conversation, using keyword overlap to break ties
+        // from context-bleeding (where a neighbor message scores higher than the real match)
         List<UnifiedSearchHit> result = new ArrayList<>();
         for (var entry : byConversation.values()) {
-            ScoredHit best = entry.get(0); // already sorted by score desc
+            ScoredHit best = entry.get(0);
+
+            if (!queryKeywords.isEmpty() && entry.size() > 1) {
+                // Re-rank within conversation: boost by keyword overlap with message body
+                double bestBlended = -1;
+                for (ScoredHit candidate : entry) {
+                    String body = candidate.hit.message().body();
+                    double overlap = keywordOverlap(body, queryKeywords);
+                    // Boost: up to +50% for full keyword overlap
+                    double blended = candidate.score * (1.0 + 0.5 * overlap);
+                    if (blended > bestBlended) {
+                        bestBlended = blended;
+                        best = candidate;
+                    }
+                }
+            }
+
             int moreCount = entry.size() - 1;
             result.add(new UnifiedSearchHit(
                     best.hit.message(), best.score, best.hit.source(),
