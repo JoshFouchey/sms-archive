@@ -244,12 +244,18 @@ public class QaService {
                     request.conversationId(), request.contactId(), 5);
 
             sources = searchResults.hits().stream()
-                    .map(hit -> new QaSource(
-                            hit.message().id(),
-                            truncate(hit.message().body(), 200),
-                            hit.message().contactName(),
-                            hit.message().timestamp(),
-                            hit.score()))
+                    .map(hit -> {
+                        // Prefer sender name (works for groups), fall back to conversation contact
+                        String speaker = hit.message().senderContactName() != null
+                                ? hit.message().senderContactName()
+                                : hit.message().contactName();
+                        return new QaSource(
+                                hit.message().id(),
+                                truncate(hit.message().body(), 200),
+                                speaker != null ? speaker : "Unknown",
+                                hit.message().timestamp(),
+                                hit.score());
+                    })
                     .toList();
         } catch (Exception e) {
             log.warn("Semantic search failed during Q&A, continuing with KG only: {}", e.getMessage());
