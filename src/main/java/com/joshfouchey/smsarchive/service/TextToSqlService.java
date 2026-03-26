@@ -72,6 +72,7 @@ public class TextToSqlService {
             - Top contacts: GROUP BY contact name, ORDER BY count DESC
             - Day with most activity: SELECT TO_CHAR(timestamp, 'Day') AS day_name, COUNT(*) AS message_count FROM messages WHERE user_id = '__USER_ID__' GROUP BY day_name, EXTRACT(DOW FROM timestamp) ORDER BY EXTRACT(DOW FROM timestamp)
             - Average messages per conversation: SELECT AVG(cnt) FROM (SELECT COUNT(*) AS cnt FROM messages WHERE user_id = '__USER_ID__' GROUP BY conversation_id) AS sub
+            - Percentage/ratio breakdown: Always return ALL categories with both count and percentage, e.g. SELECT direction, COUNT(*) AS count, ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 2) AS percentage FROM messages GROUP BY direction
             - First/last message: ORDER BY m.timestamp ASC/DESC LIMIT 1
 
             Question: %s""";
