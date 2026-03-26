@@ -9,6 +9,7 @@ import com.joshfouchey.smsarchive.repository.UserRepository;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.*;
 import org.mockito.Mockito;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -53,6 +54,7 @@ class ImportServiceTest {
             conversationService = Mockito.mock(ConversationService.class);
             userRepository = Mockito.mock(UserRepository.class);
             conversationService = Mockito.mock(ConversationService.class);
+            ApplicationEventPublisher eventPublisher = Mockito.mock(ApplicationEventPublisher.class);
 
             // Mock the current user
             com.joshfouchey.smsarchive.model.User testUser = new com.joshfouchey.smsarchive.model.User();
@@ -81,7 +83,7 @@ class ImportServiceTest {
                 return convo;
             });
 
-            service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService, userRepository));
+            service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService, userRepository, eventPublisher));
             doReturn(Path.of("test-media-root")).when(service).getMediaRoot(); // Mock media root
         }
 

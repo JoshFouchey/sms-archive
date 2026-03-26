@@ -607,7 +607,7 @@ public class KnowledgeGraphExtractionService {
      *
      * Returns the number of NEW entities created (0, 1, or 2).
      */
-    private int persistFact(ExtractedFact fact, User user, List<Long> sourceMessageIds,
+    int persistFact(ExtractedFact fact, User user, List<Long> sourceMessageIds,
                             Instant factDate) {
         if (fact.subject == null || fact.predicate == null) {
             throw new IllegalArgumentException("Subject and predicate are required");
@@ -744,7 +744,7 @@ public class KnowledgeGraphExtractionService {
      * Generate a deterministic hash for a fact triple.
      * Normalized: lowercase, trimmed, sorted to avoid order-dependent mismatches.
      */
-    private String generateFactHash(String subjectName, String predicate, String objectKey) {
+    String generateFactHash(String subjectName, String predicate, String objectKey) {
         String normalized = (subjectName + "|" + predicate + "|" + objectKey)
                 .toLowerCase().trim();
         try {
@@ -765,7 +765,7 @@ public class KnowledgeGraphExtractionService {
      * and their aliases. If "Tommy" is similar enough to existing "Tom", reuses "Tom"
      * and adds "Tommy" as an alias.
      */
-    private KgEntity findOrCreateEntity(User user, String name, String entityType) {
+    KgEntity findOrCreateEntity(User user, String name, String entityType) {
         // Exact match first (fast path)
         Optional<KgEntity> exact = entityRepository.findByUserAndCanonicalNameAndEntityType(
                 user, name, entityType);

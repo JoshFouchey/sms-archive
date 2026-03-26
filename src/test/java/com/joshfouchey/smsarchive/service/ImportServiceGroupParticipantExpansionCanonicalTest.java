@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,6 +44,7 @@ class ImportServiceGroupParticipantExpansionCanonicalTest {
         userRepository = Mockito.mock(UserRepository.class);
         thumbnailService = Mockito.mock(ThumbnailService.class);
         conversationService = Mockito.mock(ConversationService.class);
+        ApplicationEventPublisher eventPublisher = Mockito.mock(ApplicationEventPublisher.class);
 
         User testUser = new User();
         testUser.setId(UUID.randomUUID());
@@ -93,7 +95,7 @@ class ImportServiceGroupParticipantExpansionCanonicalTest {
         when(messageRepository.existsByConversationAndTimestampAndBody(any(), any(), any(), any(), any(), any())).thenReturn(false);
         when(messageRepository.existsByTimestampAndBody(any(), any(), any(), any(), any())).thenReturn(false);
 
-        service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService, userRepository));
+        service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService, userRepository, eventPublisher));
         doReturn(Path.of("test-media-root")).when(service).getMediaRoot();
         Files.createDirectories(Path.of("test-media-root"));
     }

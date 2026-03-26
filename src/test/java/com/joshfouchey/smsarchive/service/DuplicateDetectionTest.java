@@ -13,6 +13,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.io.ByteArrayInputStream;
 import java.nio.file.Files;
@@ -48,6 +49,8 @@ class DuplicateDetectionTest {
     private ConversationService conversationService;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private ImportService service;
     private User testUser;
@@ -91,7 +94,7 @@ class DuplicateDetectionTest {
         // Capture saved messages
         lenient().when(messageRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService, userRepository));
+        service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService, userRepository, eventPublisher));
         Files.createDirectories(Path.of("test-media-root"));
         Mockito.doReturn(Path.of("test-media-root")).when(service).getMediaRoot();
     }

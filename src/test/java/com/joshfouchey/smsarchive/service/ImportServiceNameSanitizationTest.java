@@ -8,7 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-
+import org.springframework.context.ApplicationEventPublisher;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
 
@@ -37,6 +37,7 @@ class ImportServiceNameSanitizationTest {
         UserRepository userRepository = Mockito.mock(UserRepository.class);
         ConversationService conversationService = Mockito.mock(ConversationService.class);
         currentUserProvider = Mockito.mock(CurrentUserProvider.class);
+        ApplicationEventPublisher eventPublisher = Mockito.mock(ApplicationEventPublisher.class);
         com.joshfouchey.smsarchive.model.User testUser = new com.joshfouchey.smsarchive.model.User();
         testUser.setId(java.util.UUID.randomUUID());
         testUser.setUsername("tester");
@@ -44,7 +45,7 @@ class ImportServiceNameSanitizationTest {
         // minimal conversation stubs (not used directly but constructor requires service)
         when(conversationService.findOrCreateOneToOneForUser(testUser, "123", "Bob"))
                 .thenReturn(Conversation.builder().id(1L).user(testUser).name("Bob").build());
-        service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService, userRepository));
+        service = Mockito.spy(new ImportService(messageRepository, contactRepository, currentUserProvider, thumbnailService, conversationService, userRepository, eventPublisher));
         doReturn(Path.of("test-media-root")).when(service).getMediaRoot();
         sanitizeMethod = ImportService.class.getDeclaredMethod("sanitizeContactName", String.class);
         sanitizeMethod.setAccessible(true);
