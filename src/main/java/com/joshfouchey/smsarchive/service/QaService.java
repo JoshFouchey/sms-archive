@@ -154,7 +154,9 @@ public class QaService {
     // --- Intent Detection ---
 
     List<KgEntity> extractEntities(User user, String question) {
-        String cleaned = question.replaceAll("[?!.,;:'\"]", "").trim();
+        // Strip possessives ('s, s') before removing punctuation so "Amy's" → "Amy"
+        String cleaned = question.replaceAll("'s\\b", "").replaceAll("s'\\b", "s");
+        cleaned = cleaned.replaceAll("[?!.,;:'\"]", "").trim();
         String[] words = cleaned.split("\\s+");
 
         Set<Long> seen = new HashSet<>();
