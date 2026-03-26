@@ -29,6 +29,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -60,6 +61,47 @@ public class KnowledgeGraphExtractionService {
             "proposed_to", "expecting", "adopted", "coaches", "teaches",
             "manages", "retired_from", "serves_in", "volunteers_at",
             "quit", "divorced", "dropped_out");
+
+    // Map phi4-mini's creative predicates to canonical ones
+    private static final Map<String, String> PREDICATE_ALIASES = Map.ofEntries(
+            // Variations phi4-mini produces
+            Map.entry("has", "has_pet"),          // context-dependent, but usually pets
+            Map.entry("allergic_to", "is_allergic_to"),
+            Map.entry("diagnosed", "diagnosed_with"),
+            Map.entry("was_diagnosed_with", "diagnosed_with"),
+            Map.entry("favorite_show", "watches"),
+            Map.entry("favorite_movie", "watches"),
+            Map.entry("favorite_band", "likes"),
+            Map.entry("favorite_restaurant", "likes"),
+            Map.entry("wants_to_visit", "wants"),
+            Map.entry("plans_to_visit", "plans_to"),
+            Map.entry("stayed_with", "visited"),
+            Map.entry("still_loves", "likes"),
+            Map.entry("loves", "likes"),
+            Map.entry("enjoys", "likes"),
+            Map.entry("hates", "dislikes"),
+            Map.entry("gifted", "owns"),
+            Map.entry("received", "owns"),
+            Map.entry("works_for", "works_at"),
+            Map.entry("employed_at", "works_at"),
+            Map.entry("employed_by", "works_at"),
+            Map.entry("moved_from", "born_in"),
+            Map.entry("living_in", "lives_in"),
+            Map.entry("resides_in", "lives_in"),
+            Map.entry("sister_of", "sibling_of"),
+            Map.entry("brother_of", "sibling_of"),
+            Map.entry("mother_of", "parent_of"),
+            Map.entry("father_of", "parent_of"),
+            Map.entry("son_of", "child_of"),
+            Map.entry("daughter_of", "child_of"),
+            Map.entry("pet_name", "has_pet"),
+            Map.entry("got", "owns"),
+            Map.entry("purchased", "bought"),
+            Map.entry("studying", "studies_at"),
+            Map.entry("attending", "studies_at"),
+            Map.entry("coaches_at", "coaches"),
+            Map.entry("teaches_at", "teaches")
+    );
 
     // Singular predicates: a person can only have ONE value at a time.
     // If a new fact contradicts an existing one, it's a real conflict.
@@ -330,8 +372,8 @@ public class KnowledgeGraphExtractionService {
                         job.setTriplesFound(job.getTriplesFound() + results[0]);
                         job.setEntitiesFound(job.getEntitiesFound() + results[1]);
                     } catch (Exception e) {
-                        log.warn("Extraction window failed (conv {}): {}",
-                                entry.getKey(), e.getMessage());
+                        log.error("Extraction window failed (conv {}, {} msgs): {}",
+                                entry.getKey(), windowIds.size(), e.getMessage(), e);
                         job.setProcessed(job.getProcessed() + windowIds.size());
                     }
 
@@ -392,20 +434,24 @@ public class KnowledgeGraphExtractionService {
 
         // Call the LLM with retry (up to 3 attempts with backoff)
         String prompt = String.format(EXTRACTION_PROMPT_TEMPLATE, contextHeader, conversationText);
+        log.debug("KG prompt ({} chars): {}", prompt.length(), prompt.substring(0, Math.min(500, prompt.length())));
         String llmOutput = callLlmWithRetry(prompt);
         List<ExtractedFact> facts = parseFacts(llmOutput);
 
-        if (facts.isEmpty() && llmOutput != null && !llmOutput.isBlank()) {
-            log.info("KG window: LLM returned non-empty output but parsed 0 facts. Output preview: {}",
-                    llmOutput.substring(0, Math.min(200, llmOutput.length())));
-        } else if (!facts.isEmpty()) {
-            log.debug("KG window: parsed {} facts from {} messages", facts.size(), messageIds.size());
+        log.info("KG window: LLM returned {} chars, parsed {} facts from {} messages (prompt {} chars)",
+                llmOutput != null ? llmOutput.length() : 0, facts.size(), messageIds.size(), prompt.length());
+        if (facts.isEmpty() && llmOutput != null && !llmOutput.isBlank() && llmOutput.length() > 2) {
+            log.warn("KG window: 0 facts from non-trivial LLM response. Raw output:\n{}", llmOutput);
         }
 
         // Persist in a transaction
         int[] counts = transactionTemplate.execute(status -> {
             int triples = 0;
             int newEntities = 0;
+            int skippedInvalid = 0;
+            int skippedEntity = 0;
+            int skippedPredicate = 0;
+            int skippedError = 0;
 
             // Use earliest message timestamp as fact_date for temporal tracking
             Instant factDate = messages.stream()
@@ -419,12 +465,14 @@ public class KnowledgeGraphExtractionService {
                     if (!isValidFact(fact)) {
                         log.debug("Skipping invalid fact structure: [{} {} {}]",
                                 fact.subject, fact.predicate, fact.object);
+                        skippedInvalid++;
                         continue;
                     }
                     if (!isValidEntity(fact.subject) ||
                             (fact.object != null && !fact.object.isBlank() && !isValidEntity(fact.object))) {
                         log.debug("Skipping fact with invalid entity name: [{} {} {}]",
                                 fact.subject, fact.predicate, fact.object);
+                        skippedEntity++;
                         continue;
                     }
                     // Drop facts that fall back to "related_to" — too noisy
@@ -432,6 +480,7 @@ public class KnowledgeGraphExtractionService {
                     if ("related_to".equals(predicate)) {
                         log.debug("Skipping non-canonical predicate '{}': [{} {} {}]",
                                 fact.predicate, fact.subject, fact.predicate, fact.object);
+                        skippedPredicate++;
                         continue;
                     }
                     int created = persistFact(fact, user, messageIds, factDate);
@@ -440,7 +489,14 @@ public class KnowledgeGraphExtractionService {
                 } catch (Exception e) {
                     log.debug("Skipping fact [{} {} {}]: {}",
                             fact.subject, fact.predicate, fact.object, e.getMessage());
+                    skippedError++;
                 }
+            }
+
+            if (skippedInvalid + skippedEntity + skippedPredicate + skippedError > 0) {
+                log.info("KG window: {} persisted, {} skipped (invalid={}, entity={}, predicate={}, error={})",
+                        triples, skippedInvalid + skippedEntity + skippedPredicate + skippedError,
+                        skippedInvalid, skippedEntity, skippedPredicate, skippedError);
             }
 
             markMessagesProcessed(messageIds, user.getId());
@@ -562,25 +618,83 @@ public class KnowledgeGraphExtractionService {
 
     // ---- LLM output parsing ----
 
-    private List<ExtractedFact> parseFacts(String llmOutput) {
+    List<ExtractedFact> parseFacts(String llmOutput) {
         if (llmOutput == null || llmOutput.isBlank()) return List.of();
 
         String json = extractJsonArray(llmOutput);
         if (json == null || json.equals("[]")) return List.of();
 
-        // Normalize whitespace (phi4-mini sometimes pretty-prints)
-        json = json.replaceAll("\\s*\n\\s*", " ").replaceAll("\\s+", " ");
-
-        // Fix unquoted JSON keys: {subject: "Bob"} → {"subject": "Bob"}
-        json = json.replaceAll("(?<=\\{|,)\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*:", " \"$1\":");
+        json = sanitizeLlmJson(json);
 
         try {
             return objectMapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
-            log.info("Failed to parse LLM output as JSON: {} — raw: {}", e.getMessage(),
-                    llmOutput.substring(0, Math.min(500, llmOutput.length())));
+            // First parse failed — try extracting individual objects
+            log.info("JSON parse failed ({}), attempting object-by-object recovery", e.getMessage());
+            List<ExtractedFact> recovered = recoverFactsFromMalformedJson(json);
+            if (!recovered.isEmpty()) {
+                log.info("Recovered {} facts from malformed JSON", recovered.size());
+                return recovered;
+            }
+            log.warn("Failed to parse LLM output as JSON: {} — raw (first 800 chars): {}", e.getMessage(),
+                    llmOutput.substring(0, Math.min(800, llmOutput.length())));
             return List.of();
         }
+    }
+
+    /**
+     * Sanitize common LLM JSON quirks: unquoted keys, single quotes,
+     * trailing commas, newlines inside strings, etc.
+     */
+    private String sanitizeLlmJson(String json) {
+        // Strip markdown code fences if present
+        json = json.replaceAll("```json\\s*", "").replaceAll("```\\s*", "");
+
+        // Normalize whitespace (phi4-mini sometimes pretty-prints)
+        json = json.replaceAll("\\s*\n\\s*", " ").replaceAll("\\s+", " ");
+
+        // Fix = used as key-value separator without closing quote on key:
+        // phi4-mini writes "object="value" instead of "object":"value"
+        json = json.replaceAll("\"([a-zA-Z_][a-zA-Z0-9_]*)=", "\"$1\":");
+
+        // Fix single quotes → double quotes
+        json = json.replace("'", "\"");
+
+        // Fix unquoted JSON keys: {subject: "Bob"} → {"subject": "Bob"}
+        json = json.replaceAll("(?<=\\{|,)\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*:", " \"$1\":");
+
+        // Fix trailing commas: [{"a":"b"},] → [{"a":"b"}]
+        json = json.replaceAll(",\\s*]", "]").replaceAll(",\\s*}", "}");
+
+        // Fix duplicate keys (phi4-mini sometimes emits "object_type" twice) — keep first
+        // This is a best-effort fix; Jackson will just use the last value
+        return json;
+    }
+
+    /**
+     * Try to recover individual fact objects from malformed JSON array.
+     * Splits on },{ boundaries and parses each object individually.
+     */
+    private List<ExtractedFact> recoverFactsFromMalformedJson(String json) {
+        List<ExtractedFact> recovered = new ArrayList<>();
+
+        // Find individual JSON objects within the array
+        Pattern objPattern = Pattern.compile("\\{[^{}]+\\}");
+        var matcher = objPattern.matcher(json);
+
+        while (matcher.find()) {
+            String objStr = sanitizeLlmJson(matcher.group());
+            try {
+                ExtractedFact fact = objectMapper.readValue(objStr, ExtractedFact.class);
+                if (fact.subject != null && fact.predicate != null) {
+                    recovered.add(fact);
+                }
+            } catch (Exception e) {
+                log.debug("Could not recover individual fact object: {}", objStr);
+            }
+        }
+
+        return recovered;
     }
 
     private String extractJsonArray(String text) {
@@ -868,13 +982,18 @@ public class KnowledgeGraphExtractionService {
         return TYPE_ALIASES.getOrDefault(upper, "CONCEPT");
     }
 
-    private String normalizePredicate(String predicate) {
+    String normalizePredicate(String predicate) {
         if (predicate == null) return "related_to";
         String normalized = predicate.trim().toLowerCase().replaceAll("\\s+", "_");
         if (CANONICAL_PREDICATES.contains(normalized)) return normalized;
-        // Try common variations
+        // Check alias map
+        String aliased = PREDICATE_ALIASES.get(normalized);
+        if (aliased != null) return aliased;
+        // Try stripping common prefixes: has_pet → pet (no), is_allergic_to → allergic_to
         String stripped = normalized.replaceAll("^(has_|is_|was_|did_)", "");
         if (CANONICAL_PREDICATES.contains(stripped)) return stripped;
+        aliased = PREDICATE_ALIASES.get(stripped);
+        if (aliased != null) return aliased;
         return "related_to";
     }
 

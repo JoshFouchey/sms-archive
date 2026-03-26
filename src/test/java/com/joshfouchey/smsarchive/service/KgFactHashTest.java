@@ -96,4 +96,101 @@ class KgFactHashTest {
         assertThat(fact.objectType()).isEqualTo("PLACE");
         assertThat(fact.confidence()).isEqualTo(0.9f);
     }
+
+    // ---- JSON sanitization / parsing tests ----
+
+    @Test
+    void parseFacts_equalsSignSeparator() {
+        // phi4-mini's most common quirk: "object="value" instead of "object":"value"
+        String llmOutput = """
+                [{"subject":"Tom","predicate":"works_at","object="Fiat","object_type":"ORGANIZATION","confidence":0.9}]""";
+        var facts = service.parseFacts(llmOutput);
+        assertThat(facts).hasSize(1);
+        assertThat(facts.get(0).subject()).isEqualTo("Tom");
+        assertThat(facts.get(0).object()).isEqualTo("Fiat");
+    }
+
+    @Test
+    void parseFacts_multipleEqualsSignFields() {
+        String llmOutput = """
+                [{"subject":"Me","predicate":"lives_in","object="Portland","object_type="PLACE","confidence":1}]""";
+        var facts = service.parseFacts(llmOutput);
+        assertThat(facts).hasSize(1);
+        assertThat(facts.get(0).object()).isEqualTo("Portland");
+    }
+
+    @Test
+    void parseFacts_normalJsonStillWorks() {
+        String llmOutput = """
+                [{"subject":"Tom","subject_type":"PERSON","predicate":"lives_in","object":"NYC","object_type":"PLACE","confidence":0.9}]""";
+        var facts = service.parseFacts(llmOutput);
+        assertThat(facts).hasSize(1);
+        assertThat(facts.get(0).subject()).isEqualTo("Tom");
+        assertThat(facts.get(0).object()).isEqualTo("NYC");
+    }
+
+    @Test
+    void parseFacts_emptyArray_returnsEmpty() {
+        assertThat(service.parseFacts("[]")).isEmpty();
+        assertThat(service.parseFacts("")).isEmpty();
+        assertThat(service.parseFacts(null)).isEmpty();
+    }
+
+    @Test
+    void parseFacts_markdownFences() {
+        String llmOutput = """
+                ```json
+                [{"subject":"Tom","predicate":"owns","object":"Mustang","confidence":0.9}]
+                ```""";
+        var facts = service.parseFacts(llmOutput);
+        assertThat(facts).hasSize(1);
+    }
+
+    @Test
+    void parseFacts_trailingComma() {
+        String llmOutput = """
+                [{"subject":"Tom","predicate":"owns","object":"Mustang","confidence":0.9},]""";
+        var facts = service.parseFacts(llmOutput);
+        assertThat(facts).hasSize(1);
+    }
+
+    @Test
+    void parseFacts_recoversIndividualObjects() {
+        // One valid object, one broken — should recover the valid one
+        String llmOutput = """
+                [{"subject":"Tom","predicate":"owns","object":"Mustang","confidence":0.9},
+                 {"subject":"broken JSON missing closing}]""";
+        var facts = service.parseFacts(llmOutput);
+        assertThat(facts).hasSizeGreaterThanOrEqualTo(1);
+        assertThat(facts.get(0).subject()).isEqualTo("Tom");
+    }
+
+    // ---- Predicate normalization tests ----
+
+    @Test
+    void normalizePredicate_canonical() {
+        assertThat(service.normalizePredicate("lives_in")).isEqualTo("lives_in");
+        assertThat(service.normalizePredicate("owns")).isEqualTo("owns");
+    }
+
+    @Test
+    void normalizePredicate_aliases() {
+        assertThat(service.normalizePredicate("sister_of")).isEqualTo("sibling_of");
+        assertThat(service.normalizePredicate("favorite_show")).isEqualTo("watches");
+        assertThat(service.normalizePredicate("wants_to_visit")).isEqualTo("wants");
+        assertThat(service.normalizePredicate("was_diagnosed_with")).isEqualTo("diagnosed_with");
+        assertThat(service.normalizePredicate("loves")).isEqualTo("likes");
+    }
+
+    @Test
+    void normalizePredicate_strippedPrefixes() {
+        assertThat(service.normalizePredicate("is_allergic_to")).isEqualTo("is_allergic_to");
+        assertThat(service.normalizePredicate("has_pet")).isEqualTo("has_pet");
+    }
+
+    @Test
+    void normalizePredicate_unknown_returnsRelatedTo() {
+        assertThat(service.normalizePredicate("is_part_of")).isEqualTo("related_to");
+        assertThat(service.normalizePredicate("has_planned_something_big")).isEqualTo("related_to");
+    }
 }
