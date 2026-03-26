@@ -60,6 +60,14 @@ public class KnowledgeGraphExtractionService {
             "proposed_to", "expecting", "adopted", "coaches", "teaches",
             "manages", "retired_from", "serves_in", "volunteers_at");
 
+    // Singular predicates: a person can only have ONE value at a time.
+    // If a new fact contradicts an existing one, it's a real conflict.
+    // All other predicates are "plural" — multiple values accumulate (owns, likes, visited, etc.)
+    private static final Set<String> SINGULAR_PREDICATES = Set.of(
+            "lives_in", "works_at", "works_as", "married_to", "engaged_to",
+            "dating", "birthday_is", "age_is", "born_in", "email_is",
+            "phone_number_is", "nickname_is", "studies_at");
+
     private static final Set<String> REJECTED_ENTITY_NAMES = Set.of(
             "he", "she", "it", "they", "them", "him", "her", "his",
             "we", "us", "our", "i", "my", "you", "your", "someone",
@@ -666,42 +674,43 @@ public class KnowledgeGraphExtractionService {
             return newEntities;
         }
 
-        // --- Step 2: Soft conflict check — same subject+predicate, different object ---
-        List<KgTriple> activeConflicts = tripleRepository.findActiveBySubjectAndPredicate(
-                user, subject, predicate);
-
+        // --- Step 2: Soft conflict check — only for SINGULAR predicates ---
+        // "Tom lives_in NYC" + "Tom lives_in Chicago" → conflict (can only live in one place)
+        // "Tom owns Mustang" + "Tom owns Civic" → NOT a conflict (can own multiple cars)
         Long conflictClusterId = null;
-        if (!activeConflicts.isEmpty()) {
-            // Check if any existing fact has a DIFFERENT object/value
-            boolean isConflict = activeConflicts.stream().anyMatch(existing -> {
-                if (finalObjectEntity != null && existing.getObject() != null) {
-                    return !existing.getObject().getId().equals(finalObjectEntity.getId());
-                }
-                if (finalObjectValue != null && existing.getObjectValue() != null) {
-                    return !existing.getObjectValue().equalsIgnoreCase(finalObjectValue);
-                }
-                return false;
-            });
+        if (SINGULAR_PREDICATES.contains(predicate)) {
+            List<KgTriple> activeConflicts = tripleRepository.findActiveBySubjectAndPredicate(
+                    user, subject, predicate);
 
-            if (isConflict) {
-                // Assign all conflicting facts to the same cluster
-                conflictClusterId = activeConflicts.stream()
-                        .map(KgTriple::getConflictClusterId)
-                        .filter(Objects::nonNull)
-                        .findFirst()
-                        .orElseGet(() -> tripleRepository.nextConflictClusterId(user.getId()));
-
-                // Mark existing conflicts into the cluster
-                for (KgTriple existing : activeConflicts) {
-                    if (existing.getConflictClusterId() == null) {
-                        existing.setConflictClusterId(conflictClusterId);
-                        existing.setStatus("FLAGGED");
-                        tripleRepository.save(existing);
+            if (!activeConflicts.isEmpty()) {
+                boolean isConflict = activeConflicts.stream().anyMatch(existing -> {
+                    if (finalObjectEntity != null && existing.getObject() != null) {
+                        return !existing.getObject().getId().equals(finalObjectEntity.getId());
                     }
-                }
+                    if (finalObjectValue != null && existing.getObjectValue() != null) {
+                        return !existing.getObjectValue().equalsIgnoreCase(finalObjectValue);
+                    }
+                    return false;
+                });
 
-                log.info("Conflict detected: [{} {} {}] vs existing facts. Cluster ID: {}",
-                        subject.getCanonicalName(), predicate, objectKey, conflictClusterId);
+                if (isConflict) {
+                    conflictClusterId = activeConflicts.stream()
+                            .map(KgTriple::getConflictClusterId)
+                            .filter(Objects::nonNull)
+                            .findFirst()
+                            .orElseGet(() -> tripleRepository.nextConflictClusterId(user.getId()));
+
+                    for (KgTriple existing : activeConflicts) {
+                        if (existing.getConflictClusterId() == null) {
+                            existing.setConflictClusterId(conflictClusterId);
+                            existing.setStatus("FLAGGED");
+                            tripleRepository.save(existing);
+                        }
+                    }
+
+                    log.info("Conflict detected: [{} {} {}] vs existing facts. Cluster ID: {}",
+                            subject.getCanonicalName(), predicate, objectKey, conflictClusterId);
+                }
             }
         }
 

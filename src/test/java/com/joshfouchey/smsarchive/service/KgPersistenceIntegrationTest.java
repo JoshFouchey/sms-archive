@@ -212,6 +212,48 @@ class KgPersistenceIntegrationTest extends EnhancedPostgresTestContainer {
         assertThat(triple.getFactDate()).isEqualTo(messageTimestamp);
     }
 
+    // ---- Predicate Cardinality Tests ----
+
+    @Test
+    void persistFact_pluralPredicate_multipleValuesNoConflict() {
+        Instant factDate = Instant.now();
+
+        // Tom owns a Mustang AND a Civic — both should be ACTIVE, no conflict
+        var fact1 = new KnowledgeGraphExtractionService.ExtractedFact(
+                "Tom", "PERSON", "owns", "Mustang", "VEHICLE", 0.9f);
+        var fact2 = new KnowledgeGraphExtractionService.ExtractedFact(
+                "Tom", "PERSON", "owns", "Civic", "VEHICLE", 0.9f);
+        kgService.persistFact(fact1, user, List.of(), factDate);
+        kgService.persistFact(fact2, user, List.of(), factDate);
+
+        List<KgTriple> triples = tripleRepository.findRecentByUser(user.getId(), 10);
+        assertThat(triples).hasSize(2);
+        assertThat(triples).allSatisfy(t -> {
+            assertThat(t.getStatus()).isEqualTo("ACTIVE");
+            assertThat(t.getConflictClusterId()).isNull();
+        });
+    }
+
+    @Test
+    void persistFact_singularPredicate_differentValuesConflict() {
+        Instant factDate = Instant.now();
+
+        // Tom lives_in NYC then Chicago — singular predicate → conflict
+        var fact1 = new KnowledgeGraphExtractionService.ExtractedFact(
+                "Tom", "PERSON", "lives_in", "NYC", "PLACE", 0.9f);
+        var fact2 = new KnowledgeGraphExtractionService.ExtractedFact(
+                "Tom", "PERSON", "lives_in", "Chicago", "PLACE", 0.9f);
+        kgService.persistFact(fact1, user, List.of(), factDate);
+        kgService.persistFact(fact2, user, List.of(), factDate.plus(30, ChronoUnit.DAYS));
+
+        List<KgTriple> triples = tripleRepository.findRecentByUser(user.getId(), 10);
+        assertThat(triples).hasSize(2);
+        assertThat(triples).allSatisfy(t -> {
+            assertThat(t.getStatus()).isEqualTo("FLAGGED");
+            assertThat(t.getConflictClusterId()).isNotNull();
+        });
+    }
+
     // ---- Entity Disambiguation Tests ----
 
     @Test
