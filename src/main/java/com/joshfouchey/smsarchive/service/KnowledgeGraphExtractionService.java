@@ -75,14 +75,17 @@ public class KnowledgeGraphExtractionService {
             Map.entry("favorite_restaurant", "likes"),
             Map.entry("wants_to_visit", "wants"),
             Map.entry("plans_to_visit", "plans_to"),
+            Map.entry("planning_trip", "plans_to"),
             Map.entry("stayed_with", "visited"),
             Map.entry("still_loves", "likes"),
             Map.entry("loves", "likes"),
             Map.entry("enjoys", "likes"),
             Map.entry("hates", "dislikes"),
             Map.entry("gifted", "owns"),
+            Map.entry("gift_to", "owns"),
             Map.entry("received", "owns"),
             Map.entry("works_for", "works_at"),
+            Map.entry("worked_at", "works_at"),
             Map.entry("employed_at", "works_at"),
             Map.entry("employed_by", "works_at"),
             Map.entry("moved_from", "born_in"),
@@ -100,7 +103,11 @@ public class KnowledgeGraphExtractionService {
             Map.entry("studying", "studies_at"),
             Map.entry("attending", "studies_at"),
             Map.entry("coaches_at", "coaches"),
-            Map.entry("teaches_at", "teaches")
+            Map.entry("teaches_at", "teaches"),
+            Map.entry("anniversary_with", "married_to"),
+            Map.entry("going_with", "friend_of"),
+            Map.entry("traveled_with", "traveled_to"),
+            Map.entry("celebrated_anniversary", "married_to")
     );
 
     // Singular predicates: a person can only have ONE value at a time.
@@ -989,11 +996,19 @@ public class KnowledgeGraphExtractionService {
         // Check alias map
         String aliased = PREDICATE_ALIASES.get(normalized);
         if (aliased != null) return aliased;
-        // Try stripping common prefixes: has_pet → pet (no), is_allergic_to → allergic_to
-        String stripped = normalized.replaceAll("^(has_|is_|was_|did_)", "");
+        // Try stripping common prefixes: is_allergic_to → allergic_to
+        String stripped = normalized.replaceAll("^(has_|is_|was_|did_|have_)", "");
         if (CANONICAL_PREDICATES.contains(stripped)) return stripped;
         aliased = PREDICATE_ALIASES.get(stripped);
         if (aliased != null) return aliased;
+        // Try removing _ed suffix for past tense: visited → visit (won't match, but tried)
+        // and _ing suffix: planning → plan
+        String stemmed = normalized.replaceAll("(ed|ing)$", "");
+        if (CANONICAL_PREDICATES.contains(stemmed)) return stemmed;
+        // Compound predicates: "plans_to_grab_dinner" → check if starts with canonical
+        for (String canonical : CANONICAL_PREDICATES) {
+            if (normalized.startsWith(canonical + "_")) return canonical;
+        }
         return "related_to";
     }
 

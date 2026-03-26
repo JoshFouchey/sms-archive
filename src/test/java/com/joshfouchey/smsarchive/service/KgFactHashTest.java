@@ -180,6 +180,15 @@ class KgFactHashTest {
         assertThat(service.normalizePredicate("wants_to_visit")).isEqualTo("wants");
         assertThat(service.normalizePredicate("was_diagnosed_with")).isEqualTo("diagnosed_with");
         assertThat(service.normalizePredicate("loves")).isEqualTo("likes");
+        assertThat(service.normalizePredicate("worked_at")).isEqualTo("works_at");
+        assertThat(service.normalizePredicate("anniversary_with")).isEqualTo("married_to");
+    }
+
+    @Test
+    void normalizePredicate_compoundPredicates() {
+        // phi4-mini creates "plans_to_grab_dinner" — should match "plans_to" prefix
+        assertThat(service.normalizePredicate("plans_to_grab_dinner")).isEqualTo("plans_to");
+        assertThat(service.normalizePredicate("traveled_to_japan")).isEqualTo("traveled_to");
     }
 
     @Test
