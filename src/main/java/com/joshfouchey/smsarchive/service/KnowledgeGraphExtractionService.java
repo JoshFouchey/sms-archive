@@ -116,6 +116,7 @@ public class KnowledgeGraphExtractionService {
             Map.entry("watch", "watches"),
             Map.entry("anniversary_with", "married_to"),
             Map.entry("going_with", "friend_of"),
+            Map.entry("going_for", "plans_to"),
             Map.entry("traveled_with", "traveled_to"),
             Map.entry("celebrated_anniversary", "married_to"),
             Map.entry("took_up", "hobby_is"),
@@ -123,7 +124,13 @@ public class KnowledgeGraphExtractionService {
             Map.entry("started", "hobby_is"),
             Map.entry("take_medication_for", "takes_medication"),
             Map.entry("takes_medication_for", "takes_medication"),
-            Map.entry("on_medication_for", "takes_medication")
+            Map.entry("on_medication_for", "takes_medication"),
+            Map.entry("has_allergy_to", "is_allergic_to"),
+            Map.entry("gave_gift_to", "bought"),
+            Map.entry("gave", "bought"),
+            Map.entry("planning", "plans_to"),
+            Map.entry("has_sister", "sibling_of"),
+            Map.entry("has_brother", "sibling_of")
     );
 
     // Singular predicates: a person can only have ONE value at a time.
@@ -1023,9 +1030,13 @@ public class KnowledgeGraphExtractionService {
         // Try "Xes" for verbs ending in consonant: teach → teaches
         String withEs = normalized + "es";
         if (CANONICAL_PREDICATES.contains(withEs)) return withEs;
-        // Try removing suffixes: -ed, -ing
+        // Try removing suffixes: -ed, -ing (handle double consonant: planning → plan)
         String stemmed = normalized.replaceAll("(ed|ing)$", "");
+        // Double consonant collapse: plann → plan, runn → run
+        stemmed = stemmed.replaceAll("(.)\\1$", "$1");
         if (CANONICAL_PREDICATES.contains(stemmed)) return stemmed;
+        aliased = PREDICATE_ALIASES.get(stemmed);
+        if (aliased != null) return aliased;
         // Try stem + s: play(ing) → play → plays
         if (CANONICAL_PREDICATES.contains(stemmed + "s")) return stemmed + "s";
         if (CANONICAL_PREDICATES.contains(stemmed + "es")) return stemmed + "es";
