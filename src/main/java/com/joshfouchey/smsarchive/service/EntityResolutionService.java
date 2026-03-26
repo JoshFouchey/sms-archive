@@ -92,17 +92,26 @@ public class EntityResolutionService {
      * Uses pg_trgm similarity() with a threshold of 0.5.
      */
     public int linkEntitiesToContacts(User user) {
-        // Find PERSON entities not yet linked, that match a contact name
+        // Find PERSON/CONCEPT entities not yet linked, that match a contact name.
+        // Include CONCEPT because SLMs often mistype people as CONCEPT.
+        // Also match when entity name is a substring of contact name (e.g. "Bob" → "Bob Jones")
         List<Object[]> matches = jdbcTemplate.query("""
                 SELECT e.id AS entity_id, c.id AS contact_id,
-                       similarity(LOWER(e.canonical_name), LOWER(c.name)) AS sim
+                       GREATEST(
+                           similarity(LOWER(e.canonical_name), LOWER(c.name)),
+                           CASE WHEN LOWER(c.name) LIKE '%%' || LOWER(e.canonical_name) || '%%'
+                                THEN 0.8 ELSE 0 END
+                       ) AS sim
                 FROM kg_entities e
                 CROSS JOIN contacts c
                 WHERE e.user_id = ?
                   AND c.user_id = ?
-                  AND e.entity_type = 'PERSON'
+                  AND e.entity_type IN ('PERSON', 'CONCEPT')
                   AND c.name IS NOT NULL AND c.name != ''
-                  AND similarity(LOWER(e.canonical_name), LOWER(c.name)) > 0.5
+                  AND (
+                      similarity(LOWER(e.canonical_name), LOWER(c.name)) > 0.4
+                      OR LOWER(c.name) LIKE '%%' || LOWER(e.canonical_name) || '%%'
+                  )
                   AND NOT EXISTS (
                       SELECT 1 FROM kg_entity_contact_links ecl
                       WHERE ecl.entity_id = e.id AND ecl.contact_id = c.id
