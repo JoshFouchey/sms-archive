@@ -134,6 +134,17 @@ public class KnowledgeGraphExtractionService {
             Map.entry("has_brother", "sibling_of")
     );
 
+    // Noise predicates: too vague to be useful KG facts. Semantic search handles these better.
+    // These are the ONLY predicates dropped under open-schema — everything else is kept.
+    private static final Set<String> NOISE_PREDICATES = Set.of(
+            "thinks", "says", "said", "mentions", "mentioned", "told",
+            "asked", "asked_about", "talks_about", "talked_about",
+            "knows", "knows_about", "heard", "heard_about",
+            "wonders", "believes", "feels", "felt",
+            "texted", "called", "replied", "responded",
+            "is_incredible", "is_great", "is_good", "is_bad",
+            "related_to");
+
     // Singular predicates: a person can only have ONE value at a time.
     // If a new fact contradicts an existing one, it's a real conflict.
     // All other predicates are "plural" — multiple values accumulate (owns, likes, visited, etc.)
@@ -490,6 +501,8 @@ public class KnowledgeGraphExtractionService {
                     .min(Instant::compareTo)
                     .orElse(Instant.now());
 
+            int skippedNoise = 0;
+
             for (ExtractedFact fact : facts) {
                 try {
                     if (!isValidFact(fact)) {
@@ -505,6 +518,14 @@ public class KnowledgeGraphExtractionService {
                         skippedEntity++;
                         continue;
                     }
+                    // Check noise predicates — too vague for KG, semantic search handles these
+                    String rawPred = fact.predicate.trim().toLowerCase().replaceAll("\\s+", "_");
+                    if (NOISE_PREDICATES.contains(rawPred) || NOISE_PREDICATES.contains(normalizePredicate(fact.predicate))) {
+                        log.debug("Skipping noise predicate '{}': [{} {} {}]",
+                                fact.predicate, fact.subject, fact.predicate, fact.object);
+                        skippedNoise++;
+                        continue;
+                    }
                     int created = persistFact(fact, user, messageIds, factDate);
                     triples++;
                     newEntities += created;
@@ -515,10 +536,11 @@ public class KnowledgeGraphExtractionService {
                 }
             }
 
-            if (skippedInvalid + skippedEntity + skippedError > 0) {
-                log.info("KG window: {} persisted, {} skipped (invalid={}, entity={}, error={})",
-                        triples, skippedInvalid + skippedEntity + skippedError,
-                        skippedInvalid, skippedEntity, skippedError);
+            int totalSkipped = skippedInvalid + skippedEntity + skippedNoise + skippedError;
+            if (totalSkipped > 0) {
+                log.info("KG window: {} persisted, {} skipped (invalid={}, entity={}, noise={}, error={})",
+                        triples, totalSkipped,
+                        skippedInvalid, skippedEntity, skippedNoise, skippedError);
             }
 
             markMessagesProcessed(messageIds, user.getId());
