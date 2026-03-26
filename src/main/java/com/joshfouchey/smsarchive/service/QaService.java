@@ -54,47 +54,18 @@ public class QaService {
     // Broader pattern to detect data/analytics questions that text-to-SQL can handle
     private static final Pattern DATA_QUESTION_PATTERN = Pattern.compile(
             "(how\\s+many|how\\s+often|count|total|average|first\\s+(text|message)|last\\s+(text|message)|" +
-            "most\\s+(recent|common|frequent|active)|least|busiest|longest|earliest|latest|" +
+            "most\\s+(recent|common|frequent|active|text|message|contact)|least|busiest|longest|earliest|latest|" +
             "per\\s+(day|week|month|year)|since\\s+\\d{4}|in\\s+\\d{4}|between|during|" +
             "statistics|frequency|percentage|ratio|sent\\s+to|received\\s+from|" +
             "\\d{4}|which\\s+(month|year|day|week)|when\\s+did\\s+i\\s+(first|last)|" +
+            "who\\s+do\\s+i\\s+(text|message|talk|chat)\\s+(the\\s+)?most|top\\s+\\d*\\s*contact|" +
             "compared|rank|breakdown)",
             Pattern.CASE_INSENSITIVE
-    );
-
-    // Detects date/time qualifiers that make regex fast-path insufficient
-    private static final Pattern HAS_DATE_CONTEXT = Pattern.compile(
-            "(in\\s+\\d{4}|since\\s+\\d{4}|\\d{4}|last\\s+(\\d+\\s+)?(month|year|week|day)|" +
-            "this\\s+(month|year|week)|between|january|february|march|april|may|june|july|" +
-            "august|september|october|november|december|today|yesterday|ago)",
-            Pattern.CASE_INSENSITIVE
-    );
-
-    private static final List<AnalyticsPattern> ANALYTICS_PATTERNS = List.of(
-            new AnalyticsPattern(
-                    Pattern.compile("^(top|my\\s+most)\\s+(text|message|contact|talk)", Pattern.CASE_INSENSITIVE),
-                    "TOP_CONTACTS"),
-            new AnalyticsPattern(
-                    Pattern.compile("who\\s+do\\s+i\\s+(text|message|talk|chat)\\s+(the\\s+)?most", Pattern.CASE_INSENSITIVE),
-                    "TOP_CONTACTS"),
-            new AnalyticsPattern(
-                    Pattern.compile("(messages?|texts?)\\s+(per|each|every)\\s+day", Pattern.CASE_INSENSITIVE),
-                    "MESSAGES_PER_DAY"),
-            new AnalyticsPattern(
-                    Pattern.compile("^how\\s+many\\s+(total\\s+)?(messages?|texts?)\\s*\\??$", Pattern.CASE_INSENSITIVE),
-                    "TOTAL_MESSAGES"),
-            new AnalyticsPattern(
-                    Pattern.compile("(total|how\\s+many)\\s+contacts?", Pattern.CASE_INSENSITIVE),
-                    "TOTAL_CONTACTS"),
-            new AnalyticsPattern(
-                    Pattern.compile("(total|how\\s+many)\\s+(images?|photos?|pictures?)", Pattern.CASE_INSENSITIVE),
-                    "TOTAL_IMAGES")
     );
 
     private final ChatModel chatModel;
     private final KnowledgeGraphService knowledgeGraphService;
     private final UnifiedSearchService unifiedSearchService;
-    private final AnalyticsService analyticsService;
     private final KgEntityRepository entityRepository;
 
     @Autowired(required = false)
@@ -106,12 +77,10 @@ public class QaService {
     public QaService(ChatModel chatModel,
                      KnowledgeGraphService knowledgeGraphService,
                      UnifiedSearchService unifiedSearchService,
-                     AnalyticsService analyticsService,
                      KgEntityRepository entityRepository) {
         this.chatModel = chatModel;
         this.knowledgeGraphService = knowledgeGraphService;
         this.unifiedSearchService = unifiedSearchService;
-        this.analyticsService = analyticsService;
         this.entityRepository = entityRepository;
     }
 
@@ -128,27 +97,17 @@ public class QaService {
         };
     }
 
-    /** DATA mode: text-to-SQL → regex fast-path fallback */
+    /** DATA mode: text-to-SQL only */
     private QaResponse askData(User user, String question, QaRequest request, long start) {
-        // Try text-to-SQL first (handles any data question)
         if (textToSqlService != null) {
             try {
                 return handleTextToSql(user, question, start);
             } catch (TextToSqlException e) {
                 log.warn("Text-to-SQL failed for '{}': {}", question, e.getMessage());
-
-                // Return the error — don't silently fall back to a regex that might
-                // answer a completely different question
                 String errorMsg = "SQL generation failed: " + e.getMessage()
                         + ". Try rephrasing your question.";
                 return QaResponse.analytics(errorMsg, null, System.currentTimeMillis() - start);
             }
-        }
-
-        // No text-to-SQL service — regex only
-        String analyticsType = detectAnalyticsIntent(question);
-        if (analyticsType != null) {
-            return handleAnalytics(analyticsType, start);
         }
 
         return QaResponse.analytics("Data query service is not available. Check that the SQL model is configured.", null,
@@ -169,17 +128,9 @@ public class QaService {
         return handleSearch(user, question, request, start);
     }
 
-    /** AUTO mode: original routing — regex → KG factual → text-to-SQL → search */
+    /** AUTO mode: KG factual → text-to-SQL → search */
     private QaResponse askAuto(User user, String question, QaRequest request, long start) {
-        // 1. Regex fast-path (only if no date/filter context)
-        if (!HAS_DATE_CONTEXT.matcher(question).find()) {
-            String analyticsType = detectAnalyticsIntent(question);
-            if (analyticsType != null) {
-                return handleAnalytics(analyticsType, start);
-            }
-        }
-
-        // 2. KG factual
+        // 1. KG factual
         if (QUESTION_PATTERN.matcher(question).find()) {
             List<KgEntity> matchedEntities = extractEntities(user, question);
             if (!matchedEntities.isEmpty()) {
@@ -187,7 +138,7 @@ public class QaService {
             }
         }
 
-        // 3. Text-to-SQL for data questions
+        // 2. Text-to-SQL for data questions
         if (textToSqlService != null && DATA_QUESTION_PATTERN.matcher(question).find()) {
             try {
                 return handleTextToSql(user, question, start);
@@ -196,20 +147,11 @@ public class QaService {
             }
         }
 
-        // 4. Search fallback
+        // 3. Search fallback
         return handleSearch(user, question, request, start);
     }
 
     // --- Intent Detection ---
-
-    private String detectAnalyticsIntent(String question) {
-        for (AnalyticsPattern ap : ANALYTICS_PATTERNS) {
-            if (ap.pattern.matcher(question).find()) {
-                return ap.type;
-            }
-        }
-        return null;
-    }
 
     List<KgEntity> extractEntities(User user, String question) {
         String cleaned = question.replaceAll("[?!.,;:'\"]", "").trim();
@@ -262,43 +204,6 @@ public class QaService {
     }
 
     // --- Pipeline Handlers ---
-
-    private QaResponse handleAnalytics(String type, long elapsed) {
-        return switch (type) {
-            case "TOP_CONTACTS" -> {
-                var topContacts = analyticsService.getTopContacts(0, 10);
-                String answer = formatTopContacts(topContacts);
-                yield QaResponse.analytics(answer, topContacts, System.currentTimeMillis() - elapsed);
-            }
-            case "MESSAGES_PER_DAY" -> {
-                var summary = analyticsService.getSummary();
-                var perDay = analyticsService.getMessagesPerDay(30);
-                String answer = String.format("You have %,d total messages. Over the last 30 days, here's the daily breakdown.",
-                        summary.totalMessages());
-                yield QaResponse.analytics(answer, Map.of("summary", summary, "perDay", perDay),
-                        System.currentTimeMillis() - elapsed);
-            }
-            case "TOTAL_MESSAGES" -> {
-                var summary = analyticsService.getSummary();
-                String answer = String.format("You have %,d total messages across all conversations.",
-                        summary.totalMessages());
-                yield QaResponse.analytics(answer, summary, System.currentTimeMillis() - elapsed);
-            }
-            case "TOTAL_CONTACTS" -> {
-                long count = analyticsService.getTotalContacts();
-                String answer = String.format("You have %,d contacts in your archive.", count);
-                yield QaResponse.analytics(answer, Map.of("totalContacts", count),
-                        System.currentTimeMillis() - elapsed);
-            }
-            case "TOTAL_IMAGES" -> {
-                var summary = analyticsService.getSummary();
-                String answer = String.format("You have %,d images in your message archive.",
-                        summary.totalImages());
-                yield QaResponse.analytics(answer, summary, System.currentTimeMillis() - elapsed);
-            }
-            default -> QaResponse.analytics("I couldn't process that analytics request.", null, 0);
-        };
-    }
 
     private QaResponse handleTextToSql(User user, String question, long startTime) {
         TextToSqlResult result = textToSqlService.generateAndExecute(question, user.getId());
@@ -444,16 +349,6 @@ public class QaService {
 
     // --- Formatting Helpers ---
 
-    private String formatTopContacts(List<TopContactDto> contacts) {
-        if (contacts.isEmpty()) return "No contact data available.";
-        StringBuilder sb = new StringBuilder("Here are your most texted contacts:\n\n");
-        for (int i = 0; i < contacts.size(); i++) {
-            var c = contacts.get(i);
-            sb.append(String.format("%d. **%s** — %,d messages\n", i + 1, c.displayName(), c.messageCount()));
-        }
-        return sb.toString();
-    }
-
     private String formatFactsFallback(List<KgTripleDto> facts) {
         return facts.stream()
                 .limit(10)
@@ -469,5 +364,4 @@ public class QaService {
         return text.length() <= maxLen ? text : text.substring(0, maxLen) + "…";
     }
 
-    private record AnalyticsPattern(Pattern pattern, String type) {}
 }
