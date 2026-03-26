@@ -75,6 +75,7 @@ public class TextToSqlService {
             2. Return at most %d rows using LIMIT
             3. Use meaningful column aliases (e.g. AS contact_name, AS message_count)
             4. Output ONLY the raw SQL query — no markdown, no explanation, no code fences
+            5. Use human-readable values: TO_CHAR(timestamp, 'Day') instead of EXTRACT(DOW), TO_CHAR(timestamp, 'Month') instead of EXTRACT(MONTH), spell out dates with TO_CHAR where possible
 
             Question: %s""";
 
