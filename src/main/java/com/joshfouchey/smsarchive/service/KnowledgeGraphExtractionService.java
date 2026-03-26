@@ -102,6 +102,7 @@ public class KnowledgeGraphExtractionService {
             Map.entry("purchased", "bought"),
             Map.entry("studying", "studies_at"),
             Map.entry("attending", "studies_at"),
+            Map.entry("studied_at", "studies_at"),
             Map.entry("coaches_at", "coaches"),
             Map.entry("teaches_at", "teaches"),
             Map.entry("teach_at", "teaches"),
