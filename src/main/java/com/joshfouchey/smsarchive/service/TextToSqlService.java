@@ -29,7 +29,7 @@ public class TextToSqlService {
             Pattern.CASE_INSENSITIVE);
 
     private static final Pattern SELECT_ONLY = Pattern.compile(
-            "^\\s*SELECT\\b", Pattern.CASE_INSENSITIVE);
+            "^\\s*(SELECT|WITH)\\b", Pattern.CASE_INSENSITIVE);
 
     private static final String SCHEMA_PROMPT = """
             You are a PostgreSQL SQL expert. Generate a SELECT query to answer the user's question about their personal text message archive.
