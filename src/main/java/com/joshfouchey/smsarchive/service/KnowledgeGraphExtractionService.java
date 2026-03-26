@@ -189,6 +189,9 @@ public class KnowledgeGraphExtractionService {
             3. Use "Me" for the user's own facts. Use real names, never pronouns.
             4. Keep objects short (names, places, things — not full sentences)
             5. Return [] if no extractable facts exist
+            6. IGNORE questions, past beliefs, and uncertainty. "I thought he was at Google" is NOT a fact.
+               Only extract what IS true, not what someone believed or asked about.
+            7. If Me says "Wait, Tom works at X?" — that's Tom confirming works_at X, not a question.
             
             Example:
             [10:00] Bob: I just got a new job at Google!
