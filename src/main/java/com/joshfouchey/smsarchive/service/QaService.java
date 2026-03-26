@@ -72,7 +72,7 @@ public class QaService {
 
     private static final List<AnalyticsPattern> ANALYTICS_PATTERNS = List.of(
             new AnalyticsPattern(
-                    Pattern.compile("(top|most)\\s+(text|message|contact|talk)", Pattern.CASE_INSENSITIVE),
+                    Pattern.compile("^(top|my\\s+most)\\s+(text|message|contact|talk)", Pattern.CASE_INSENSITIVE),
                     "TOP_CONTACTS"),
             new AnalyticsPattern(
                     Pattern.compile("who\\s+do\\s+i\\s+(text|message|talk|chat)\\s+(the\\s+)?most", Pattern.CASE_INSENSITIVE),
@@ -81,7 +81,7 @@ public class QaService {
                     Pattern.compile("(messages?|texts?)\\s+(per|each|every)\\s+day", Pattern.CASE_INSENSITIVE),
                     "MESSAGES_PER_DAY"),
             new AnalyticsPattern(
-                    Pattern.compile("how\\s+many\\s+(messages?|texts?)", Pattern.CASE_INSENSITIVE),
+                    Pattern.compile("^how\\s+many\\s+(total\\s+)?(messages?|texts?)\\s*\\??$", Pattern.CASE_INSENSITIVE),
                     "TOTAL_MESSAGES"),
             new AnalyticsPattern(
                     Pattern.compile("(total|how\\s+many)\\s+contacts?", Pattern.CASE_INSENSITIVE),
@@ -135,15 +135,10 @@ public class QaService {
             try {
                 return handleTextToSql(user, question, start);
             } catch (TextToSqlException e) {
-                log.info("Text-to-SQL failed, trying regex fast-path: {}", e.getMessage());
+                log.warn("Text-to-SQL failed for '{}': {}", question, e.getMessage());
 
-                // Fallback to regex patterns
-                String analyticsType = detectAnalyticsIntent(question);
-                if (analyticsType != null) {
-                    return handleAnalytics(analyticsType, start);
-                }
-
-                // Return the actual error so user knows what happened
+                // Return the error — don't silently fall back to a regex that might
+                // answer a completely different question
                 String errorMsg = "SQL generation failed: " + e.getMessage()
                         + ". Try rephrasing your question.";
                 return QaResponse.analytics(errorMsg, null, System.currentTimeMillis() - start);
