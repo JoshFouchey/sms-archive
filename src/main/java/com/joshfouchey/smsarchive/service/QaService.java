@@ -409,8 +409,9 @@ public class QaService {
                 1. State what you know directly and confidently. Do NOT hedge or qualify.
                 2. If a fact or message answers the question, say the answer plainly.
                 3. Mention who said it or which conversation it came from when relevant.
-                4. Keep it to 1-2 sentences. Shorter is better.
+                4. Keep it to 1-3 sentences. Shorter is better.
                 5. If the context truly has no answer, say "I don't have enough information to answer that."
+                6. Use markdown when it helps readability: **bold** for names/places, bullet lists for multiple items.
                 
                 %s
                 

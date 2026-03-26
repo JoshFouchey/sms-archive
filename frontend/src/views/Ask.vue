@@ -143,7 +143,7 @@
               <i class="pi pi-sparkles text-white text-sm"></i>
             </div>
             <div class="flex-1 min-w-0">
-              <div class="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 whitespace-pre-line">{{ response.answer }}</div>
+              <div class="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200" v-html="renderMarkdown(response.answer)"></div>
               <div class="flex items-center gap-3 mt-3 text-xs text-gray-400">
                 <span class="flex items-center gap-1">
                   <i class="pi pi-tag"></i>
@@ -337,6 +337,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
+import { marked } from 'marked';
 import { askQuestion, getMessageContext, type QaResponse, type Message } from '../services/api';
 import MessageBubble from '../components/MessageBubble.vue';
 
@@ -348,6 +349,13 @@ const error = ref('');
 const response = ref<QaResponse | null>(null);
 const showFacts = ref(false);
 const mode = ref<'AI' | 'SEARCH' | 'DATA'>('SEARCH');
+
+marked.setOptions({ breaks: true, gfm: true });
+
+function renderMarkdown(text: string): string {
+  if (!text) return '';
+  return marked.parse(text) as string;
+}
 
 const aiSuggestions = [
   'What car does John drive?',
