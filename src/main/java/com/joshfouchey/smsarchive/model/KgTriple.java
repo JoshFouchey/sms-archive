@@ -70,6 +70,26 @@ public class KgTriple {
     @Column(name = "valid_until")
     private Instant validUntil;
 
+    @Column(name = "fact_hash", length = 64)
+    private String factHash;
+
+    @Column(name = "fact_date")
+    private Instant factDate;
+
+    @Column(name = "status", length = 20)
+    @Builder.Default
+    private String status = "ACTIVE";
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "superseded_by")
+    private KgTriple supersededBy;
+
+    @Column(name = "last_seen_at")
+    private Instant lastSeenAt;
+
+    @Column(name = "conflict_cluster_id")
+    private Long conflictClusterId;
+
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
 
@@ -81,6 +101,7 @@ public class KgTriple {
         Instant now = Instant.now();
         createdAt = now;
         updatedAt = now;
+        if (lastSeenAt == null) lastSeenAt = now;
     }
 
     @PreUpdate

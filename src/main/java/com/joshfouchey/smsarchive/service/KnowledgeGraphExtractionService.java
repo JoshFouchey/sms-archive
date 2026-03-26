@@ -381,6 +381,13 @@ public class KnowledgeGraphExtractionService {
             int triples = 0;
             int newEntities = 0;
 
+            // Use earliest message timestamp as fact_date for temporal tracking
+            Instant factDate = messages.stream()
+                    .map(Message::getTimestamp)
+                    .filter(Objects::nonNull)
+                    .min(Instant::compareTo)
+                    .orElse(Instant.now());
+
             for (ExtractedFact fact : facts) {
                 try {
                     if (!isValidFact(fact)) {
@@ -401,7 +408,7 @@ public class KnowledgeGraphExtractionService {
                                 fact.predicate, fact.subject, fact.predicate, fact.object);
                         continue;
                     }
-                    int created = persistFact(fact, user, messageIds);
+                    int created = persistFact(fact, user, messageIds, factDate);
                     triples++;
                     newEntities += created;
                 } catch (Exception e) {
@@ -588,13 +595,20 @@ public class KnowledgeGraphExtractionService {
     // ---- Entity and triple persistence ----
 
     private static final float CONFIDENCE_BOOST_PER_SOURCE = 0.1f;
+    private static final float ENTITY_SIMILARITY_THRESHOLD = 0.75f;
 
     /**
-     * Persist a single extracted fact with dedup and confidence boosting.
-     * If the same triple already exists, boost confidence and link new source messages.
+     * Persist a single extracted fact with smart dedup, conflict detection, and temporal tracking.
+     *
+     * Logic:
+     * 1. Hash check — if exact same fact exists, update last_seen_at + bump confidence
+     * 2. Soft conflict — same subject+predicate but different object → flag as conflict cluster
+     * 3. New fact — create with fact_date, status=ACTIVE, confidence weighted by source length
+     *
      * Returns the number of NEW entities created (0, 1, or 2).
      */
-    private int persistFact(ExtractedFact fact, User user, List<Long> sourceMessageIds) {
+    private int persistFact(ExtractedFact fact, User user, List<Long> sourceMessageIds,
+                            Instant factDate) {
         if (fact.subject == null || fact.predicate == null) {
             throw new IllegalArgumentException("Subject and predicate are required");
         }
@@ -602,7 +616,7 @@ public class KnowledgeGraphExtractionService {
         String subjectType = normalizeEntityType(fact.subjectType);
         int newEntities = 0;
 
-        // Find or create subject
+        // Find or create subject (with fuzzy disambiguation)
         KgEntity subject = findOrCreateEntity(user, fact.subject.trim(), subjectType);
         if (subject.getCreatedAt() != null &&
                 subject.getCreatedAt().isAfter(Instant.now().minusSeconds(2))) {
@@ -617,7 +631,6 @@ public class KnowledgeGraphExtractionService {
             String objectType = normalizeEntityType(fact.objectType);
             if ("CONCEPT".equals(objectType) && !VALID_ENTITY_TYPES.contains(
                     fact.objectType != null ? fact.objectType.toUpperCase() : "")) {
-                // Treat as literal value
                 objectValue = fact.object.trim();
             } else {
                 objectEntity = findOrCreateEntity(user, fact.object.trim(), objectType);
@@ -630,61 +643,159 @@ public class KnowledgeGraphExtractionService {
             objectValue = "";
         }
 
-        // Create or update triple (dedup by subject+predicate+object)
         String predicate = normalizePredicate(fact.predicate);
         float baseConfidence = Math.max(0.1f, Math.min(1.0f,
                 fact.confidence > 0 ? fact.confidence : 0.5f));
 
-        // Check if this exact fact already exists
-        Optional<KgTriple> existing = tripleRepository.findByUserAndSubjectAndPredicateAndObjectOrValue(
-                user, subject, predicate, objectEntity, objectValue);
+        // Generate fact hash for exact dedup: normalized(subject_name + predicate + object_name/value)
+        final KgEntity finalObjectEntity = objectEntity;
+        final String finalObjectValue = objectValue;
+        String objectKey = finalObjectEntity != null ? finalObjectEntity.getCanonicalName() : (finalObjectValue != null ? finalObjectValue : "");
+        String factHash = generateFactHash(subject.getCanonicalName(), predicate, objectKey);
 
-        KgTriple triple;
-        if (existing.isPresent()) {
-            // Boost confidence on existing triple
-            triple = existing.get();
-            float boosted = Math.min(1.0f, triple.getConfidence() + CONFIDENCE_BOOST_PER_SOURCE);
-            triple.setConfidence(boosted);
-            tripleRepository.save(triple);
-        } else {
-            // Create new triple
-            triple = new KgTriple();
-            triple.setUser(user);
-            triple.setSubject(subject);
-            triple.setPredicate(predicate);
-            triple.setObject(objectEntity);
-            triple.setObjectValue(objectValue);
-            triple.setConfidence(baseConfidence);
-            triple.setIsVerified(false);
-            triple.setIsNegated(false);
-            // Link to first message in window as primary source
-            if (!sourceMessageIds.isEmpty()) {
-                Message sourceRef = new Message();
-                sourceRef.setId(sourceMessageIds.get(0));
-                triple.setSourceMessage(sourceRef);
+        // --- Step 1: Hash check — exact same fact already exists? ---
+        Optional<KgTriple> byHash = tripleRepository.findByUserAndFactHash(user, factHash);
+        if (byHash.isPresent()) {
+            KgTriple existing = byHash.get();
+            // Same fact seen again — update last_seen_at and bump confidence
+            float boosted = Math.min(1.0f, existing.getConfidence() + CONFIDENCE_BOOST_PER_SOURCE);
+            existing.setConfidence(boosted);
+            existing.setLastSeenAt(Instant.now());
+            tripleRepository.save(existing);
+            linkSourceMessages(existing.getId(), sourceMessageIds);
+            return newEntities;
+        }
+
+        // --- Step 2: Soft conflict check — same subject+predicate, different object ---
+        List<KgTriple> activeConflicts = tripleRepository.findActiveBySubjectAndPredicate(
+                user, subject, predicate);
+
+        Long conflictClusterId = null;
+        if (!activeConflicts.isEmpty()) {
+            // Check if any existing fact has a DIFFERENT object/value
+            boolean isConflict = activeConflicts.stream().anyMatch(existing -> {
+                if (finalObjectEntity != null && existing.getObject() != null) {
+                    return !existing.getObject().getId().equals(finalObjectEntity.getId());
+                }
+                if (finalObjectValue != null && existing.getObjectValue() != null) {
+                    return !existing.getObjectValue().equalsIgnoreCase(finalObjectValue);
+                }
+                return false;
+            });
+
+            if (isConflict) {
+                // Assign all conflicting facts to the same cluster
+                conflictClusterId = activeConflicts.stream()
+                        .map(KgTriple::getConflictClusterId)
+                        .filter(Objects::nonNull)
+                        .findFirst()
+                        .orElseGet(() -> tripleRepository.nextConflictClusterId(user.getId()));
+
+                // Mark existing conflicts into the cluster
+                for (KgTriple existing : activeConflicts) {
+                    if (existing.getConflictClusterId() == null) {
+                        existing.setConflictClusterId(conflictClusterId);
+                        existing.setStatus("FLAGGED");
+                        tripleRepository.save(existing);
+                    }
+                }
+
+                log.info("Conflict detected: [{} {} {}] vs existing facts. Cluster ID: {}",
+                        subject.getCanonicalName(), predicate, objectKey, conflictClusterId);
             }
-            tripleRepository.save(triple);
         }
 
-        // Link all source messages to this triple
-        for (Long msgId : sourceMessageIds) {
-            jdbcTemplate.update(
-                    "INSERT INTO kg_triple_sources (triple_id, message_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
-                    triple.getId(), msgId);
-        }
+        // --- Step 3: Create new triple ---
+        KgTriple triple = new KgTriple();
+        triple.setUser(user);
+        triple.setSubject(subject);
+        triple.setPredicate(predicate);
+        triple.setObject(finalObjectEntity);
+        triple.setObjectValue(finalObjectValue);
+        triple.setConfidence(baseConfidence);
+        triple.setIsVerified(false);
+        triple.setIsNegated(false);
+        triple.setFactHash(factHash);
+        triple.setFactDate(factDate);
+        triple.setStatus(conflictClusterId != null ? "FLAGGED" : "ACTIVE");
+        triple.setConflictClusterId(conflictClusterId);
+        triple.setLastSeenAt(Instant.now());
 
+        if (!sourceMessageIds.isEmpty()) {
+            Message sourceRef = new Message();
+            sourceRef.setId(sourceMessageIds.get(0));
+            triple.setSourceMessage(sourceRef);
+        }
+        tripleRepository.save(triple);
+
+        linkSourceMessages(triple.getId(), sourceMessageIds);
         return newEntities;
     }
 
+    private void linkSourceMessages(Long tripleId, List<Long> sourceMessageIds) {
+        for (Long msgId : sourceMessageIds) {
+            jdbcTemplate.update(
+                    "INSERT INTO kg_triple_sources (triple_id, message_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+                    tripleId, msgId);
+        }
+    }
+
+    /**
+     * Generate a deterministic hash for a fact triple.
+     * Normalized: lowercase, trimmed, sorted to avoid order-dependent mismatches.
+     */
+    private String generateFactHash(String subjectName, String predicate, String objectKey) {
+        String normalized = (subjectName + "|" + predicate + "|" + objectKey)
+                .toLowerCase().trim();
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(normalized.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder();
+            for (byte b : digest) hex.append(String.format("%02x", b));
+            return hex.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            // SHA-256 is guaranteed to be available in all JVMs
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Find or create an entity with fuzzy disambiguation.
+     * Before creating a new entity, checks pg_trgm similarity against existing entities
+     * and their aliases. If "Tommy" is similar enough to existing "Tom", reuses "Tom"
+     * and adds "Tommy" as an alias.
+     */
     private KgEntity findOrCreateEntity(User user, String name, String entityType) {
-        return entityRepository.findByUserAndCanonicalNameAndEntityType(user, name, entityType)
-                .orElseGet(() -> {
-                    KgEntity entity = new KgEntity();
-                    entity.setUser(user);
-                    entity.setCanonicalName(name);
-                    entity.setEntityType(entityType);
-                    return entityRepository.save(entity);
-                });
+        // Exact match first (fast path)
+        Optional<KgEntity> exact = entityRepository.findByUserAndCanonicalNameAndEntityType(
+                user, name, entityType);
+        if (exact.isPresent()) return exact.get();
+
+        // Fuzzy match — check if a similar entity already exists
+        if ("PERSON".equals(entityType)) {
+            List<KgEntity> similar = entityRepository.findSimilarByNameOrAlias(
+                    user.getId(), name, entityType, ENTITY_SIMILARITY_THRESHOLD);
+
+            if (!similar.isEmpty()) {
+                KgEntity match = similar.get(0);
+                // Add this name as an alias of the existing entity
+                jdbcTemplate.update("""
+                        INSERT INTO kg_entity_aliases (entity_id, alias, source, confidence, created_at)
+                        VALUES (?, ?, 'EXTRACTED', 0.7, now())
+                        ON CONFLICT (entity_id, alias) DO NOTHING
+                        """, match.getId(), name);
+                log.debug("Entity disambiguation: '{}' matched to existing '{}' (type: {})",
+                        name, match.getCanonicalName(), entityType);
+                return match;
+            }
+        }
+
+        // No match — create new entity
+        KgEntity entity = new KgEntity();
+        entity.setUser(user);
+        entity.setCanonicalName(name);
+        entity.setEntityType(entityType);
+        return entityRepository.save(entity);
     }
 
     private void markMessagesProcessed(List<Long> messageIds, UUID userId) {

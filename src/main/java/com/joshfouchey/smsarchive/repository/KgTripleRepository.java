@@ -49,6 +49,35 @@ public interface KgTripleRepository extends JpaRepository<KgTriple, Long> {
 
     long countByUser(User user);
 
+    /**
+     * Find by fact hash for exact dedup (same subject+predicate+object).
+     */
+    @Query("SELECT t FROM KgTriple t WHERE t.user = :user AND t.factHash = :factHash")
+    Optional<KgTriple> findByUserAndFactHash(
+            @Param("user") User user,
+            @Param("factHash") String factHash);
+
+    /**
+     * Find active facts for the same subject+predicate — used for soft conflict detection.
+     * If Tom lives_in NYC and a new fact says Tom lives_in Chicago, these are in conflict.
+     */
+    @Query("""
+            SELECT t FROM KgTriple t
+            WHERE t.user = :user AND t.subject = :subject AND t.predicate = :predicate
+              AND t.status = 'ACTIVE'
+            """)
+    List<KgTriple> findActiveBySubjectAndPredicate(
+            @Param("user") User user,
+            @Param("subject") com.joshfouchey.smsarchive.model.KgEntity subject,
+            @Param("predicate") String predicate);
+
+    /**
+     * Get the next conflict cluster ID (max + 1).
+     */
+    @Query(value = "SELECT COALESCE(MAX(conflict_cluster_id), 0) + 1 FROM kg_triples WHERE user_id = :userId",
+            nativeQuery = true)
+    Long nextConflictClusterId(@Param("userId") java.util.UUID userId);
+
     @Query("""
             SELECT t FROM KgTriple t
             WHERE t.user = :user AND t.subject = :subject AND t.predicate = :predicate
