@@ -72,7 +72,7 @@ public class TextToSqlService {
             - Top contacts: GROUP BY contact name, ORDER BY count DESC
             - Day with most activity: SELECT TO_CHAR(timestamp, 'Day') AS day_name, COUNT(*) AS message_count FROM messages WHERE user_id = '__USER_ID__' GROUP BY day_name, EXTRACT(DOW FROM timestamp) ORDER BY EXTRACT(DOW FROM timestamp)
             - Average messages per conversation: SELECT AVG(cnt) FROM (SELECT COUNT(*) AS cnt FROM messages WHERE user_id = '__USER_ID__' GROUP BY conversation_id) AS sub
-            - Percentage/ratio breakdown: Return ALL categories with count and percentage. Use the actual column values, not CASE expressions for columns that already exist.
+            - Percentage/ratio breakdown: SELECT direction, COUNT(*) AS message_count, ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 2) AS percentage FROM messages WHERE user_id = '__USER_ID__' GROUP BY direction
             - First/last message: ORDER BY m.timestamp ASC/DESC LIMIT 1
 
             Question: %s""";
@@ -134,6 +134,10 @@ public class TextToSqlService {
             raw = raw.replaceAll(";\\s*$", "").trim();
             // Fix malformed CTE: "WITH (" → "WITH"
             raw = raw.replaceAll("(?i)^WITH\\s*\\(\\s*\\n?", "WITH ");
+            // Fix empty COUNT(): COUNT() → COUNT(*)
+            raw = raw.replaceAll("(?i)COUNT\\(\\)", "COUNT(*)");
+            // Fix stray ") AS sub" or ") AS sub SELECT" between CTE and final SELECT
+            raw = raw.replaceAll("(?i)\\)\\s*\\)\\s*AS\\s+\\w+\\s*SELECT", ") SELECT");
 
             log.info("Text-to-SQL generated: {}", raw.replace("\n", " "));
             return raw;
