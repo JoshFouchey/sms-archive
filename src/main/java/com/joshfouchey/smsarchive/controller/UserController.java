@@ -26,12 +26,8 @@ public class UserController {
 
     @GetMapping("/api/auth/me")
     public ResponseEntity<CurrentUserResponse> me() {
-        try {
-            User u = currentUserProvider.getCurrentUser();
-            return ResponseEntity.ok(new CurrentUserResponse(u.getId(), u.getUsername(), u.getCreatedAt(), u.getUpdatedAt()));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(401).build();
-        }
+        User u = currentUserProvider.getCurrentUser();
+        return ResponseEntity.ok(new CurrentUserResponse(u.getId(), u.getUsername(), u.getCreatedAt(), u.getUpdatedAt()));
     }
 }
 

@@ -62,8 +62,7 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/api/auth/login", "/api/auth/refresh", "/api/auth/register", "/api/auth/me",
-                                "/api/contacts",
+                                "/api/auth/login", "/api/auth/refresh", "/api/auth/register",
                                 "/media/**", // static media
                                 "/import/**", // adjust if should be secured
                                 "/actuator/health" // for Docker health checks

@@ -1,0 +1,163 @@
+package com.joshfouchey.smsarchive.service;
+
+import com.joshfouchey.smsarchive.model.User;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+
+import java.util.Base64;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class TokenServiceTest {
+
+    // 48-byte key → 384-bit HMAC key (Base64 encoded)
+    private static final String TEST_SECRET = Base64.getEncoder()
+            .encodeToString("this-is-a-test-secret-key-that-is-48-bytes-long!".getBytes());
+
+    private TokenService tokenService;
+
+    @BeforeEach
+    void setUp() {
+        tokenService = new TokenService(TEST_SECRET, 3600, 604800);
+    }
+
+    private User testUser() {
+        User u = new User();
+        u.setUsername("alice");
+        return u;
+    }
+
+    @Nested
+    class GenerateTokens {
+
+        @Test
+        void returnsBothTokens() {
+            Map<String, String> tokens = tokenService.generateTokens(testUser());
+            assertNotNull(tokens.get("accessToken"));
+            assertNotNull(tokens.get("refreshToken"));
+            assertNotEquals(tokens.get("accessToken"), tokens.get("refreshToken"));
+        }
+
+        @Test
+        void accessTokenHasCorrectClaims() {
+            Map<String, String> tokens = tokenService.generateTokens(testUser());
+            Optional<Jws<Claims>> parsed = tokenService.parse(tokens.get("accessToken"));
+
+            assertTrue(parsed.isPresent());
+            Claims claims = parsed.get().getPayload();
+            assertEquals("alice", claims.getSubject());
+            assertEquals("access", claims.get("type", String.class));
+            assertNotNull(claims.getIssuedAt());
+            assertNotNull(claims.getExpiration());
+            assertNotNull(claims.getId());
+        }
+
+        @Test
+        void refreshTokenHasCorrectClaims() {
+            Map<String, String> tokens = tokenService.generateTokens(testUser());
+            Optional<Jws<Claims>> parsed = tokenService.parse(tokens.get("refreshToken"));
+
+            assertTrue(parsed.isPresent());
+            Claims claims = parsed.get().getPayload();
+            assertEquals("alice", claims.getSubject());
+            assertEquals("refresh", claims.get("type", String.class));
+        }
+    }
+
+    @Nested
+    class TokenTypeValidation {
+
+        @Test
+        void isAccessTokenTrueForAccess() {
+            Map<String, String> tokens = tokenService.generateTokens(testUser());
+            assertTrue(tokenService.isAccessToken(tokens.get("accessToken")));
+        }
+
+        @Test
+        void isAccessTokenFalseForRefresh() {
+            Map<String, String> tokens = tokenService.generateTokens(testUser());
+            assertFalse(tokenService.isAccessToken(tokens.get("refreshToken")));
+        }
+
+        @Test
+        void isRefreshTokenTrueForRefresh() {
+            Map<String, String> tokens = tokenService.generateTokens(testUser());
+            assertTrue(tokenService.isRefreshToken(tokens.get("refreshToken")));
+        }
+
+        @Test
+        void isRefreshTokenFalseForAccess() {
+            Map<String, String> tokens = tokenService.generateTokens(testUser());
+            assertFalse(tokenService.isRefreshToken(tokens.get("accessToken")));
+        }
+
+        @Test
+        void isAccessTokenFalseForGarbage() {
+            assertFalse(tokenService.isAccessToken("not.a.valid.jwt"));
+        }
+
+        @Test
+        void isRefreshTokenFalseForGarbage() {
+            assertFalse(tokenService.isRefreshToken("not.a.valid.jwt"));
+        }
+    }
+
+    @Nested
+    class ParseEdgeCases {
+
+        @Test
+        void invalidTokenReturnsEmpty() {
+            assertTrue(tokenService.parse("garbage").isEmpty());
+        }
+
+        @Test
+        void nullTokenReturnsEmpty() {
+            assertTrue(tokenService.parse(null).isEmpty());
+        }
+
+        @Test
+        void emptyTokenReturnsEmpty() {
+            assertTrue(tokenService.parse("").isEmpty());
+        }
+
+        @Test
+        void tokenFromDifferentKeyReturnsEmpty() {
+            String otherSecret = Base64.getEncoder()
+                    .encodeToString("another-completely-different-secret-48-bytes-lo!".getBytes());
+            TokenService other = new TokenService(otherSecret, 3600, 604800);
+            Map<String, String> tokens = other.generateTokens(testUser());
+
+            // Token signed with different key should not parse
+            assertTrue(tokenService.parse(tokens.get("accessToken")).isEmpty());
+        }
+
+        @Test
+        void expiredTokenReturnsEmpty() {
+            // TTL of 0 seconds → token expires immediately
+            TokenService expiring = new TokenService(TEST_SECRET, 0, 0);
+            Map<String, String> tokens = expiring.generateTokens(testUser());
+
+            assertTrue(tokenService.parse(tokens.get("accessToken")).isEmpty());
+        }
+    }
+
+    @Nested
+    class AutoGeneratedSecret {
+
+        @Test
+        void blankSecretGeneratesRandomKey() {
+            TokenService auto1 = new TokenService("", 3600, 604800);
+            TokenService auto2 = new TokenService("", 3600, 604800);
+            Map<String, String> tokens = auto1.generateTokens(testUser());
+
+            // Token from auto1 should parse with auto1 but not auto2 (different random keys)
+            assertTrue(auto1.parse(tokens.get("accessToken")).isPresent());
+            assertTrue(auto2.parse(tokens.get("accessToken")).isEmpty());
+        }
+    }
+}

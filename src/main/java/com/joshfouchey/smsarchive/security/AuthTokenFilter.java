@@ -34,7 +34,10 @@ public class AuthTokenFilter extends OncePerRequestFilter {
         String auth = request.getHeader("Authorization");
         if (auth != null && auth.startsWith("Bearer ")) {
             String token = auth.substring(7);
-            tokenService.parse(token).ifPresent(this::authenticate);
+            // Only access tokens may authenticate API requests; reject refresh tokens
+            if (tokenService.isAccessToken(token)) {
+                tokenService.parse(token).ifPresent(this::authenticate);
+            }
         }
         filterChain.doFilter(request, response);
     }
