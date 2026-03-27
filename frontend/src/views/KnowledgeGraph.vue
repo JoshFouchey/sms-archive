@@ -1,10 +1,10 @@
 <template>
   <div class="flex flex-col h-[calc(100vh-4rem)]">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-purple-600 to-indigo-500 dark:from-purple-700 dark:to-indigo-600 rounded-2xl shadow-lg p-6 text-white mb-4 shrink-0">
+    <div class="bg-gradient-to-r from-purple-600 to-indigo-500 dark:from-purple-700 dark:to-indigo-600 rounded-2xl shadow-lg p-4 sm:p-6 text-white mb-4 shrink-0">
       <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 class="text-4xl font-bold mb-2 flex items-center gap-3">
+          <h1 class="text-2xl sm:text-4xl font-bold mb-2 flex items-center gap-3">
             <i class="pi pi-sitemap"></i>
             Explore
           </h1>
@@ -32,11 +32,11 @@
               <i class="pi pi-chart-bar mr-1.5"></i>Insights
             </button>
           </div>
-          <div class="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
+          <div class="hidden sm:block bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
             <p class="text-xs text-purple-200">Entities</p>
             <p class="text-2xl font-bold">{{ stats.entities }}</p>
           </div>
-          <div class="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
+          <div class="hidden sm:block bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
             <p class="text-xs text-purple-200">Triples</p>
             <p class="text-2xl font-bold">{{ stats.triples }}</p>
           </div>
@@ -49,7 +49,7 @@
     <!-- Controls -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 border border-gray-200 dark:border-gray-700 mb-4 shrink-0">
       <div class="flex items-center gap-4 flex-wrap">
-        <div class="flex-1 min-w-[200px]">
+        <div class="flex-1 min-w-0 sm:min-w-[200px]">
           <input
             v-model="entitySearch"
             type="text"
@@ -97,7 +97,7 @@
     </div>
 
     <!-- Graph + Detail Panel -->
-    <div class="flex gap-4 flex-1 min-h-0">
+    <div class="flex gap-4 flex-1 min-h-0 relative">
       <!-- Graph Container -->
       <div class="flex-1 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden relative">
         <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-gray-800/50 z-10">
@@ -113,10 +113,17 @@
         <div ref="cyContainer" class="w-full h-full"></div>
       </div>
 
+      <!-- Mobile backdrop -->
+      <div
+        v-if="selectedEntity"
+        class="absolute inset-0 bg-black/30 z-10 sm:hidden"
+        @click="selectedEntity = null"
+      ></div>
+
       <!-- Detail Sidebar -->
       <div
         v-if="selectedEntity"
-        class="w-80 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-4 overflow-y-auto shrink-0"
+        class="absolute inset-y-0 right-0 z-20 w-80 sm:relative sm:inset-auto sm:z-auto bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-4 overflow-y-auto shrink-0"
       >
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 truncate">{{ selectedEntity.label }}</h3>

@@ -1,9 +1,9 @@
 <template>
   <div class="h-full flex flex-col">
     <!-- Header with search bar -->
-    <div class="shrink-0 px-6 pt-6 pb-4">
+    <div class="shrink-0 px-4 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4">
       <div class="max-w-3xl mx-auto text-center mb-4">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1 flex items-center justify-center gap-2">
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1 flex items-center justify-center gap-2">
           <i class="pi pi-sparkles text-amber-500"></i>
           Ask
         </h1>
@@ -22,7 +22,7 @@
             ]"
           >
             <i class="pi pi-sparkles text-xs"></i>
-            AI Search
+            <span class="hidden sm:inline">AI Search</span>
           </button>
           <button
             @click="switchMode('SEARCH')"
@@ -34,7 +34,7 @@
             ]"
           >
             <i class="pi pi-search text-xs"></i>
-            Message Search
+            <span class="hidden sm:inline">Message Search</span>
           </button>
           <button
             @click="switchMode('DATA')"
@@ -46,7 +46,7 @@
             ]"
           >
             <i class="pi pi-database text-xs"></i>
-            Data Query
+            <span class="hidden sm:inline">Data Query</span>
           </button>
         </div>
         <p class="text-xs text-gray-400 dark:text-gray-500 text-center mt-2">
@@ -118,7 +118,7 @@
     </div>
 
     <!-- Results Area -->
-    <div class="flex-1 overflow-y-auto px-6 pb-6">
+    <div class="flex-1 overflow-y-auto px-4 pb-4 sm:px-6 sm:pb-6">
       <div class="max-w-3xl mx-auto space-y-4">
 
         <!-- Loading State -->
@@ -206,7 +206,8 @@
           <!-- SQL Result Table (from text-to-SQL) -->
           <div v-if="response.analyticsData.type === 'sql_result' && response.analyticsData.rows?.length" class="mt-2">
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <table class="w-full text-sm">
+              <div class="overflow-x-auto">
+              <table class="w-full text-sm min-w-[400px]">
                 <thead>
                   <tr class="bg-gray-50 dark:bg-gray-800">
                     <th v-for="col in response.analyticsData.columns" :key="col"
@@ -225,6 +226,7 @@
                   </tr>
                 </tbody>
               </table>
+              </div>
             </div>
             <p class="text-[10px] text-gray-400 dark:text-gray-500 mt-2 font-mono truncate"
                :title="response.analyticsData.sql">

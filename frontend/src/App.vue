@@ -1,7 +1,7 @@
 <template>
   <div class="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
-    <!-- Permanent Thin Sidebar (All Screen Sizes) - Icon Only -->
-    <div class="flex flex-col w-16 bg-gradient-to-b from-blue-600 to-cyan-500 dark:from-blue-800 dark:to-cyan-700 shadow-xl">
+    <!-- Sidebar (hidden on mobile, visible md+) -->
+    <div class="hidden md:flex flex-col w-16 bg-gradient-to-b from-blue-600 to-cyan-500 dark:from-blue-800 dark:to-cyan-700 shadow-xl">
       <!-- Logo/Brand -->
       <div class="flex items-center justify-center py-4 mb-2">
         <div class="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
@@ -59,9 +59,45 @@
       </div>
     </div>
 
+    <!-- Bottom Navigation Bar (visible on mobile, hidden md+) -->
+    <div class="flex md:hidden fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-800 dark:to-cyan-700 shadow-[0_-2px_10px_rgba(0,0,0,0.15)] pb-[env(safe-area-inset-bottom)]">
+      <nav class="flex flex-1 items-center justify-around px-1 py-1">
+        <router-link
+          v-for="item in items"
+          :key="'bottom-' + item.route"
+          :to="item.route"
+          v-slot="{ isActive }"
+          custom
+        >
+          <a
+            :href="item.route"
+            @click.prevent="navigateTo(item.route)"
+            :class="[
+              'flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 rounded-xl transition-all duration-200 min-w-[3rem]',
+              isActive
+                ? 'bg-white/30 shadow-lg'
+                : 'hover:bg-white/10'
+            ]"
+            :aria-label="item.label"
+          >
+            <i :class="[item.icon, 'text-lg text-white']"></i>
+            <span class="text-[10px] leading-tight text-white/90 font-medium">{{ item.label }}</span>
+          </a>
+        </router-link>
+        <button
+          @click="handleLogout"
+          class="flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 rounded-xl hover:bg-white/10 transition-all duration-200 min-w-[3rem]"
+          aria-label="Logout"
+        >
+          <i class="pi pi-sign-out text-lg text-white"></i>
+          <span class="text-[10px] leading-tight text-white/90 font-medium">Logout</span>
+        </button>
+      </nav>
+    </div>
+
     <!-- Main Content Area -->
     <div :class="[
-      'flex-1 flex flex-col',
+      'flex-1 flex flex-col pb-16 md:pb-0',
       isFullHeightPage ? 'overflow-hidden' : 'overflow-y-auto'
     ]">
       <!-- Toast Container -->

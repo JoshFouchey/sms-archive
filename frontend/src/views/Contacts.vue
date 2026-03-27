@@ -1,10 +1,10 @@
 <template>
   <div class="space-y-6">
     <!-- Header Section -->
-    <div class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 rounded-2xl shadow-lg p-6 text-white">
+    <div class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
       <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 class="text-4xl font-bold mb-2 flex items-center gap-3">
+          <h1 class="text-2xl sm:text-4xl font-bold mb-2 flex items-center gap-3">
             <i class="pi pi-users"></i>
             Contacts
           </h1>
@@ -26,7 +26,7 @@
 
     <!-- Filter Section -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 border border-gray-200 dark:border-gray-700">
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 flex-wrap">
         <div class="flex-1">
           <label class="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300 uppercase tracking-wide block">
             <i class="pi pi-search text-xs mr-1"></i>

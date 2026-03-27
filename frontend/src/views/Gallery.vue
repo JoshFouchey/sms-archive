@@ -4,10 +4,10 @@
     <ConfirmDialog />
 
     <!-- Header Section -->
-    <div class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 rounded-2xl shadow-lg p-6 text-white">
+    <div class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
       <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 class="text-4xl font-bold mb-2 flex items-center gap-3">
+          <h1 class="text-2xl sm:text-4xl font-bold mb-2 flex items-center gap-3">
             <i class="pi pi-images"></i>
             Image Gallery
           </h1>
