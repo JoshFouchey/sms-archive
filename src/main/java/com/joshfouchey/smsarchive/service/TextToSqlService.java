@@ -65,7 +65,8 @@ public class TextToSqlService {
             5. TEMPORAL SORTING: When grouping by day or month name, use TO_CHAR for display but ALWAYS include the numeric EXTRACT value in ORDER BY for chronological order (e.g., Monday before Tuesday, January before February).
             6. SENDER LOGIC: To find messages SENT BY a contact, filter by m.sender_contact_id. To find all messages WITHIN A CONVERSATION with a contact, join through conversation_contacts.
             7. MEDIA LOGIC: Photos/images are WHERE ct LIKE 'image/%%'. Videos are WHERE ct LIKE 'video/%%'.
-            8. Use WITH (CTE) clauses for complex multi-step aggregations to improve readability.
+            8. Use WITH (CTE) clauses ONLY for complex multi-step aggregations. For simple GROUP BY queries, write a single SELECT.
+            9. USE EXISTING COLUMNS: The direction column already stores 'INBOUND'/'OUTBOUND'. Do NOT use CASE WHEN to recompute it. Simply GROUP BY direction.
 
             COMMON QUERY PATTERNS:
             - Messages with a contact: JOIN conversation_contacts cc ON cc.conversation_id = m.conversation_id JOIN contacts c ON c.id = cc.contact_id WHERE c.name ILIKE '%%Name%%'
@@ -110,9 +111,23 @@ public class TextToSqlService {
         }
 
         validateSql(safeSql);
-        List<Map<String, Object>> rows = executeSql(safeSql);
-        String answer = formatAnswer(question, rows);
-        return new TextToSqlResult(answer, sql, rows);
+        try {
+            List<Map<String, Object>> rows = executeSql(safeSql);
+            String answer = formatAnswer(question, rows);
+            return new TextToSqlResult(answer, sql, rows);
+        } catch (TextToSqlException e) {
+            // Retry once with a fresh generation if execution fails
+            log.info("Text-to-SQL first attempt failed ({}), retrying...", e.getMessage());
+            sql = generateSql(question);
+            safeSql = injectUserId(sql, userId);
+            if (!safeSql.toLowerCase().contains("user_id")) {
+                safeSql = injectUserIdFilter(safeSql, userId);
+            }
+            validateSql(safeSql);
+            List<Map<String, Object>> rows = executeSql(safeSql);
+            String answer = formatAnswer(question, rows);
+            return new TextToSqlResult(answer, sql, rows);
+        }
     }
 
     private String generateSql(String question) {
@@ -211,7 +226,12 @@ public class TextToSqlService {
             jdbcTemplate.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
             return jdbcTemplate.queryForList(sql);
         } catch (Exception e) {
-            throw new TextToSqlException("SQL execution failed: " + e.getMessage(), e);
+            // Surface the root PostgreSQL error, not just Spring's wrapper
+            Throwable root = e;
+            while (root.getCause() != null) root = root.getCause();
+            String detail = root.getMessage() != null ? root.getMessage() : e.getMessage();
+            log.error("Text-to-SQL execution failed. Detail: {}. SQL: {}", detail, sql);
+            throw new TextToSqlException("SQL execution failed: " + detail, e);
         } finally {
             jdbcTemplate.setQueryTimeout(0);
         }
