@@ -21,7 +21,8 @@
 # -----------------------------------------------------------------------------
 networks:
   proxy:
-    driver: bridge  # change to 'external: true' + name if using shared proxy network
+    external: true
+    name: ${PROXY_NETWORK:-proxy}
   internal:
     driver: bridge
 
