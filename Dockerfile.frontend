@@ -23,8 +23,6 @@ COPY nginx.conf.template /etc/nginx/templates/nginx.conf.template
 # Copy entrypoint script for envsubst templating
 COPY frontend-entrypoint.sh /docker-entrypoint.d/99-csp-template.sh
 RUN chmod +x /docker-entrypoint.d/99-csp-template.sh
-# Legacy static config retained as fallback (not used if template renders)
-COPY nginx.conf /etc/nginx/conf.d/legacy.conf
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD wget -qO- http://localhost/ || exit 1
