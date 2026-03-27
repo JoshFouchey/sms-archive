@@ -1,6 +1,6 @@
 package com.joshfouchey.smsarchive.model;
 
-import com.vladmihalcea.hibernate.type.json.JsonBinaryType;
+import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -41,7 +41,7 @@ public class KgEntity {
     @Column(columnDefinition = "text")
     private String description;
 
-    @Type(JsonBinaryType.class)
+    @Type(JsonType.class)
     @Column(columnDefinition = "jsonb")
     @Builder.Default
     private Map<String, Object> metadata = Map.of();

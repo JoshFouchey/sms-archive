@@ -41,7 +41,7 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 
     private void authenticate(Jws<Claims> jws) {
         if (SecurityContextHolder.getContext().getAuthentication() != null) return;
-        String username = jws.getBody().getSubject();
+        String username = jws.getPayload().getSubject();
         userRepository.findByUsername(username).ifPresent(user -> {
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(username, null, Collections.emptyList());
             SecurityContextHolder.getContext().setAuthentication(auth);

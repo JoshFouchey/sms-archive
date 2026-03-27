@@ -1,6 +1,6 @@
 package com.joshfouchey.smsarchive.model;
 
-import com.vladmihalcea.hibernate.type.json.JsonBinaryType;
+import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -62,12 +62,12 @@ public class Message {
     private Integer msgBox;             // nullable; omit usage if redundant
 
     // JSON attachments summary (thumbnails, part refs, etc.)
-    @Type(JsonBinaryType.class)
+    @Type(JsonType.class)
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> media;
 
     // Arbitrary metadata: statuses, reactions, import raw fields, subject, group id
-    @Type(JsonBinaryType.class)
+    @Type(JsonType.class)
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> metadata;
 

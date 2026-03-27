@@ -28,7 +28,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.io.input.CountingInputStream;
 import java.util.concurrent.atomic.AtomicLong;
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 
@@ -124,7 +123,7 @@ public class ImportService {
         this.importTaskExecutor = executor;
     }
 
-    @VisibleForTesting
+    // visible for testing
     Instant parseInstant(String millisStr) {
         if (StringUtils.isBlank(millisStr)) return Instant.EPOCH;
         String trimmed = millisStr.trim();
@@ -588,7 +587,7 @@ public class ImportService {
         return false;
     }
 
-    @VisibleForTesting
+    // visible for testing
     String normalizeNumber(String number) {
         if (number == null || number.isBlank()) {
             return UNKNOWN_NORMALIZED;
@@ -610,7 +609,7 @@ public class ImportService {
         return "+" + digits;
     }
 
-    @VisibleForTesting
+    // visible for testing
     String guessExtension(String contentType, String name) {
         if (StringUtils.isNotBlank(name) && name.contains(".")) {
             String ext = StringUtils.substringAfterLast(name, ".");
@@ -620,7 +619,7 @@ public class ImportService {
         String lower = contentType.toLowerCase();
         return CONTENT_TYPE_EXT_MAP.getOrDefault(lower, ".bin");
     }
-    @VisibleForTesting String computeDuplicateKeyForTest(Message msg) { return buildDuplicateKey(msg); }
+    /* visible for testing */ String computeDuplicateKeyForTest(Message msg) { return buildDuplicateKey(msg); }
 
     public static class ImportProgress {
         @Getter

@@ -44,27 +44,27 @@ public class TokenService {
     private String generateToken(String username, String type, long ttlSeconds) {
         Instant now = Instant.now();
         return Jwts.builder()
-                .setSubject(username)
+                .subject(username)
                 .claim("type", type)
-                .setIssuedAt(Date.from(now))
-                .setExpiration(Date.from(now.plusSeconds(ttlSeconds)))
-                .setId(UUID.randomUUID().toString())
-                .signWith(key, SignatureAlgorithm.HS256)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusSeconds(ttlSeconds)))
+                .id(UUID.randomUUID().toString())
+                .signWith(key)
                 .compact();
     }
 
     public Optional<Jws<Claims>> parse(String token) {
         try {
-            return Optional.of(Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token));
+            return Optional.of(Jwts.parser().verifyWith(key).build().parseSignedClaims(token));
         } catch (JwtException | IllegalArgumentException e) {
             return Optional.empty();
         }
     }
 
     public boolean isAccessToken(String token) {
-        return parse(token).map(j -> "access".equals(j.getBody().get("type", String.class))).orElse(false);
+        return parse(token).map(j -> "access".equals(j.getPayload().get("type", String.class))).orElse(false);
     }
     public boolean isRefreshToken(String token) {
-        return parse(token).map(j -> "refresh".equals(j.getBody().get("type", String.class))).orElse(false);
+        return parse(token).map(j -> "refresh".equals(j.getPayload().get("type", String.class))).orElse(false);
     }
 }
