@@ -4,6 +4,7 @@ import com.joshfouchey.smsarchive.dto.ConversationSummaryDto;
 import com.joshfouchey.smsarchive.dto.ConversationTimelineDto;
 import com.joshfouchey.smsarchive.dto.MessageDto;
 import com.joshfouchey.smsarchive.dto.PagedResponse;
+import com.joshfouchey.smsarchive.dto.api.ConversationMessagesDto;
 import com.joshfouchey.smsarchive.service.ConversationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -101,7 +102,7 @@ public class ConversationController {
      * Returns lightweight DTOs to reduce JSON payload size.
      */
     @GetMapping("/{conversationId}/messages/all")
-    public List<com.joshfouchey.smsarchive.dto.api.ConversationMessagesDto> getAllConversationMessages(@PathVariable Long conversationId) {
+    public List<ConversationMessagesDto> getAllConversationMessages(@PathVariable Long conversationId) {
         return conversationService.getAllConversationMessages(conversationId);
     }
 

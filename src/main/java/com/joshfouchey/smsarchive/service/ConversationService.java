@@ -4,14 +4,20 @@ import com.joshfouchey.smsarchive.dto.ConversationSummaryDto;
 import com.joshfouchey.smsarchive.dto.ConversationTimelineDto;
 import com.joshfouchey.smsarchive.dto.MessageDto;
 import com.joshfouchey.smsarchive.dto.PagedResponse;
+import com.joshfouchey.smsarchive.dto.api.ConversationMessagesDto;
 import com.joshfouchey.smsarchive.mapper.MessageMapper;
 import com.joshfouchey.smsarchive.model.Contact;
 import com.joshfouchey.smsarchive.model.Conversation;
 import com.joshfouchey.smsarchive.model.Message;
+import com.joshfouchey.smsarchive.model.MessagePart;
 import com.joshfouchey.smsarchive.model.User;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.ConversationRepository;
+import com.joshfouchey.smsarchive.repository.MessagePartRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -33,13 +39,13 @@ public class ConversationService {
     private final MessageRepository messageRepository;
     private final ContactRepository contactRepository;
     private final CurrentUserProvider currentUserProvider;
-    private final com.joshfouchey.smsarchive.repository.MessagePartRepository messagePartRepository;
+    private final MessagePartRepository messagePartRepository;
 
     public ConversationService(ConversationRepository conversationRepository,
                               MessageRepository messageRepository,
                               ContactRepository contactRepository,
                               CurrentUserProvider currentUserProvider,
-                              com.joshfouchey.smsarchive.repository.MessagePartRepository messagePartRepository) {
+                              MessagePartRepository messagePartRepository) {
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
         this.contactRepository = contactRepository;
@@ -48,7 +54,7 @@ public class ConversationService {
     }
 
     @Transactional(readOnly = true)
-    @org.springframework.cache.annotation.Cacheable(value = "conversationList", key = "T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName()")
+    @Cacheable(value = "conversationList", key = "T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName()")
     public List<ConversationSummaryDto> getAllConversations() {
         var user = currentUserProvider.getCurrentUser();
         
@@ -59,7 +65,7 @@ public class ConversationService {
         // Fetch full conversations to get participants (batch fetched due to @EntityGraph)
         List<Conversation> conversations = conversationRepository.findAllByUserOrderByLastMessage(user);
         Map<Long, Conversation> conversationMap = conversations.stream()
-                .collect(java.util.stream.Collectors.toMap(Conversation::getId, c -> c));
+                .collect(Collectors.toMap(Conversation::getId, c -> c));
         
         return projections.stream()
                 .map(proj -> {
@@ -94,7 +100,7 @@ public class ConversationService {
                             0L
                     );
                 })
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .toList();
     }
 
@@ -126,13 +132,13 @@ public class ConversationService {
             messages = messageRepository.findByIdsWithAssociations(idsPage.getContent());
             // Restore original sort order from ID list
             Map<Long, Message> messageMap = messages.stream()
-                    .collect(java.util.stream.Collectors.toMap(Message::getId, m -> m));
+                    .collect(Collectors.toMap(Message::getId, m -> m));
             messages = idsPage.getContent().stream()
                     .map(messageMap::get)
-                    .filter(java.util.Objects::nonNull)
+                    .filter(Objects::nonNull)
                     .toList();
         } else {
-            messages = java.util.Collections.emptyList();
+            messages = Collections.emptyList();
         }
 
         List<MessageDto> content = messages.stream()
@@ -160,7 +166,7 @@ public class ConversationService {
      * Search messages within a conversation (backend search - works without loading all messages).
      * Returns message IDs that match, sorted by timestamp.
      */
-    public java.util.Map<String, Object> searchWithinConversation(Long conversationId, String query) {
+    public Map<String, Object> searchWithinConversation(Long conversationId, String query) {
         var user = currentUserProvider.getCurrentUser();
 
         // Verify conversation belongs to user
@@ -178,15 +184,15 @@ public class ConversationService {
                 .map(Message::getId)
                 .toList();
 
-        var result = new java.util.HashMap<String, Object>();
+        var result = new HashMap<String, Object>();
         result.put("matchIds", matchIds);
         result.put("totalMatches", matchIds.size());
         result.put("query", query);
         return result;
     }
 
-    @org.springframework.cache.annotation.Cacheable(value = "conversationMessages", key = "#conversationId")
-    public List<com.joshfouchey.smsarchive.dto.api.ConversationMessagesDto> getAllConversationMessages(Long conversationId) {
+    @Cacheable(value = "conversationMessages", key = "#conversationId")
+    public List<ConversationMessagesDto> getAllConversationMessages(Long conversationId) {
         var user = currentUserProvider.getCurrentUser();
 
         // Verify conversation belongs to user
@@ -201,15 +207,15 @@ public class ConversationService {
         // Eagerly fetch all parts in a single query to avoid N batched queries
         if (!messages.isEmpty()) {
             List<Long> messageIds = messages.stream().map(Message::getId).toList();
-            List<com.joshfouchey.smsarchive.model.MessagePart> parts = messagePartRepository.findByMessageIds(messageIds);
+            List<MessagePart> parts = messagePartRepository.findByMessageIds(messageIds);
             
             // Group parts by message ID for efficient lookup
-            Map<Long, List<com.joshfouchey.smsarchive.model.MessagePart>> partsByMessageId = parts.stream()
-                    .collect(java.util.stream.Collectors.groupingBy(p -> p.getMessage().getId()));
+            Map<Long, List<MessagePart>> partsByMessageId = parts.stream()
+                    .collect(Collectors.groupingBy(p -> p.getMessage().getId()));
             
             // Manually set parts on messages to avoid lazy loading
             messages.forEach(msg -> {
-                List<com.joshfouchey.smsarchive.model.MessagePart> msgParts = partsByMessageId.get(msg.getId());
+                List<MessagePart> msgParts = partsByMessageId.get(msg.getId());
                 if (msgParts != null) {
                     msg.getParts().clear();
                     msg.getParts().addAll(msgParts);
@@ -226,7 +232,7 @@ public class ConversationService {
      * Get message count for a conversation (cached).
      */
     @Transactional(readOnly = true)
-    @org.springframework.cache.annotation.Cacheable(value = "conversationMessageCount", key = "#conversationId")
+    @Cacheable(value = "conversationMessageCount", key = "#conversationId")
     public Long getConversationMessageCount(Long conversationId) {
         var user = currentUserProvider.getCurrentUser();
 
@@ -238,7 +244,7 @@ public class ConversationService {
     }
 
     @Transactional(readOnly = true)
-    @org.springframework.cache.annotation.Cacheable(value = "conversationTimeline", key = "#conversationId")
+    @Cacheable(value = "conversationTimeline", key = "#conversationId")
     public ConversationTimelineDto getConversationTimeline(Long conversationId) {
         var user = currentUserProvider.getCurrentUser();
 
@@ -317,13 +323,13 @@ public class ConversationService {
             messages = messageRepository.findByIdsWithAssociations(idsPage.getContent());
             // Restore original sort order from ID list
             Map<Long, Message> messageMap = messages.stream()
-                    .collect(java.util.stream.Collectors.toMap(Message::getId, m -> m));
+                    .collect(Collectors.toMap(Message::getId, m -> m));
             messages = idsPage.getContent().stream()
                     .map(messageMap::get)
-                    .filter(java.util.Objects::nonNull)
+                    .filter(Objects::nonNull)
                     .toList();
         } else {
-            messages = java.util.Collections.emptyList();
+            messages = Collections.emptyList();
         }
 
         List<MessageDto> content = messages.stream()
@@ -464,7 +470,7 @@ public class ConversationService {
             c.setNumber(displayNumber);
             c.setName(suggestedName != null && !suggestedName.isBlank() ? suggestedName : null);
             return contactRepository.save(c);
-        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+        } catch (DataIntegrityViolationException e) {
             // Contact was created by another thread/transaction, fetch it again
             return contactRepository.findByUserAndNormalizedNumber(user, safeNormalized)
                     .orElseThrow(() -> new RuntimeException("Failed to find or create contact for: " + safeNormalized));
@@ -524,7 +530,7 @@ public class ConversationService {
     }
 
     @Transactional
-    @org.springframework.cache.annotation.CacheEvict(value = "conversationList", allEntries = true)
+    @CacheEvict(value = "conversationList", allEntries = true)
     public ConversationSummaryDto renameConversation(Long conversationId, String newName) {
         var user = currentUserProvider.getCurrentUser();
         Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
@@ -536,7 +542,7 @@ public class ConversationService {
         return toSummaryDto(conversation);
     }
 
-    @org.springframework.cache.annotation.CacheEvict(value = {"conversationList", "conversationMessages", "conversationMessageCount", "conversationTimeline", "contactSummaries"}, allEntries = true)
+    @CacheEvict(value = {"conversationList", "conversationMessages", "conversationMessageCount", "conversationTimeline", "contactSummaries"}, allEntries = true)
     public void deleteConversationById(Long conversationId) {
         var user = currentUserProvider.getCurrentUser();
         Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
