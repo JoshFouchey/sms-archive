@@ -45,11 +45,7 @@ public class ContactService {
     @org.springframework.cache.annotation.Cacheable(value = "distinctContacts", key = "T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName()")
     public List<ContactDto> getAllDistinctContacts() {
         var user = currentUserProvider.getCurrentUser();
-        return contactRepository.findAllByUser(user).stream()
-                .sorted(Comparator
-                        .comparing((com.joshfouchey.smsarchive.model.Contact c) -> c.getName() == null) // non-null first
-                        .thenComparing(c -> c.getName() == null ? "" : c.getName().toLowerCase())
-                        .thenComparing(com.joshfouchey.smsarchive.model.Contact::getNormalizedNumber))
+        return contactRepository.findAllByUserOrdered(user).stream()
                 .map(ContactMapper::toDto)
                 .toList();
     }
