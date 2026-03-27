@@ -1,6 +1,8 @@
 package com.joshfouchey.smsarchive.service;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.joshfouchey.smsarchive.event.ImportCompletedEvent;
 import com.joshfouchey.smsarchive.model.*;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
@@ -79,8 +81,11 @@ public class ImportService {
     // ThreadLocal to hold the user for async import tasks (SecurityContext not propagated)
     private final ThreadLocal<User> threadLocalImportUser = new ThreadLocal<>();
 
-    // cache normalizedNumber -> Contact
-    private final Map<String, Contact> contactCache = new ConcurrentHashMap<>();
+    // cache normalizedNumber -> Contact (bounded, auto-evicts after 10 min idle)
+    private final Cache<String, Contact> contactCache = Caffeine.newBuilder()
+            .maximumSize(1000)
+            .expireAfterAccess(java.time.Duration.ofMinutes(10))
+            .build();
     private final Map<UUID, ImportProgress> progressMap = new ConcurrentHashMap<>(); // job progress tracking
 
     @Value("${smsarchive.import.inline:false}")
@@ -939,7 +944,7 @@ public class ImportService {
     private Contact resolveContact(User user, String number, String suggestedName) {
         String normalized = normalizeNumber(number);
         String cacheKey = user.getId() + "|" + normalized;
-        Contact cached = contactCache.get(cacheKey);
+        Contact cached = contactCache.getIfPresent(cacheKey);
         if (cached != null) {
             if (shouldUpdateContactName(cached, suggestedName)) {
                 String sanitized = sanitizeContactName(suggestedName);
