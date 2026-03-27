@@ -3,6 +3,7 @@ package com.joshfouchey.smsarchive.service;
 import com.joshfouchey.smsarchive.dto.EmbeddingJobDto;
 import com.joshfouchey.smsarchive.dto.EmbeddingStatsDto;
 import com.joshfouchey.smsarchive.event.ImportCompletedEvent;
+import com.joshfouchey.smsarchive.exception.JobAlreadyRunningException;
 import com.joshfouchey.smsarchive.model.EmbeddingJob;
 import com.joshfouchey.smsarchive.model.Message;
 import com.joshfouchey.smsarchive.model.MessageEmbedding;
@@ -130,7 +131,7 @@ public class EmbeddingService {
         Optional<EmbeddingJob> running = jobRepository
                 .findFirstByUserAndStatusOrderByCreatedAtDesc(user, "RUNNING");
         if (running.isPresent()) {
-            throw new IllegalStateException("Embedding job already running: " + running.get().getId());
+            throw new JobAlreadyRunningException("Embedding job already running: " + running.get().getId());
         }
 
         if (reembed) {

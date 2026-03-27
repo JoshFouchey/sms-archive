@@ -2,6 +2,8 @@ package com.joshfouchey.smsarchive.service;
 
 import com.joshfouchey.smsarchive.dto.ContactDto;
 import com.joshfouchey.smsarchive.dto.ContactMergeResultDto;
+import com.joshfouchey.smsarchive.exception.ResourceNotFoundException;
+import com.joshfouchey.smsarchive.exception.ResourceOwnershipException;
 import com.joshfouchey.smsarchive.mapper.ContactMapper;
 import com.joshfouchey.smsarchive.model.Contact;
 import com.joshfouchey.smsarchive.model.Conversation;
@@ -78,16 +80,16 @@ public class ContactService {
 
         // Validate both contacts exist and belong to user
         Contact primaryContact = contactRepository.findById(primaryContactId)
-                .orElseThrow(() -> new RuntimeException("Primary contact not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Primary contact not found"));
         Contact mergeFromContact = contactRepository.findById(mergeFromContactId)
-                .orElseThrow(() -> new RuntimeException("Contact to merge not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Contact to merge not found"));
 
         if (!primaryContact.getUser().equals(user) || !mergeFromContact.getUser().equals(user)) {
-            throw new RuntimeException("Contacts do not belong to current user");
+            throw new ResourceOwnershipException("Contacts do not belong to current user");
         }
 
         if (primaryContactId.equals(mergeFromContactId)) {
-            throw new RuntimeException("Cannot merge contact with itself");
+            throw new IllegalArgumentException("Cannot merge contact with itself");
         }
 
         // Find all conversations involving the old contact

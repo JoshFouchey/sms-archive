@@ -1,5 +1,6 @@
 package com.joshfouchey.smsarchive.service;
 
+import com.joshfouchey.smsarchive.exception.UnauthenticatedException;
 import com.joshfouchey.smsarchive.model.User;
 import com.joshfouchey.smsarchive.repository.UserRepository;
 import org.springframework.cache.annotation.Cacheable;
@@ -33,10 +34,10 @@ public class CurrentUserProvider {
                     return userRepository.save(u);
                 });
             }
-            throw new IllegalStateException("No authenticated user in context");
+            throw new UnauthenticatedException("No authenticated user in context");
         }
         String username = auth.getName();
         return userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + username));
+                .orElseThrow(() -> new UnauthenticatedException("Authenticated user not found"));
     }
 }

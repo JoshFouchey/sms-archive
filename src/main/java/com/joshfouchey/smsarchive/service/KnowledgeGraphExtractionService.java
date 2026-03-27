@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.joshfouchey.smsarchive.dto.KgExtractionJobDto;
 import com.joshfouchey.smsarchive.event.ImportCompletedEvent;
+import com.joshfouchey.smsarchive.exception.JobAlreadyRunningException;
 import com.joshfouchey.smsarchive.model.*;
 import com.joshfouchey.smsarchive.repository.*;
 import lombok.extern.slf4j.Slf4j;
@@ -307,7 +308,7 @@ public class KnowledgeGraphExtractionService {
         Optional<KgExtractionJob> running = jobRepository
                 .findFirstByUserAndStatusOrderByCreatedAtDesc(user, "RUNNING");
         if (running.isPresent()) {
-            throw new IllegalStateException("Extraction job already running: " + running.get().getId());
+            throw new JobAlreadyRunningException("Extraction job already running: " + running.get().getId());
         }
 
         KgExtractionJob job = new KgExtractionJob();
