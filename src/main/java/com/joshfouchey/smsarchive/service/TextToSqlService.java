@@ -116,7 +116,8 @@ public class TextToSqlService {
     }
 
     private String generateSql(String question) {
-        String prompt = String.format(SCHEMA_PROMPT, MAX_ROWS, question);
+        String normalizedQuestion = normalizeQuestion(question);
+        String prompt = String.format(SCHEMA_PROMPT, MAX_ROWS, normalizedQuestion);
 
         try {
             ChatResponse response = chatModel.call(
@@ -131,12 +132,20 @@ public class TextToSqlService {
             raw = raw.replaceAll("(?s)^```(?:sql)?\\s*", "").replaceAll("(?s)\\s*```$", "").trim();
             // Remove trailing semicolons
             raw = raw.replaceAll(";\\s*$", "").trim();
+            // Fix malformed CTE: "WITH (" → "WITH"
+            raw = raw.replaceAll("(?i)^WITH\\s*\\(\\s*\\n?", "WITH ");
 
             log.info("Text-to-SQL generated: {}", raw.replace("\n", " "));
             return raw;
         } catch (Exception e) {
             throw new TextToSqlException("Failed to generate SQL: " + e.getMessage(), e);
         }
+    }
+
+    /** Normalize question text to reduce SLM confusion with certain phrasings. */
+    private String normalizeQuestion(String question) {
+        // "vs" / "vs." triggers bad CTE syntax in qwen2.5-coder — rephrase to "compared to"
+        return question.replaceAll("(?i)\\bvs\\.?\\b", "compared to");
     }
 
     private String injectUserId(String sql, UUID userId) {
