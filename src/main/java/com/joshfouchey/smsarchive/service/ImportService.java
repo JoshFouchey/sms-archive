@@ -482,14 +482,12 @@ public class ImportService {
         User user = resolveImportUser();
         msg.setUser(user);
         String senderAddress = (msg.getDirection() == MessageDirection.INBOUND) ? (tempSender != null ? tempSender : tempAddress) : null;
-        log.debug("finalizeGroupMessageContact - direction: {}, senderAddress: {}", msg.getDirection(), senderAddress);
+        log.debug("finalizeGroupMessageContact - direction: {}", msg.getDirection());
         if (senderAddress != null && !senderAddress.isBlank()) {
             Contact sender = resolveContact(user, senderAddress, null);
             msg.setSenderContact(sender);
-            log.debug("finalizeGroupMessageContact - resolved sender: id={}, number={}, normalized={}",
-                    sender != null ? sender.getId() : null,
-                    sender != null ? sender.getNumber() : null,
-                    sender != null ? sender.getNormalizedNumber() : null);
+            log.debug("finalizeGroupMessageContact - resolved sender: id={}",
+                    sender != null ? sender.getId() : null);
         } else {
             msg.setSenderContact(null);
         }
@@ -501,8 +499,8 @@ public class ImportService {
         String tempSender = meta != null ? (String) meta.get(META_TEMP_SENDER) : null;
         String tempRecipient = meta != null ? (String) meta.get(META_TEMP_RECIPIENT) : null;
         String tempAddress = meta != null ? (String) meta.get(META_TEMP_ADDRESS) : null;
-        log.debug("finalizeStreamingContact - protocol: {}, direction: {}, tempSender: {}, tempRecipient: {}, tempAddress: {}",
-                msg.getProtocol(), msg.getDirection(), tempSender, tempRecipient, tempAddress);
+        log.debug("finalizeStreamingContact - protocol: {}, direction: {}",
+                msg.getProtocol(), msg.getDirection());
         String counterparty;
         String senderAddress;
         if (msg.getDirection() == MessageDirection.INBOUND) {
@@ -515,12 +513,10 @@ public class ImportService {
         }
         User user = resolveImportUser();
         msg.setUser(user);
-        log.debug("finalizeStreamingContact - counterparty: {}, suggestedName: {}", counterparty, suggestedName);
+        log.debug("finalizeStreamingContact - resolved counterparty");
         Contact contact = resolveContact(user, counterparty, suggestedName);
-        log.debug("finalizeStreamingContact - resolved contact: id={}, number={}, normalized={}",
-                contact != null ? contact.getId() : null,
-                contact != null ? contact.getNumber() : null,
-                contact != null ? contact.getNormalizedNumber() : null);
+        log.debug("finalizeStreamingContact - resolved contact: id={}",
+                contact != null ? contact.getId() : null);
         if (msg.getDirection() == MessageDirection.INBOUND && senderAddress != null) {
             msg.setSenderContact(contact);
         } else {
@@ -950,7 +946,7 @@ public class ImportService {
                 cached.setName(sanitized);
                 cached = contactRepo.save(cached);
                 contactCache.put(cacheKey, cached);
-                log.debug("Updated contact {} name to '{}'", cached.getId(), sanitized);
+                log.debug("Updated contact {} name", cached.getId());
             }
             return cached;
         }

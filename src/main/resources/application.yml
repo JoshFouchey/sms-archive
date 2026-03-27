@@ -56,7 +56,6 @@ smsarchive:
 logging:
   level:
     root: ${LOG_LEVEL:INFO}
-    com.joshfouchey.smsarchive.service.KnowledgeGraphExtractionService: DEBUG
 
 server:
   forward-headers-strategy: framework

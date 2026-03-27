@@ -479,7 +479,7 @@ public class KnowledgeGraphExtractionService {
 
         // Call the LLM with retry (up to 3 attempts with backoff)
         String prompt = String.format(EXTRACTION_PROMPT_TEMPLATE, contextHeader, conversationText);
-        log.debug("KG prompt ({} chars): {}", prompt.length(), prompt.substring(0, Math.min(500, prompt.length())));
+        log.debug("KG prompt ({} chars)", prompt.length());
         String llmOutput = callLlmWithRetry(prompt);
         List<ExtractedFact> facts = parseFacts(llmOutput);
 
