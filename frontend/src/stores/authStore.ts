@@ -53,8 +53,18 @@ axios.interceptors.request.use(config => {
 
 axios.interceptors.response.use(r => r, async err => {
   const store = useAuthStore();
-  if (err.response && err.response.status === 401) {
-    try { await store.refresh(); if (store.accessToken) { err.config.headers['Authorization'] = `Bearer ${store.accessToken}`; return axios.request(err.config); } } catch { store.logout(); window.location.href='/login'; }
+  const config = err.config;
+  if (err.response && err.response.status === 401 && !config._retried) {
+    config._retried = true;
+    try {
+      await store.refresh();
+      if (store.accessToken) {
+        config.headers['Authorization'] = `Bearer ${store.accessToken}`;
+        return axios.request(config);
+      }
+    } catch { /* refresh failed */ }
+    store.logout();
+    window.location.href = '/login';
   }
   return Promise.reject(err);
 });
