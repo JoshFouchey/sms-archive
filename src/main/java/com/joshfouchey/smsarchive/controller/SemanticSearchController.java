@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
+import static com.joshfouchey.smsarchive.util.InputLimits.*;
+
 @RestController
 @RequestMapping("/api/search")
 @ConditionalOnProperty(name = "smsarchive.ai.enabled", havingValue = "true", matchIfMissing = true)
@@ -50,7 +52,7 @@ public class SemanticSearchController {
         } catch (IllegalArgumentException e) {
             searchMode = UnifiedSearchService.SearchMode.AUTO;
         }
-        return unifiedSearchService.search(q, searchMode, user.getId(), conversationId, contactId, topK);
+        return unifiedSearchService.search(truncate(q, SEARCH_QUERY_MAX), searchMode, user.getId(), conversationId, contactId, topK);
     }
 
     @GetMapping("/semantic")
@@ -60,7 +62,7 @@ public class SemanticSearchController {
             @RequestParam(required = false) Long contactId,
             @RequestParam(required = false) Integer topK) {
         var user = currentUserProvider.getCurrentUser();
-        return searchService.search(q, user.getId(), conversationId, contactId, topK);
+        return searchService.search(truncate(q, SEARCH_QUERY_MAX), user.getId(), conversationId, contactId, topK);
     }
 
     @PostMapping("/embeddings/start")

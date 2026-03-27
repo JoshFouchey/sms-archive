@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+import static com.joshfouchey.smsarchive.util.InputLimits.*;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -28,7 +30,11 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody AuthRequest req) {
-        if (req.username() == null || req.username().isBlank() || req.password() == null || req.password().length() < 6) {
+        if (req.username() == null || req.username().isBlank()
+                || req.username().trim().length() > USERNAME_MAX
+                || req.password() == null
+                || req.password().length() < PASSWORD_MIN
+                || req.password().length() > PASSWORD_MAX) {
             return ResponseEntity.badRequest().body(Map.of("error","Invalid username or password"));
         }
 

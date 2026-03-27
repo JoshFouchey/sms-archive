@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 import java.util.List;
 
+import static com.joshfouchey.smsarchive.util.InputLimits.*;
+
 @RestController
 @RequestMapping("/search")
 public class SearchController {
@@ -37,6 +39,7 @@ public class SearchController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
         
+        String safeText = truncate(text, SEARCH_QUERY_MAX);
         var user = currentUserProvider.getCurrentUser();
         // Use unsorted Pageable since our query already has ORDER BY clause
         Pageable pageable = PageRequest.of(page, size);
@@ -44,10 +47,10 @@ public class SearchController {
         
         if (contactId != null) {
             // Search with contact filter
-            results = repo.searchByTextAndContactUser(text, contactId, user.getId(), pageable);
+            results = repo.searchByTextAndContactUser(safeText, contactId, user.getId(), pageable);
         } else {
             // Search all messages
-            results = repo.searchByTextUserPaginated(text, user.getId(), pageable);
+            results = repo.searchByTextUserPaginated(safeText, user.getId(), pageable);
         }
         
         return new PagedResponse<>(

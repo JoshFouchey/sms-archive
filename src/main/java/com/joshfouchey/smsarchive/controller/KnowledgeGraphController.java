@@ -20,6 +20,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
+import static com.joshfouchey.smsarchive.util.InputLimits.*;
+
 @RestController
 @RequestMapping("/api/knowledge-graph")
 @ConditionalOnProperty(name = "smsarchive.ai.enabled", havingValue = "true", matchIfMissing = true)
@@ -45,7 +47,7 @@ public class KnowledgeGraphController {
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String search) {
         var user = currentUserProvider.getCurrentUser();
-        return knowledgeGraphService.getEntities(user, type, search);
+        return knowledgeGraphService.getEntities(user, type, truncate(search, SEARCH_QUERY_MAX));
     }
 
     @GetMapping("/entities/{id}")

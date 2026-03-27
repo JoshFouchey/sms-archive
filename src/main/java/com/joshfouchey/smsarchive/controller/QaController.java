@@ -8,6 +8,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import static com.joshfouchey.smsarchive.util.InputLimits.*;
+
 @RestController
 @RequestMapping("/api/qa")
 @ConditionalOnProperty(name = "smsarchive.ai.enabled", havingValue = "true", matchIfMissing = true)
@@ -27,7 +29,10 @@ public class QaController {
             return ResponseEntity.badRequest().build();
         }
         var user = currentUserProvider.getCurrentUser();
-        var response = qaService.ask(user, request);
+        QaRequest safe = new QaRequest(
+                truncate(request.question(), QA_QUESTION_MAX),
+                request.mode(), request.conversationId(), request.contactId());
+        var response = qaService.ask(user, safe);
         return ResponseEntity.ok(response);
     }
 }

@@ -5,9 +5,14 @@ import com.joshfouchey.smsarchive.dto.ConversationTimelineDto;
 import com.joshfouchey.smsarchive.dto.MessageDto;
 import com.joshfouchey.smsarchive.dto.PagedResponse;
 import com.joshfouchey.smsarchive.service.ConversationService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+
+import static com.joshfouchey.smsarchive.util.InputLimits.*;
 
 @RestController
 @RequestMapping("/api/conversations")
@@ -48,30 +53,33 @@ public class ConversationController {
         return conversationService.getConversationTimeline(conversationId);
     }
 
+    record RenameRequest(String name) {}
+
     @PatchMapping("/{conversationId}/name")
-    public org.springframework.http.ResponseEntity<ConversationSummaryDto> renameConversation(
+    public ResponseEntity<ConversationSummaryDto> renameConversation(
             @PathVariable Long conversationId,
-            @RequestBody java.util.Map<String, String> body) {
+            @RequestBody RenameRequest body) {
         try {
-            String newName = body.get("name");
+            String newName = body.name();
             if (newName == null || newName.isBlank()) {
-                return org.springframework.http.ResponseEntity.badRequest().build();
+                return ResponseEntity.badRequest().build();
             }
+            newName = truncate(newName.trim(), CONVERSATION_NAME_MAX);
             ConversationSummaryDto updated = conversationService.renameConversation(conversationId, newName);
-            return org.springframework.http.ResponseEntity.ok(updated);
+            return ResponseEntity.ok(updated);
         } catch (RuntimeException ex) {
-            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND).build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
     }
 
     @DeleteMapping("/{conversationId}")
-    public org.springframework.http.ResponseEntity<Void> deleteConversation(@PathVariable Long conversationId) {
+    public ResponseEntity<Void> deleteConversation(@PathVariable Long conversationId) {
         try {
             conversationService.deleteConversationById(conversationId);
-            return org.springframework.http.ResponseEntity.noContent().build();
+            return ResponseEntity.noContent().build();
         } catch (RuntimeException ex) {
             // Conversation not found or not owned
-            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND).build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
     }
 
@@ -80,10 +88,11 @@ public class ConversationController {
      * Returns message IDs that match the search query (for navigation).
      */
     @GetMapping("/{conversationId}/messages/search")
-    public java.util.Map<String, Object> searchConversationMessages(
+    public Map<String, Object> searchConversationMessages(
             @PathVariable Long conversationId,
             @RequestParam String query) {
-        return conversationService.searchWithinConversation(conversationId, query);
+        String safeQuery = truncate(query, SEARCH_QUERY_MAX);
+        return conversationService.searchWithinConversation(conversationId, safeQuery);
     }
 
     /**
@@ -100,8 +109,8 @@ public class ConversationController {
      * Get total message count for a conversation (cached).
      */
     @GetMapping("/{conversationId}/messages/count")
-    public java.util.Map<String, Long> getConversationMessageCount(@PathVariable Long conversationId) {
+    public Map<String, Long> getConversationMessageCount(@PathVariable Long conversationId) {
         Long count = conversationService.getConversationMessageCount(conversationId);
-        return java.util.Map.of("count", count);
+        return Map.of("count", count);
     }
 }

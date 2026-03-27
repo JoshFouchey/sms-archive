@@ -14,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 
+import static com.joshfouchey.smsarchive.util.InputLimits.*;
+
 @RestController
 @RequestMapping("/api/contacts")
 public class ContactController {
@@ -33,7 +35,7 @@ public class ContactController {
     @PutMapping("/{id}")
     public ResponseEntity<ContactDto> updateContactName(@PathVariable Long id, @RequestBody UpdateContactNameRequest request) {
         try {
-            var updated = contactService.updateContactName(id, request.name());
+            var updated = contactService.updateContactName(id, truncate(request.name(), CONTACT_NAME_MAX));
             return ResponseEntity.ok(updated);
         } catch (java.util.NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
