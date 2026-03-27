@@ -1,8 +1,8 @@
 <template>
   <div class="space-y-6">
     <!-- Header -->
-    <div v-if="!hideHeader" class="bg-gradient-to-r from-violet-600 to-purple-500 rounded-2xl p-6 text-white shadow-lg">
-      <div class="flex items-center justify-between">
+    <div v-if="!hideHeader" class="bg-gradient-to-r from-violet-600 to-purple-500 rounded-2xl p-4 sm:p-6 text-white shadow-lg">
+      <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 class="text-2xl font-bold flex items-center gap-3">
             <i class="pi pi-microchip text-3xl"></i>
@@ -10,7 +10,7 @@
           </h1>
           <p class="text-white/80 mt-1">Manage embeddings, knowledge graph extraction, and entity resolution</p>
         </div>
-        <div class="flex gap-3">
+        <div class="hidden sm:flex gap-3">
           <div class="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2 text-center">
             <div class="text-2xl font-bold">{{ embeddingStats?.embeddedMessages ?? '—' }}</div>
             <div class="text-xs text-white/70">Embedded</div>
@@ -30,7 +30,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- Embedding Section -->
       <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-wrap gap-3">
           <div class="flex items-center gap-3">
             <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
               <i class="pi pi-database text-blue-600 dark:text-blue-400"></i>
@@ -42,22 +42,24 @@
               </p>
             </div>
           </div>
-          <button
-            @click="handleStartEmbedding"
-            :disabled="activeEmbeddingJob !== null"
-            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-          >
-            <i class="pi pi-play mr-1"></i>
-            {{ activeEmbeddingJob ? 'Running…' : 'Start Embedding' }}
-          </button>
-          <button
-            @click="handleReembed"
-            :disabled="activeEmbeddingJob !== null"
-            class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-          >
-            <i class="pi pi-refresh mr-1"></i>
-            Re-embed All
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              @click="handleStartEmbedding"
+              :disabled="activeEmbeddingJob !== null"
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+            >
+              <i class="pi pi-play mr-1"></i>
+              {{ activeEmbeddingJob ? 'Running…' : 'Start Embedding' }}
+            </button>
+            <button
+              @click="handleReembed"
+              :disabled="activeEmbeddingJob !== null"
+              class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+            >
+              <i class="pi pi-refresh mr-1"></i>
+              Re-embed All
+            </button>
+          </div>
         </div>
 
         <!-- Embedding Coverage -->
@@ -132,7 +134,7 @@
 
       <!-- Knowledge Graph Extraction Section -->
       <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-wrap gap-3">
           <div class="flex items-center gap-3">
             <div class="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
               <i class="pi pi-sitemap text-purple-600 dark:text-purple-400"></i>
@@ -230,7 +232,7 @@
 
     <!-- Entity Resolution Section -->
     <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-wrap gap-3">
         <div class="flex items-center gap-3">
           <div class="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
             <i class="pi pi-link text-amber-600 dark:text-amber-400"></i>
@@ -253,7 +255,7 @@
       </div>
 
       <!-- Last Resolution Result -->
-      <div v-if="lastResolutionResult" class="px-6 py-4 grid grid-cols-3 gap-4">
+      <div v-if="lastResolutionResult" class="px-6 py-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
           <div class="text-2xl font-bold text-green-600">{{ lastResolutionResult.autoMerged }}</div>
           <div class="text-xs text-gray-500">Auto-Merged</div>
@@ -275,16 +277,16 @@
           <div
             v-for="suggestion in mergeSuggestions"
             :key="`${suggestion.entityId1}-${suggestion.entityId2}`"
-            class="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50"
+            class="flex items-center justify-between flex-wrap p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 gap-2"
           >
-            <div class="flex items-center gap-3 flex-1">
+            <div class="flex items-center gap-3 flex-1 min-w-0">
               <span :class="entityTypeBadge(suggestion.entityType)">{{ suggestion.entityType }}</span>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
                 <span class="font-medium">{{ suggestion.entityName1 }}</span>
                 <i class="pi pi-arrows-h text-gray-400"></i>
                 <span class="font-medium">{{ suggestion.entityName2 }}</span>
               </div>
-              <span class="text-xs text-gray-500 ml-2">
+              <span class="text-xs text-gray-500 ml-2 hidden sm:inline">
                 {{ (suggestion.similarity * 100).toFixed(0) }}% similar · {{ suggestion.reason }}
               </span>
             </div>

@@ -1,10 +1,10 @@
 <template>
   <div class="space-y-6">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-gray-700 to-gray-600 dark:from-gray-800 dark:to-gray-700 rounded-2xl shadow-lg p-6 text-white">
+    <div class="bg-gradient-to-r from-gray-700 to-gray-600 dark:from-gray-800 dark:to-gray-700 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
       <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 class="text-3xl font-bold mb-1 flex items-center gap-3">
+          <h1 class="text-2xl sm:text-3xl font-bold mb-1 flex items-center gap-3">
             <i class="pi pi-cog"></i>
             Admin
           </h1>
@@ -19,7 +19,7 @@
         <template #header>
           <div class="flex items-center gap-2">
             <i class="pi pi-upload"></i>
-            <span>Import</span>
+            <span class="hidden sm:inline">Import</span>
           </div>
         </template>
         <ImportView :hide-header="true" />
@@ -29,7 +29,7 @@
         <template #header>
           <div class="flex items-center gap-2">
             <i class="pi pi-microchip"></i>
-            <span>AI Settings</span>
+            <span class="hidden sm:inline">AI Settings</span>
           </div>
         </template>
         <AiSettingsView :hide-header="true" />
