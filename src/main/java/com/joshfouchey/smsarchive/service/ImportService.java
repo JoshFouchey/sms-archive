@@ -86,7 +86,10 @@ public class ImportService {
             .maximumSize(1000)
             .expireAfterAccess(java.time.Duration.ofMinutes(10))
             .build();
-    private final Map<UUID, ImportProgress> progressMap = new ConcurrentHashMap<>(); // job progress tracking
+    private final Cache<UUID, ImportProgress> progressMap = Caffeine.newBuilder()
+            .maximumSize(50)
+            .expireAfterWrite(java.time.Duration.ofHours(1))
+            .build();
 
     @Value("${smsarchive.import.inline:false}")
     private boolean importInline;
@@ -219,7 +222,7 @@ public class ImportService {
         return jobId;
     }
 
-    public ImportProgress getProgress(UUID id) { return progressMap.get(id); }
+    public ImportProgress getProgress(UUID id) { return progressMap.getIfPresent(id); }
 
     // Utility helpers
     private String attr(XMLStreamReader r, String name) { return r.getAttributeValue(null, name); }
@@ -282,7 +285,7 @@ public class ImportService {
     }
 
     protected void runStreamingImportAsync(UUID jobId, Path xmlPath) {
-        ImportProgress progress = progressMap.get(jobId);
+        ImportProgress progress = progressMap.getIfPresent(jobId);
         if (progress == null) { log.warn("No progress entry for job {}", jobId); return; }
         progress.setStatus("RUNNING");
         progress.setStartedAt(Instant.now());
