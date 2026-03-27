@@ -1,13 +1,15 @@
 import { createRouter, createWebHistory } from "vue-router";
 import type { RouteRecordRaw } from "vue-router";
-import Ask from "../views/Ask.vue";
-import Messages from "../views/Messages.vue";
-import Gallery from "../views/Gallery.vue";
-import KnowledgeGraph from "../views/KnowledgeGraph.vue";
-import Contacts from "../views/Contacts.vue";
-import Admin from "../views/Admin.vue";
-import Login from "../views/Login.vue";
-import Register from "../views/Register.vue";
+
+// Lazy-loaded route components — each becomes a separate chunk
+const Ask = () => import("../views/Ask.vue");
+const Messages = () => import("../views/Messages.vue");
+const Gallery = () => import("../views/Gallery.vue");
+const KnowledgeGraph = () => import("../views/KnowledgeGraph.vue");
+const Contacts = () => import("../views/Contacts.vue");
+const Admin = () => import("../views/Admin.vue");
+const Login = () => import("../views/Login.vue");
+const Register = () => import("../views/Register.vue");
 
 const routes: Array<RouteRecordRaw> = [
     { path: "/", name: "Ask", component: Ask },
