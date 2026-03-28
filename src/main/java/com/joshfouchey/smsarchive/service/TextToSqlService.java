@@ -34,6 +34,7 @@ public class TextToSqlService {
     private static final String SCHEMA_PROMPT = """
             You are a PostgreSQL query generator. Output ONLY a single raw SELECT statement.
             Never explain. Never use markdown. Never write introductory sentences.
+            Your response must start with the word SELECT.
 
             -- Schema:
             CREATE TABLE messages (id BIGINT, user_id UUID, sender_contact_id BIGINT, conversation_id BIGINT, timestamp TIMESTAMP, body TEXT, direction VARCHAR, protocol VARCHAR);
@@ -55,11 +56,7 @@ public class TextToSqlService {
             -- 6. Photos: ct LIKE 'image/%%%%'. Videos: ct LIKE 'video/%%%%'.
             -- 7. Simple queries: single SELECT. Only use CTEs for complex multi-step aggregations.
 
-            -- Question: %s
-            -- PostgreSQL Query:
-            SELECT""";
-
-    private static final String SQL_PREFIX = "SELECT";
+            -- Question: %s""";
 
     private final ChatModel chatModel;
     private final JdbcTemplate jdbcTemplate;
@@ -130,7 +127,7 @@ public class TextToSqlService {
                             .stop(List.of("\n\n\n", "```", "\n--"))
                             .build()));
 
-            String raw = SQL_PREFIX + " " + response.getResult().getOutput().getText().trim();
+            String raw = response.getResult().getOutput().getText().trim();
             raw = extractSql(raw);
             log.info("Text-to-SQL generated: {}", raw.replace("\n", " "));
             return raw;
