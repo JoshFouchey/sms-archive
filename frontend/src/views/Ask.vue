@@ -50,7 +50,7 @@
           </button>
         </div>
         <p class="text-xs text-gray-400 dark:text-gray-500 text-center mt-2">
-          {{ mode === 'AI' ? 'Search your knowledge graph and messages with AI' : mode === 'SEARCH' ? 'Find messages by meaning — great for conversations, arguments, and agreements' : 'Ask data questions — the AI writes SQL to query your archive' }}
+          {{ mode === 'AI' ? 'Search your messages with AI-powered semantic understanding' : mode === 'SEARCH' ? 'Find messages by meaning — great for conversations, arguments, and agreements' : 'Ask data questions — the AI writes SQL to query your archive' }}
         </p>
       </div>
 
@@ -153,34 +153,12 @@
                   <i class="pi pi-clock"></i>
                   {{ (response.processingTimeMs / 1000).toFixed(1) }}s
                 </span>
-                <span v-if="response.kgFacts.length" class="flex items-center gap-1">
-                  <i class="pi pi-link"></i>
-                  {{ response.kgFacts.length }} facts used
-                </span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- KG Facts Used (collapsible) -->
-        <div v-if="response && response.kgFacts.length > 0">
-          <button @click="showFacts = !showFacts" class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-amber-600 transition-colors">
-            <i :class="showFacts ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="text-xs"></i>
-            <i class="pi pi-sitemap text-xs"></i>
-            {{ response.kgFacts.length }} Knowledge Graph facts
-          </button>
-          <div v-if="showFacts" class="mt-2 space-y-1.5 ml-4">
-            <div v-for="fact in response.kgFacts" :key="fact.id"
-              class="text-sm p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex items-center gap-2">
-              <span class="font-medium text-blue-600 dark:text-blue-400">{{ fact.subjectName }}</span>
-              <span class="text-gray-400 font-mono text-xs">{{ fact.predicate.replace(/_/g, ' ') }}</span>
-              <span class="font-medium text-purple-600 dark:text-purple-400">{{ fact.objectName || fact.objectValue || '—' }}</span>
-              <span class="ml-auto text-[10px] text-gray-400">{{ (fact.confidence * 100).toFixed(0) }}%</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Source Messages (FACTUAL) -->
+        <!-- Source Messages -->
         <div v-if="response && response.sources.length > 0">
           <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-2">
             <i class="pi pi-comments text-xs"></i>
@@ -349,7 +327,6 @@ const query = ref('');
 const loading = ref(false);
 const error = ref('');
 const response = ref<QaResponse | null>(null);
-const showFacts = ref(false);
 const mode = ref<'AI' | 'SEARCH' | 'DATA'>('SEARCH');
 
 marked.setOptions({ breaks: true, gfm: true });
@@ -360,10 +337,10 @@ function renderMarkdown(text: string): string {
 }
 
 const aiSuggestions = [
-  'What car does John drive?',
-  'Tell me about Mom\'s allergies',
-  'What do I know about camping trips?',
-  'Who is Tom\'s girlfriend?',
+  'When did we discuss vacation plans?',
+  'Find messages about the camping trip',
+  'What did Bob say about paying me back?',
+  'Conversations about moving to a new house',
 ];
 
 const searchSuggestions = [
@@ -390,7 +367,6 @@ function switchMode(newMode: 'AI' | 'SEARCH' | 'DATA') {
   mode.value = newMode;
   response.value = null;
   error.value = '';
-  showFacts.value = false;
   searchInput.value?.focus();
 }
 
@@ -405,7 +381,6 @@ async function submitQuestion() {
   loading.value = true;
   error.value = '';
   response.value = null;
-  showFacts.value = false;
 
   try {
     response.value = await askQuestion({ question: q, mode: mode.value });

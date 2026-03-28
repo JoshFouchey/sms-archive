@@ -5,7 +5,6 @@ import type { RouteRecordRaw } from "vue-router";
 const Ask = () => import("../views/Ask.vue");
 const Messages = () => import("../views/Messages.vue");
 const Gallery = () => import("../views/Gallery.vue");
-const KnowledgeGraph = () => import("../views/KnowledgeGraph.vue");
 const Contacts = () => import("../views/Contacts.vue");
 const Admin = () => import("../views/Admin.vue");
 const Login = () => import("../views/Login.vue");
@@ -15,7 +14,6 @@ const routes: Array<RouteRecordRaw> = [
     { path: "/", name: "Ask", component: Ask },
     { path: "/messages", name: "Messages", component: Messages },
     { path: "/messages/:id", name: "MessagesDetail", component: Messages },
-    { path: "/explore", name: "Explore", component: KnowledgeGraph },
     { path: "/gallery", name: "Gallery", component: Gallery },
     { path: "/contacts", name: "Contacts", component: Contacts },
     { path: "/admin", name: "Admin", component: Admin },
@@ -23,7 +21,8 @@ const routes: Array<RouteRecordRaw> = [
     { path: "/register", name: "Register", component: Register },
     // Redirects for old routes
     { path: "/search", redirect: "/" },
-    { path: "/knowledge-graph", redirect: "/explore" },
+    { path: "/explore", redirect: "/" },
+    { path: "/knowledge-graph", redirect: "/" },
     { path: "/ai-settings", redirect: "/admin" },
     { path: "/import", redirect: "/admin" },
 ];

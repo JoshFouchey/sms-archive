@@ -318,22 +318,7 @@ ORDER BY year, month
         boolean getHasImage();
     }
 
-    // --- KG Extraction queries ---
-
-    @Query(value = """
-            SELECT m.id, m.conversation_id, LENGTH(m.body) FROM messages m
-            WHERE m.user_id = :userId
-              AND m.body IS NOT NULL
-              AND LENGTH(m.body) >= :minLength
-              AND NOT EXISTS (
-                  SELECT 1 FROM kg_processed_messages kpm
-                  WHERE kpm.message_id = m.id AND kpm.user_id = :userId
-              )
-            ORDER BY m.conversation_id, m.timestamp
-            """, nativeQuery = true)
-    List<Object[]> findUnprocessedForKgExtraction(
-            @Param("userId") UUID userId,
-            @Param("minLength") int minLength);
+    // --- KG Extraction queries removed (V18 migration drops KG tables) ---
 
     @Query("SELECT m FROM Message m LEFT JOIN FETCH m.senderContact LEFT JOIN FETCH m.conversation WHERE m.id IN :ids ORDER BY m.timestamp")
     List<Message> findAllByIdWithContacts(@Param("ids") List<Long> ids);

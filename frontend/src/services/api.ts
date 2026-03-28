@@ -377,11 +377,6 @@ export interface EmbeddingStats {
   modelName: string;
 }
 
-export interface KgStats {
-  entities: number;
-  triples: number;
-}
-
 export async function searchUnified(
   q: string,
   mode: SearchMode = 'AUTO',
@@ -401,98 +396,6 @@ export async function getEmbeddingStats(): Promise<EmbeddingStats> {
   return res.data;
 }
 
-export async function getKgStats(): Promise<KgStats> {
-  const res = await axios.get(`${API_BASE}/api/knowledge-graph/stats`);
-  return res.data;
-}
-
-/* ==============================
-   Knowledge Graph API
-============================== */
-
-export interface GraphNode {
-  id: string;
-  label: string;
-  type: string;
-  linkedContactId?: number | null;
-}
-
-export interface GraphEdge {
-  source: string;
-  target: string;
-  label: string;
-  confidence: number;
-}
-
-export interface KnowledgeGraph {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-}
-
-export interface KgEntity {
-  id: number;
-  canonicalName: string;
-  entityType: string;
-  description?: string;
-  aliases: string[];
-  linkedContactId?: number | null;
-  createdAt: string;
-}
-
-export interface KgTriple {
-  id: number;
-  subjectId: number;
-  subjectName: string;
-  subjectType: string;
-  predicate: string;
-  predicateRaw?: string;
-  isCanonical: boolean;
-  objectId?: number | null;
-  objectName?: string;
-  objectType?: string;
-  objectValue?: string;
-  confidence: number;
-  isVerified: boolean;
-  createdAt: string;
-}
-
-export async function getKnowledgeGraph(
-  entityId?: number | null,
-  depth: number = 2,
-  maxNodes: number = 100,
-): Promise<KnowledgeGraph> {
-  const params: any = { depth, maxNodes };
-  if (entityId) params.entityId = entityId;
-  const res = await axios.get(`${API_BASE}/api/knowledge-graph/graph`, { params });
-  return res.data;
-}
-
-export async function getKgEntities(
-  type?: string,
-  search?: string,
-): Promise<KgEntity[]> {
-  const params: any = {};
-  if (type) params.type = type;
-  if (search) params.search = search;
-  const res = await axios.get(`${API_BASE}/api/knowledge-graph/entities`, { params });
-  return res.data;
-}
-
-export async function getKgEntityFacts(entityId: number): Promise<KgTriple[]> {
-  const res = await axios.get(`${API_BASE}/api/knowledge-graph/entities/${entityId}/facts`);
-  return res.data;
-}
-
-export async function getRecentTriples(limit: number = 20): Promise<KgTriple[]> {
-  const res = await axios.get(`${API_BASE}/api/knowledge-graph/triples/recent`, { params: { limit } });
-  return res.data;
-}
-
-export async function getContactFacts(contactId: number): Promise<KgTriple[]> {
-  const res = await axios.get(`${API_BASE}/api/knowledge-graph/contacts/${contactId}/facts`);
-  return res.data;
-}
-
 /* ==============================
    AI Job Management
 ============================== */
@@ -509,37 +412,6 @@ export interface EmbeddingJob {
   completedAt: string | null;
   errorMessage: string | null;
   createdAt: string;
-}
-
-export interface KgExtractionJob {
-  id: string;
-  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-  totalMessages: number;
-  processed: number;
-  triplesFound: number;
-  entitiesFound: number;
-  percentComplete: number;
-  modelName: string;
-  startedAt: string | null;
-  completedAt: string | null;
-  errorMessage: string | null;
-  createdAt: string;
-}
-
-export interface MergeSuggestion {
-  entityId1: number;
-  entityName1: string;
-  entityId2: number;
-  entityName2: string;
-  entityType: string;
-  similarity: number;
-  reason: string;
-}
-
-export interface ResolutionResult {
-  autoMerged: number;
-  contactsLinked: number;
-  suggestions: MergeSuggestion[];
 }
 
 export async function startEmbeddingJob(): Promise<EmbeddingJob> {
@@ -566,45 +438,6 @@ export async function getEmbeddingJobHistory(): Promise<EmbeddingJob[]> {
   return res.data;
 }
 
-export async function startKgExtraction(): Promise<KgExtractionJob> {
-  const res = await axios.post(`${API_BASE}/api/knowledge-graph/extraction/start`);
-  return res.data;
-}
-
-export async function getKgExtractionJobs(): Promise<KgExtractionJob[]> {
-  const res = await axios.get(`${API_BASE}/api/knowledge-graph/extraction/jobs`);
-  return res.data;
-}
-
-export async function getKgExtractionJobStatus(jobId: string): Promise<KgExtractionJob> {
-  const res = await axios.get(`${API_BASE}/api/knowledge-graph/extraction/jobs/${jobId}`);
-  return res.data;
-}
-
-export async function cancelKgExtraction(jobId: string): Promise<void> {
-  await axios.post(`${API_BASE}/api/knowledge-graph/extraction/jobs/${jobId}/cancel`);
-}
-
-export async function resetKnowledgeGraph(): Promise<Record<string, number>> {
-  const res = await axios.post(`${API_BASE}/api/knowledge-graph/reset`);
-  return res.data;
-}
-
-export async function runEntityResolution(): Promise<ResolutionResult> {
-  const res = await axios.post(`${API_BASE}/api/knowledge-graph/resolution/run`);
-  return res.data;
-}
-
-export async function getMergeSuggestions(): Promise<MergeSuggestion[]> {
-  const res = await axios.get(`${API_BASE}/api/knowledge-graph/resolution/suggestions`);
-  return res.data;
-}
-
-export async function mergeKgEntities(primaryId: number, mergeFromId: number): Promise<KgEntity> {
-  const res = await axios.post(`${API_BASE}/api/knowledge-graph/entities/merge`, { primaryId, mergeFromId });
-  return res.data;
-}
-
 // --- Q&A ---
 
 export interface QaRequest {
@@ -623,10 +456,9 @@ export interface QaSource {
 }
 
 export interface QaResponse {
-  intent: 'FACTUAL' | 'ANALYTICS' | 'SEARCH';
+  intent: 'ANALYTICS' | 'SEARCH';
   answer: string | null;
   sources: QaSource[];
-  kgFacts: KgTriple[];
   analyticsData: any;
   searchResults: UnifiedSearchResult | null;
   processingTimeMs: number;

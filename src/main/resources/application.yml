@@ -104,11 +104,5 @@ smsarchive.ai:
     min-score: 0.005
     time-decay-half-life-days: 365
     conversation-dedup: true
-  kg:
-    model: ${SMSARCHIVE_AI_CHAT_MODEL:phi4-mini}
-    batch-size: 10
-    window-size: 20
-    min-body-length: 20
-    auto-extract: true
   sql:
     model: ${SMSARCHIVE_AI_SQL_MODEL:qwen2.5-coder:3b}
