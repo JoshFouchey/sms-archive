@@ -140,25 +140,50 @@ public class TextToSqlService {
                             .model(sqlModelName)
                             .temperature(0.1)
                             .numCtx(4096)
+                            .numPredict(512)
+                            .repeatPenalty(1.3)
+                            .repeatLastN(128)
+                            .stop(List.of("\n\n\n", "```", "Explanation:", "Note:"))
                             .build()));
 
             String raw = response.getResult().getOutput().getText().trim();
-            // Strip markdown code fences if present
-            raw = raw.replaceAll("(?s)^```(?:sql)?\\s*", "").replaceAll("(?s)\\s*```$", "").trim();
-            // Remove trailing semicolons
-            raw = raw.replaceAll(";\\s*$", "").trim();
-            // Fix malformed CTE: "WITH (" → "WITH"
-            raw = raw.replaceAll("(?i)^WITH\\s*\\(\\s*\\n?", "WITH ");
-            // Fix empty COUNT(): COUNT() → COUNT(*)
-            raw = raw.replaceAll("(?i)COUNT\\(\\)", "COUNT(*)");
-            // Fix stray ") AS sub" or ") AS sub SELECT" between CTE and final SELECT
-            raw = raw.replaceAll("(?i)\\)\\s*\\)\\s*AS\\s+\\w+\\s*SELECT", ") SELECT");
-
+            raw = extractSql(raw);
             log.info("Text-to-SQL generated: {}", raw.replace("\n", " "));
             return raw;
         } catch (Exception e) {
             throw new TextToSqlException("Failed to generate SQL: " + e.getMessage(), e);
         }
+    }
+
+    /** Extract SQL from model output, handling cases where the model wraps it in prose. */
+    private String extractSql(String raw) {
+        // Strip markdown code fences if present
+        raw = raw.replaceAll("(?s)^```(?:sql)?\\s*", "").replaceAll("(?s)\\s*```$", "").trim();
+
+        // If the output starts with prose instead of SQL, try to find the SQL within it
+        if (!raw.isEmpty() && !raw.toUpperCase().matches("^(SELECT|WITH)\\b.*")) {
+            // Look for SELECT or WITH statement embedded in the prose
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("(?si)((?:WITH\\s+\\w+|SELECT)\\b.+)")
+                    .matcher(raw);
+            if (m.find()) {
+                raw = m.group(1).trim();
+            }
+        }
+
+        // Truncate at repetition loops (e.g. "with with with with...")
+        raw = raw.replaceAll("(?i)(\\b\\w+\\b)(\\s+\\1){3,}.*", "").trim();
+
+        // Remove trailing semicolons
+        raw = raw.replaceAll(";\\s*$", "").trim();
+        // Fix malformed CTE: "WITH (" → "WITH"
+        raw = raw.replaceAll("(?i)^WITH\\s*\\(\\s*\\n?", "WITH ");
+        // Fix empty COUNT(): COUNT() → COUNT(*)
+        raw = raw.replaceAll("(?i)COUNT\\(\\)", "COUNT(*)");
+        // Fix stray ") AS sub" or ") AS sub SELECT" between CTE and final SELECT
+        raw = raw.replaceAll("(?i)\\)\\s*\\)\\s*AS\\s+\\w+\\s*SELECT", ") SELECT");
+
+        return raw;
     }
 
     /** Normalize question text to reduce SLM confusion with certain phrasings. */
