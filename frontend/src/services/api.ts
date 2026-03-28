@@ -442,7 +442,7 @@ export async function getEmbeddingJobHistory(): Promise<EmbeddingJob[]> {
 
 export interface QaRequest {
   question: string;
-  mode?: 'AI' | 'SEARCH' | 'DATA' | null;
+  mode?: 'SEARCH' | 'DATA' | null;
   conversationId?: number | null;
   contactId?: number | null;
 }
