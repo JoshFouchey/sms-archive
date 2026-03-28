@@ -32,51 +32,34 @@ public class TextToSqlService {
             "^\\s*(SELECT|WITH)\\b", Pattern.CASE_INSENSITIVE);
 
     private static final String SCHEMA_PROMPT = """
-            You are a PostgreSQL SQL expert. Generate a SELECT query to answer the user's question about their personal text message archive.
+            You are a PostgreSQL query generator. Output ONLY a single raw SELECT statement.
+            Never explain. Never use markdown. Never write introductory sentences.
 
-            CONTEXT: This is a personal SMS/MMS archive app. The "user" is the app owner (me). "Contacts" are the people I text with.
+            -- Schema:
+            CREATE TABLE messages (id BIGINT, user_id UUID, sender_contact_id BIGINT, conversation_id BIGINT, timestamp TIMESTAMP, body TEXT, direction VARCHAR, protocol VARCHAR);
+            -- direction: 'INBOUND' (from contact) or 'OUTBOUND' (sent by me). sender_contact_id is NULL for OUTBOUND.
+            -- protocol: 'SMS', 'MMS', or 'RCS'. body may be NULL for image-only MMS.
+            CREATE TABLE contacts (id BIGINT, user_id UUID, number VARCHAR, normalized_number VARCHAR, name VARCHAR);
+            -- Use ILIKE for name search: WHERE c.name ILIKE '%%%%John%%%%'
+            CREATE TABLE conversations (id BIGINT, user_id UUID, name VARCHAR, last_message_at TIMESTAMP);
+            CREATE TABLE conversation_contacts (conversation_id BIGINT, contact_id BIGINT);
+            CREATE TABLE message_parts (id BIGINT, message_id BIGINT, ct VARCHAR, name VARCHAR, file_path VARCHAR, size_bytes BIGINT);
+            -- ct is MIME type: 'image/jpeg', 'video/mp4', etc.
 
-            DATABASE SCHEMA:
+            -- Rules:
+            -- 1. ALWAYS filter by user_id = '__USER_ID__' on tables with user_id.
+            -- 2. LIMIT %d rows max.
+            -- 3. Use readable aliases: AS contact_name, AS message_count, etc.
+            -- 4. Messages with a contact: JOIN conversation_contacts cc ON cc.conversation_id = m.conversation_id JOIN contacts c ON c.id = cc.contact_id
+            -- 5. Temporal: use TO_CHAR for display, EXTRACT in ORDER BY for chronological order.
+            -- 6. Photos: ct LIKE 'image/%%%%'. Videos: ct LIKE 'video/%%%%'.
+            -- 7. Simple queries: single SELECT. Only use CTEs for complex multi-step aggregations.
 
-            messages(id BIGINT, user_id UUID, sender_contact_id BIGINT, conversation_id BIGINT, timestamp TIMESTAMP, body TEXT, direction VARCHAR, protocol VARCHAR)
-              - direction = 'INBOUND' (received from contact), 'OUTBOUND' (sent by me)
-              - sender_contact_id: NULL for OUTBOUND (I am the sender). For INBOUND, this is the contact who sent it.
-              - protocol: 'SMS', 'MMS' (has media), or 'RCS'
-              - body contains the text content (may be NULL for image-only MMS)
+            -- Question: %s
+            -- PostgreSQL Query:
+            SELECT""";
 
-            contacts(id BIGINT, user_id UUID, number VARCHAR, normalized_number VARCHAR, name VARCHAR)
-              - name is the display name (e.g. 'John Doe', 'Mom')
-              - Use ILIKE for name matching: WHERE c.name ILIKE '%%John%%'
-
-            conversations(id BIGINT, user_id UUID, name VARCHAR, last_message_at TIMESTAMP)
-              - Each conversation is a thread between me and one or more contacts
-
-            conversation_contacts(conversation_id BIGINT, contact_id BIGINT)
-              - Links conversations to their participant contacts
-
-            message_parts(id BIGINT, message_id BIGINT, ct VARCHAR, name VARCHAR, file_path VARCHAR, size_bytes BIGINT)
-              - ct is MIME type (e.g. 'image/jpeg', 'video/mp4', 'text/plain')
-
-            RULES:
-            1. ALWAYS filter by user_id = '__USER_ID__' on every table that has user_id.
-            2. Return at most %d rows using LIMIT.
-            3. Use human-readable aliases: AS contact_name, AS message_count, etc.
-            4. Output ONLY raw SQL — no markdown, no code fences, no explanation.
-            5. TEMPORAL SORTING: When grouping by day or month name, use TO_CHAR for display but ALWAYS include the numeric EXTRACT value in ORDER BY for chronological order (e.g., Monday before Tuesday, January before February).
-            6. SENDER LOGIC: To find messages SENT BY a contact, filter by m.sender_contact_id. To find all messages WITHIN A CONVERSATION with a contact, join through conversation_contacts.
-            7. MEDIA LOGIC: Photos/images are WHERE ct LIKE 'image/%%'. Videos are WHERE ct LIKE 'video/%%'.
-            8. Use WITH (CTE) clauses ONLY for complex multi-step aggregations. For simple GROUP BY queries, write a single SELECT.
-            9. USE EXISTING COLUMNS: The direction column already stores 'INBOUND'/'OUTBOUND'. Do NOT use CASE WHEN to recompute it. Simply GROUP BY direction.
-
-            COMMON QUERY PATTERNS:
-            - Messages with a contact: JOIN conversation_contacts cc ON cc.conversation_id = m.conversation_id JOIN contacts c ON c.id = cc.contact_id WHERE c.name ILIKE '%%Name%%'
-            - Top contacts: GROUP BY contact name, ORDER BY count DESC
-            - Day with most activity: SELECT TO_CHAR(timestamp, 'Day') AS day_name, COUNT(*) AS message_count FROM messages WHERE user_id = '__USER_ID__' GROUP BY day_name, EXTRACT(DOW FROM timestamp) ORDER BY EXTRACT(DOW FROM timestamp)
-            - Average messages per conversation: SELECT AVG(cnt) FROM (SELECT COUNT(*) AS cnt FROM messages WHERE user_id = '__USER_ID__' GROUP BY conversation_id) AS sub
-            - Percentage/ratio breakdown: SELECT direction, COUNT(*) AS message_count, ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 2) AS percentage FROM messages WHERE user_id = '__USER_ID__' GROUP BY direction
-            - First/last message: ORDER BY m.timestamp ASC/DESC LIMIT 1
-
-            Question: %s""";
+    private static final String SQL_PREFIX = "SELECT";
 
     private final ChatModel chatModel;
     private final JdbcTemplate jdbcTemplate;
@@ -138,15 +121,16 @@ public class TextToSqlService {
             ChatResponse response = chatModel.call(
                     new Prompt(prompt, OllamaOptions.builder()
                             .model(sqlModelName)
-                            .temperature(0.1)
+                            .temperature(0.0)
+                            .topP(0.1)
                             .numCtx(4096)
                             .numPredict(512)
-                            .repeatPenalty(1.3)
+                            .repeatPenalty(1.2)
                             .repeatLastN(128)
-                            .stop(List.of("\n\n\n", "```", "Explanation:", "Note:"))
+                            .stop(List.of("\n\n\n", "```", "-- ", ";"))
                             .build()));
 
-            String raw = response.getResult().getOutput().getText().trim();
+            String raw = SQL_PREFIX + " " + response.getResult().getOutput().getText().trim();
             raw = extractSql(raw);
             log.info("Text-to-SQL generated: {}", raw.replace("\n", " "));
             return raw;
