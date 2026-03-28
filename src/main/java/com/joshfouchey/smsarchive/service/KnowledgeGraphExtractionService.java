@@ -598,7 +598,7 @@ public class KnowledgeGraphExtractionService {
                             new Prompt(prompt, OllamaOptions.builder()
                                     .model(modelName)
                                     .temperature(0.3)
-                                    .numCtx(8192)
+                                    .numCtx(4096)
                                     .build()));
                     return response.getResult().getOutput().getText();
                 });
