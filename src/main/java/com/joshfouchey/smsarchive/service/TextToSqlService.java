@@ -127,7 +127,7 @@ public class TextToSqlService {
                             .numPredict(512)
                             .repeatPenalty(1.2)
                             .repeatLastN(128)
-                            .stop(List.of("\n\n\n", "```", "-- ", ";"))
+                            .stop(List.of("\n\n\n", "```", "\n--"))
                             .build()));
 
             String raw = SQL_PREFIX + " " + response.getResult().getOutput().getText().trim();
