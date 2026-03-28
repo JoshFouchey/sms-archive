@@ -105,4 +105,4 @@ smsarchive.ai:
     time-decay-half-life-days: 365
     conversation-dedup: true
   sql:
-    model: ${SMSARCHIVE_AI_SQL_MODEL:qwen2.5-coder:3b}
+    model: ${SMSARCHIVE_AI_SQL_MODEL:qwen2.5-coder:7b}

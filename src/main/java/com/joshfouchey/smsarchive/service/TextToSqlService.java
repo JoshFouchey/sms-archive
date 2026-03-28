@@ -61,7 +61,7 @@ public class TextToSqlService {
     private final ChatModel chatModel;
     private final JdbcTemplate jdbcTemplate;
 
-    @Value("${smsarchive.ai.sql.model:qwen2.5-coder:3b}")
+    @Value("${smsarchive.ai.sql.model:qwen2.5-coder:7b}")
     private String sqlModelName;
 
     public TextToSqlService(ChatModel chatModel, JdbcTemplate jdbcTemplate) {
