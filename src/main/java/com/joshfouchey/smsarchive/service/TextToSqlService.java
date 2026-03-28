@@ -122,6 +122,7 @@ public class TextToSqlService {
                             .topP(0.1)
                             .numCtx(4096)
                             .numPredict(512)
+                            .numGPU(0)
                             .repeatPenalty(1.2)
                             .repeatLastN(128)
                             .stop(List.of("\n\n\n", "```", "\n--"))
