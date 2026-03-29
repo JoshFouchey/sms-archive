@@ -1,14 +1,12 @@
 package com.joshfouchey.smsarchive.service;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.ollama.api.OllamaOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
 
 import java.util.*;
 import java.util.regex.Pattern;
@@ -32,61 +30,32 @@ public class TextToSqlService {
             "^\\s*(SELECT|WITH)\\b", Pattern.CASE_INSENSITIVE);
 
     private static final String SCHEMA_PROMPT = """
-            You are a PostgreSQL SQL expert. Generate a SELECT query to answer the user's question about their personal text message archive.
+            Write a PostgreSQL SELECT query. Output ONLY the SQL, nothing else.
 
-            CONTEXT: This is a personal SMS/MMS archive app. The "user" is the app owner (me). "Contacts" are the people I text with.
+            Tables:
+            - messages: id, user_id (UUID), sender_contact_id, conversation_id, timestamp, body, direction ('INBOUND'/'OUTBOUND'), protocol ('SMS'/'MMS'/'RCS')
+            - contacts: id, user_id (UUID), number, normalized_number, name
+            - conversations: id, user_id (UUID), name, last_message_at
+            - conversation_contacts: conversation_id, contact_id
+            - message_parts: id, message_id, ct (MIME type), name, file_path, size_bytes
 
-            DATABASE SCHEMA:
-
-            messages(id BIGINT, user_id UUID, sender_contact_id BIGINT, conversation_id BIGINT, timestamp TIMESTAMP, body TEXT, direction VARCHAR, protocol VARCHAR)
-              - direction = 'INBOUND' (received from contact), 'OUTBOUND' (sent by me)
-              - sender_contact_id: NULL for OUTBOUND (I am the sender). For INBOUND, this is the contact who sent it.
-              - protocol: 'SMS', 'MMS' (has media), or 'RCS'
-              - body contains the text content (may be NULL for image-only MMS)
-
-            contacts(id BIGINT, user_id UUID, number VARCHAR, normalized_number VARCHAR, name VARCHAR)
-              - name is the display name (e.g. 'John Doe', 'Mom')
-              - Use ILIKE for name matching: WHERE c.name ILIKE '%%John%%'
-
-            conversations(id BIGINT, user_id UUID, name VARCHAR, last_message_at TIMESTAMP)
-              - Each conversation is a thread between me and one or more contacts
-
-            conversation_contacts(conversation_id BIGINT, contact_id BIGINT)
-              - Links conversations to their participant contacts
-
-            message_parts(id BIGINT, message_id BIGINT, ct VARCHAR, name VARCHAR, file_path VARCHAR, size_bytes BIGINT)
-              - ct is MIME type (e.g. 'image/jpeg', 'video/mp4', 'text/plain')
-
-            RULES:
-            1. ALWAYS filter by user_id = '__USER_ID__' on every table that has user_id.
-            2. Return at most %d rows using LIMIT.
-            3. Use human-readable aliases: AS contact_name, AS message_count, etc.
-            4. Output ONLY raw SQL — no markdown, no code fences, no explanation.
-            5. TEMPORAL SORTING: When grouping by day or month name, use TO_CHAR for display but ALWAYS include the numeric EXTRACT value in ORDER BY for chronological order (e.g., Monday before Tuesday, January before February).
-            6. SENDER LOGIC: To find messages SENT BY a contact, filter by m.sender_contact_id. To find all messages WITHIN A CONVERSATION with a contact, join through conversation_contacts.
-            7. MEDIA LOGIC: Photos/images are WHERE ct LIKE 'image/%%'. Videos are WHERE ct LIKE 'video/%%'.
-            8. Use WITH (CTE) clauses ONLY for complex multi-step aggregations. For simple GROUP BY queries, write a single SELECT.
-            9. USE EXISTING COLUMNS: The direction column already stores 'INBOUND'/'OUTBOUND'. Do NOT use CASE WHEN to recompute it. Simply GROUP BY direction.
-
-            COMMON QUERY PATTERNS:
-            - Messages with a contact: JOIN conversation_contacts cc ON cc.conversation_id = m.conversation_id JOIN contacts c ON c.id = cc.contact_id WHERE c.name ILIKE '%%Name%%'
-            - Top contacts: GROUP BY contact name, ORDER BY count DESC
-            - Day with most activity: SELECT TO_CHAR(timestamp, 'Day') AS day_name, COUNT(*) AS message_count FROM messages WHERE user_id = '__USER_ID__' GROUP BY day_name, EXTRACT(DOW FROM timestamp) ORDER BY EXTRACT(DOW FROM timestamp)
-            - Average messages per conversation: SELECT AVG(cnt) FROM (SELECT COUNT(*) AS cnt FROM messages WHERE user_id = '__USER_ID__' GROUP BY conversation_id) AS sub
-            - Percentage/ratio breakdown: SELECT direction, COUNT(*) AS message_count, ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 2) AS percentage FROM messages WHERE user_id = '__USER_ID__' GROUP BY direction
-            - First/last message: ORDER BY m.timestamp ASC/DESC LIMIT 1
+            Always filter by user_id = '__USER_ID__'. Max %d rows.
+            To find messages with a contact, match contacts.name using ILIKE.
 
             Question: %s""";
 
-    private final ChatModel chatModel;
+    private final RestClient restClient;
     private final JdbcTemplate jdbcTemplate;
 
-    @Value("${smsarchive.ai.sql.model:qwen2.5-coder:3b}")
+    @Value("${smsarchive.ai.sql.model:qwen2.5-coder:7b}")
     private String sqlModelName;
 
-    public TextToSqlService(ChatModel chatModel, JdbcTemplate jdbcTemplate) {
-        this.chatModel = chatModel;
+    @Value("${spring.ai.ollama.base-url:http://localhost:11434}")
+    private String ollamaBaseUrl;
+
+    public TextToSqlService(JdbcTemplate jdbcTemplate, RestClient.Builder restClientBuilder) {
         this.jdbcTemplate = jdbcTemplate;
+        this.restClient = restClientBuilder.build();
     }
 
     public TextToSqlResult generateAndExecute(String question, UUID userId) {
@@ -130,35 +99,74 @@ public class TextToSqlService {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private String generateSql(String question) {
         String normalizedQuestion = normalizeQuestion(question);
         String prompt = String.format(SCHEMA_PROMPT, MAX_ROWS, normalizedQuestion);
 
         try {
-            ChatResponse response = chatModel.call(
-                    new Prompt(prompt, OllamaOptions.builder()
-                            .model(sqlModelName)
-                            .temperature(0.1)
-                            .numCtx(4096)
-                            .build()));
+            log.debug("Text-to-SQL prompt:\n{}", prompt);
+            Map<String, Object> request = Map.of(
+                    "model", sqlModelName,
+                    "messages", List.of(Map.of("role", "user", "content", prompt)),
+                    "stream", false,
+                    "options", Map.of(
+                            "temperature", 0,
+                            "num_gpu", 0,
+                            "num_predict", 512,
+                            "repeat_penalty", 1.2,
+                            "repeat_last_n", 128
+                    )
+            );
 
-            String raw = response.getResult().getOutput().getText().trim();
-            // Strip markdown code fences if present
-            raw = raw.replaceAll("(?s)^```(?:sql)?\\s*", "").replaceAll("(?s)\\s*```$", "").trim();
-            // Remove trailing semicolons
-            raw = raw.replaceAll(";\\s*$", "").trim();
-            // Fix malformed CTE: "WITH (" → "WITH"
-            raw = raw.replaceAll("(?i)^WITH\\s*\\(\\s*\\n?", "WITH ");
-            // Fix empty COUNT(): COUNT() → COUNT(*)
-            raw = raw.replaceAll("(?i)COUNT\\(\\)", "COUNT(*)");
-            // Fix stray ") AS sub" or ") AS sub SELECT" between CTE and final SELECT
-            raw = raw.replaceAll("(?i)\\)\\s*\\)\\s*AS\\s+\\w+\\s*SELECT", ") SELECT");
+            Map<String, Object> response = restClient.post()
+                    .uri(ollamaBaseUrl + "/api/chat")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(request)
+                    .retrieve()
+                    .body(Map.class);
 
+            Map<String, Object> message = (Map<String, Object>) response.get("message");
+            String raw = ((String) message.get("content")).trim();
+            raw = extractSql(raw);
             log.info("Text-to-SQL generated: {}", raw.replace("\n", " "));
             return raw;
+        } catch (TextToSqlException e) {
+            throw e;
         } catch (Exception e) {
             throw new TextToSqlException("Failed to generate SQL: " + e.getMessage(), e);
         }
+    }
+
+    /** Extract SQL from model output, handling cases where the model wraps it in prose. */
+    private String extractSql(String raw) {
+        // Strip markdown code fences if present
+        raw = raw.replaceAll("(?s)^```(?:sql)?\\s*", "").replaceAll("(?s)\\s*```$", "").trim();
+
+        // If the output starts with prose instead of SQL, try to find the SQL within it
+        if (!raw.isEmpty() && !raw.toUpperCase().matches("^(SELECT|WITH)\\b.*")) {
+            // Look for SELECT or WITH statement embedded in the prose
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("(?si)((?:WITH\\s+\\w+|SELECT)\\b.+)")
+                    .matcher(raw);
+            if (m.find()) {
+                raw = m.group(1).trim();
+            }
+        }
+
+        // Truncate at repetition loops (e.g. "with with with with...")
+        raw = raw.replaceAll("(?i)(\\b\\w+\\b)(\\s+\\1){3,}.*", "").trim();
+
+        // Remove trailing semicolons
+        raw = raw.replaceAll(";\\s*$", "").trim();
+        // Fix malformed CTE: "WITH (" → "WITH"
+        raw = raw.replaceAll("(?i)^WITH\\s*\\(\\s*\\n?", "WITH ");
+        // Fix empty COUNT(): COUNT() → COUNT(*)
+        raw = raw.replaceAll("(?i)COUNT\\(\\)", "COUNT(*)");
+        // Fix stray ") AS sub" or ") AS sub SELECT" between CTE and final SELECT
+        raw = raw.replaceAll("(?i)\\)\\s*\\)\\s*AS\\s+\\w+\\s*SELECT", ") SELECT");
+
+        return raw;
     }
 
     /** Normalize question text to reduce SLM confusion with certain phrasings. */
