@@ -365,6 +365,7 @@ public class EmbeddingService {
                 return embeddingModel.call(
                         new EmbeddingRequest(texts, OpenAiEmbeddingOptions.builder()
                                 .model(modelName)
+                                .encodingFormat("float")
                                 .build()));
             } catch (Exception e) {
                 lastException = e;
@@ -386,8 +387,8 @@ public class EmbeddingService {
     public float[] embedQuery(String query) {
         EmbeddingResponse response = embeddingModel.call(
                 new EmbeddingRequest(
-                        List.of(query),
-                        OpenAiEmbeddingOptions.builder().model(modelName).build()));
+                        List.of(truncate(query)),
+                        OpenAiEmbeddingOptions.builder().model(modelName).encodingFormat("float").build()));
         return response.getResults().get(0).getOutput();
     }
 
@@ -542,6 +543,9 @@ public class EmbeddingService {
 
     private String truncate(String text) {
         if (text == null) return "";
+        // Strip unpaired surrogates that break JSON serialization for llama.cpp
+        text = text.replaceAll("[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])", "")
+                   .replaceAll("(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF]", "");
         return text.length() > maxBodyChars ? text.substring(0, maxBodyChars) : text;
     }
 }
