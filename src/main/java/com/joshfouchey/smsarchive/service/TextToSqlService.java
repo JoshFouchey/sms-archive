@@ -4,7 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.ollama.api.OllamaOptions;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -49,7 +49,7 @@ public class TextToSqlService {
     private final ChatModel chatModel;
     private final JdbcTemplate jdbcTemplate;
 
-    @Value("${smsarchive.ai.sql.model:qwen2.5-coder:7b}")
+    @Value("${smsarchive.ai.sql.model:qwen2.5-coder-3b-instruct}")
     private String sqlModelName;
 
     public TextToSqlService(ChatModel chatModel, JdbcTemplate jdbcTemplate) {
@@ -104,13 +104,11 @@ public class TextToSqlService {
 
         try {
             ChatResponse response = chatModel.call(
-                    new Prompt(prompt, OllamaOptions.builder()
+                    new Prompt(prompt, OpenAiChatOptions.builder()
                             .model(sqlModelName)
                             .temperature(0.1)
-                            .numCtx(4096)
-                            .numPredict(512)
-                            .repeatPenalty(1.2)
-                            .repeatLastN(128)
+                            .maxTokens(512)
+                            .frequencyPenalty(1.2)
                             .build()));
 
             String raw = response.getResult().getOutput().getText().trim();

@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.ai.ollama.OllamaEmbeddingModel;
+import org.springframework.ai.openai.OpenAiEmbeddingModel;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.*;
 @ExtendWith(MockitoExtension.class)
 class EmbeddingServiceChunkTest {
 
-    @Mock OllamaEmbeddingModel embeddingModel;
+    @Mock OpenAiEmbeddingModel embeddingModel;
     @Mock MessageRepository messageRepository;
     @Mock MessageEmbeddingRepository embeddingRepository;
     @Mock EmbeddingJobRepository jobRepository;

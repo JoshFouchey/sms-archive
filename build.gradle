@@ -40,9 +40,9 @@ dependencies {
     implementation 'net.coobird:thumbnailator:0.4.21'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.2.0'
 
-    // Spring AI — Ollama integration for embeddings & LLM
+    // Spring AI — OpenAI-compatible integration for embeddings & LLM (works with llama.cpp)
     implementation platform('org.springframework.ai:spring-ai-bom:1.0.0')
-    implementation 'org.springframework.ai:spring-ai-starter-model-ollama'
+    implementation 'org.springframework.ai:spring-ai-starter-model-openai'
 
     // pgvector JDBC type support
     implementation 'com.pgvector:pgvector:0.1.6'

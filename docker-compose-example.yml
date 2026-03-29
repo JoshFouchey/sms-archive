@@ -64,8 +64,10 @@ services:
       SMSARCHIVE_IMPORT_DIRECTORY_DELETE_AFTER_IMPORT: ${SMSARCHIVE_IMPORT_DIRECTORY_DELETE_AFTER_IMPORT:-false}
       SMSARCHIVE_IMPORT_DIRECTORY_RETENTION_DAYS: ${SMSARCHIVE_IMPORT_DIRECTORY_RETENTION_DAYS:-7}
       SMSARCHIVE_IMPORT_DIRECTORY_FILE_AGE_THRESHOLD: ${SMSARCHIVE_IMPORT_DIRECTORY_FILE_AGE_THRESHOLD:-30}
-      # AI / Ollama connection
-      SPRING_AI_OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      # AI / LLM connection (OpenAI-compatible)
+      SPRING_AI_OPENAI_API_KEY: ${SPRING_AI_OPENAI_API_KEY:-not-needed}
+      SPRING_AI_OPENAI_CHAT_BASE_URL: ${SPRING_AI_OPENAI_CHAT_BASE_URL:-http://llama-cpp-sql:8080}
+      SPRING_AI_OPENAI_EMBEDDING_BASE_URL: ${SPRING_AI_OPENAI_EMBEDDING_BASE_URL:-http://llama-cpp-embed:8080}
       SMSARCHIVE_AI_ENABLED: ${SMSARCHIVE_AI_ENABLED:-true}
       DB_WAIT_MAX_SECONDS: 120
       TZ: ${TZ}
@@ -87,34 +89,6 @@ services:
     networks:
       - internal
       - proxy
-
-  # ---------------------------------------------------------------------------
-  # Ollama — Local AI inference (optional)
-  # Activate with: docker compose --profile ai up -d
-  # If you already run Ollama elsewhere, set OLLAMA_BASE_URL in .env instead.
-  # ---------------------------------------------------------------------------
-  ollama:
-    image: ollama/ollama:rocm
-    profiles: ["ai"]
-    restart: unless-stopped
-    env_file:
-      - .env
-    volumes:
-      - ${OLLAMA_MODELS_PATH:-./ollama-models}:/root/.ollama
-    devices:
-      - /dev/kfd:/dev/kfd
-      - /dev/dri:/dev/dri
-    environment:
-      HSA_OVERRIDE_GFX_VERSION: "${HSA_OVERRIDE_GFX_VERSION:-7.0.1}"
-      OLLAMA_NUM_PARALLEL: 1
-      OLLAMA_MAX_LOADED_MODELS: 1
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - internal
 
   frontend:
     build:

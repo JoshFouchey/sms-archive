@@ -69,19 +69,18 @@ jwt:
   accessTtlMinutes: ${JWT_ACCESS_TTL_MINUTES:15}
   refreshTtlDays: ${JWT_REFRESH_TTL_DAYS:30}
 
-# AI / Ollama configuration
+# AI / LLM configuration (OpenAI-compatible API — works with llama.cpp, Ollama, etc.)
 spring.ai:
-  ollama:
-    base-url: ${SPRING_AI_OLLAMA_BASE_URL:http://localhost:11434}
-    init:
-      pull-model-strategy: never
-    embedding:
-      model: ${SMSARCHIVE_AI_EMBEDDING_MODEL:qwen3-embedding:0.6b}
+  openai:
+    api-key: ${SPRING_AI_OPENAI_API_KEY:not-needed}
     chat:
-      model: ${SMSARCHIVE_AI_CHAT_MODEL:phi4-mini}
+      base-url: ${SPRING_AI_OPENAI_CHAT_BASE_URL:http://localhost:8080}
+      model: ${SMSARCHIVE_AI_CHAT_MODEL:qwen2.5-coder-3b-instruct}
       options:
         temperature: 0.1
-        num-ctx: 4096
+    embedding:
+      base-url: ${SPRING_AI_OPENAI_EMBEDDING_BASE_URL:http://localhost:8081}
+      model: ${SMSARCHIVE_AI_EMBEDDING_MODEL:qwen3-embedding-0.6b}
 
 smsarchive.ai:
   enabled: ${SMSARCHIVE_AI_ENABLED:true}
@@ -90,7 +89,7 @@ smsarchive.ai:
     interval: 100          # pause every N batches/windows
     pause-seconds: 60      # how long to pause
   embedding:
-    model: ${SMSARCHIVE_AI_EMBEDDING_MODEL:qwen3-embedding:0.6b}
+    model: ${SMSARCHIVE_AI_EMBEDDING_MODEL:qwen3-embedding-0.6b}
     dimensions: 1024
     batch-size: 64
     max-body-chars: 7500
@@ -105,4 +104,4 @@ smsarchive.ai:
     time-decay-half-life-days: 365
     conversation-dedup: true
   sql:
-    model: ${SMSARCHIVE_AI_SQL_MODEL:qwen2.5-coder:7b}
+    model: ${SMSARCHIVE_AI_SQL_MODEL:qwen2.5-coder-3b-instruct}

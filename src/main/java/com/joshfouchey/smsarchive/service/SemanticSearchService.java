@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 
 /**
  * Semantic search pipeline: embed query → pgvector ANN → ranked results.
- * Handles Ollama unavailability gracefully by returning empty results.
+ * Handles LLM server unavailability gracefully by returning empty results.
  */
 
 @Slf4j
@@ -45,7 +45,7 @@ public class SemanticSearchService {
 
     /**
      * Semantic search pipeline:
-     * 1. Embed user query via Ollama
+     * 1. Embed user query via embedding model
      * 2. Vector ANN search via pgvector HNSW index
      * 3. Return top-K results with similarity scores
      */
@@ -63,7 +63,7 @@ public class SemanticSearchService {
         try {
             queryVector = embedQueryWithRetry(naturalLanguageQuery);
         } catch (Exception e) {
-            log.warn("Semantic search unavailable — Ollama embedding failed: {}", e.getMessage());
+            log.warn("Semantic search unavailable — LLM server embedding failed: {}", e.getMessage());
             return new SemanticSearchResult(naturalLanguageQuery, List.of(), 0);
         }
         String vectorString = EmbeddingService.toVectorString(queryVector);
@@ -131,7 +131,7 @@ public class SemanticSearchService {
 
     /**
      * Embed a query with retry logic (2 attempts with 1s backoff).
-     * Handles transient Ollama failures gracefully.
+     * Handles transient LLM server failures gracefully.
      */
     private float[] embedQueryWithRetry(String query) {
         Exception lastException = null;
@@ -149,6 +149,6 @@ public class SemanticSearchService {
                 }
             }
         }
-        throw new RuntimeException("Ollama embedding unavailable after 2 attempts", lastException);
+        throw new RuntimeException("LLM server embedding unavailable after 2 attempts", lastException);
     }
 }

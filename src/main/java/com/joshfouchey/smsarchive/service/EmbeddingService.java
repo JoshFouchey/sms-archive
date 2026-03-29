@@ -14,8 +14,8 @@ import com.joshfouchey.smsarchive.repository.MessageRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingRequest;
 import org.springframework.ai.embedding.EmbeddingResponse;
-import org.springframework.ai.ollama.OllamaEmbeddingModel;
-import org.springframework.ai.ollama.api.OllamaOptions;
+import org.springframework.ai.openai.OpenAiEmbeddingModel;
+import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -35,7 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @ConditionalOnProperty(name = "smsarchive.ai.enabled", havingValue = "true", matchIfMissing = true)
 public class EmbeddingService {
 
-    private final OllamaEmbeddingModel embeddingModel;
+    private final OpenAiEmbeddingModel embeddingModel;
     private final MessageRepository messageRepository;
     private final MessageEmbeddingRepository embeddingRepository;
     private final EmbeddingJobRepository jobRepository;
@@ -77,7 +77,7 @@ public class EmbeddingService {
     private int cooldownPauseSeconds;
 
     public EmbeddingService(
-            OllamaEmbeddingModel embeddingModel,
+            OpenAiEmbeddingModel embeddingModel,
             MessageRepository messageRepository,
             MessageEmbeddingRepository embeddingRepository,
             EmbeddingJobRepository jobRepository,
@@ -363,13 +363,13 @@ public class EmbeddingService {
         for (int attempt = 0; attempt < 3; attempt++) {
             try {
                 return embeddingModel.call(
-                        new EmbeddingRequest(texts, OllamaOptions.builder()
+                        new EmbeddingRequest(texts, OpenAiEmbeddingOptions.builder()
                                 .model(modelName)
                                 .build()));
             } catch (Exception e) {
                 lastException = e;
                 long delay = 1000L * (1 << attempt); // 1s, 2s, 4s
-                log.warn("Ollama embedding attempt {} failed (retrying in {}ms): {}",
+                log.warn("Embedding attempt {} failed (retrying in {}ms): {}",
                         attempt + 1, delay, e.getMessage());
                 try { Thread.sleep(delay); } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
@@ -377,7 +377,7 @@ public class EmbeddingService {
                 }
             }
         }
-        throw new RuntimeException("Ollama embedding failed after 3 attempts", lastException);
+        throw new RuntimeException("Embedding failed after 3 attempts", lastException);
     }
 
     /**
@@ -387,7 +387,7 @@ public class EmbeddingService {
         EmbeddingResponse response = embeddingModel.call(
                 new EmbeddingRequest(
                         List.of(query),
-                        OllamaOptions.builder().model(modelName).build()));
+                        OpenAiEmbeddingOptions.builder().model(modelName).build()));
         return response.getResults().get(0).getOutput();
     }
 
