@@ -56,7 +56,6 @@ smsarchive:
 logging:
   level:
     root: ${LOG_LEVEL:INFO}
-    org.springframework.web.client.DefaultRestClient: TRACE
 
 server:
   forward-headers-strategy: framework
