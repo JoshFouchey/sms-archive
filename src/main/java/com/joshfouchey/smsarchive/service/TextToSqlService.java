@@ -1,12 +1,14 @@
 package com.joshfouchey.smsarchive.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.ollama.api.OllamaOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
 
 import java.util.*;
 import java.util.regex.Pattern;
@@ -44,18 +46,15 @@ public class TextToSqlService {
 
             Question: %s""";
 
-    private final RestClient restClient;
+    private final ChatModel chatModel;
     private final JdbcTemplate jdbcTemplate;
 
     @Value("${smsarchive.ai.sql.model:qwen2.5-coder:7b}")
     private String sqlModelName;
 
-    @Value("${spring.ai.ollama.base-url:http://localhost:11434}")
-    private String ollamaBaseUrl;
-
-    public TextToSqlService(JdbcTemplate jdbcTemplate, RestClient.Builder restClientBuilder) {
+    public TextToSqlService(ChatModel chatModel, JdbcTemplate jdbcTemplate) {
+        this.chatModel = chatModel;
         this.jdbcTemplate = jdbcTemplate;
-        this.restClient = restClientBuilder.build();
     }
 
     public TextToSqlResult generateAndExecute(String question, UUID userId) {
@@ -99,40 +98,25 @@ public class TextToSqlService {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private String generateSql(String question) {
         String normalizedQuestion = normalizeQuestion(question);
         String prompt = String.format(SCHEMA_PROMPT, MAX_ROWS, normalizedQuestion);
 
         try {
-            log.debug("Text-to-SQL prompt:\n{}", prompt);
-            Map<String, Object> request = Map.of(
-                    "model", sqlModelName,
-                    "messages", List.of(Map.of("role", "user", "content", prompt)),
-                    "stream", false,
-                    "options", Map.of(
-                            "temperature", 0,
-                            "num_gpu", 0,
-                            "num_predict", 512,
-                            "repeat_penalty", 1.2,
-                            "repeat_last_n", 128
-                    )
-            );
+            ChatResponse response = chatModel.call(
+                    new Prompt(prompt, OllamaOptions.builder()
+                            .model(sqlModelName)
+                            .temperature(0.1)
+                            .numCtx(4096)
+                            .numPredict(512)
+                            .repeatPenalty(1.2)
+                            .repeatLastN(128)
+                            .build()));
 
-            Map<String, Object> response = restClient.post()
-                    .uri(ollamaBaseUrl + "/api/chat")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(request)
-                    .retrieve()
-                    .body(Map.class);
-
-            Map<String, Object> message = (Map<String, Object>) response.get("message");
-            String raw = ((String) message.get("content")).trim();
+            String raw = response.getResult().getOutput().getText().trim();
             raw = extractSql(raw);
             log.info("Text-to-SQL generated: {}", raw.replace("\n", " "));
             return raw;
-        } catch (TextToSqlException e) {
-            throw e;
         } catch (Exception e) {
             throw new TextToSqlException("Failed to generate SQL: " + e.getMessage(), e);
         }
