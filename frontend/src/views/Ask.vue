@@ -221,10 +221,10 @@
               v-for="hit in response.searchResults.hits"
               :key="hit.message.id"
               class="p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors cursor-pointer"
-              @click="goToMessage(hit.message.id, hit.message.contactName || hit.message.contactNumber)"
+              @click="goToMessage(hit.message.id, hit.message.contactName || hit.message.conversationName || hit.message.contactNumber)"
             >
               <div class="flex items-center gap-2 mb-1">
-                <span class="text-xs font-semibold text-blue-600 dark:text-blue-400">{{ hit.message.contactName || hit.message.contactNumber }}</span>
+                <span class="text-xs font-semibold text-blue-600 dark:text-blue-400">{{ hit.message.contactName || hit.message.conversationName || hit.message.contactNumber }}</span>
                 <span :class="[
                   'text-[10px] px-1.5 py-0.5 rounded-full font-medium',
                   hit.source === 'BOTH' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
@@ -263,6 +263,7 @@
               <i class="pi pi-comments text-emerald-500"></i>
               <span class="font-semibold text-sm text-gray-800 dark:text-gray-200">Conversation Context</span>
               <span v-if="contextModal.contactName" class="text-xs text-gray-400">— {{ contextModal.contactName }}</span>
+              <span v-if="contextIsGroupChat" class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 font-medium">Group</span>
             </div>
             <div class="flex items-center gap-2">
               <button @click="openInMessages" class="text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 font-medium">
@@ -285,6 +286,8 @@
               v-for="msg in contextModal.messages"
               :key="msg.id"
               :message="msg"
+              :is-group-chat="contextIsGroupChat"
+              :participant-color-map="contextParticipantColorMap"
               :highlight-class="msg.id === contextModal.centerId ? 'ring-4 ring-emerald-400 dark:ring-emerald-500 shadow-2xl scale-[1.02]' : ''"
             />
           </div>
@@ -381,7 +384,19 @@ const contextModal = ref<{
   conversationId: null,
 });
 
+const contextIsGroupChat = computed(() => {
+  const msgs = contextModal.value.messages;
+  if (!msgs.length) return false;
+  const uniqueSenders = new Set(
+    msgs.filter(m => m.senderContactId).map(m => m.senderContactId)
+  );
+  return uniqueSenders.size > 1;
+});
+
+const contextParticipantColorMap = ref(new Map<string, string>());
+
 async function goToMessage(messageId: number, contactName?: string) {
+  contextParticipantColorMap.value = new Map<string, string>();
   contextModal.value = {
     open: true,
     loading: true,
