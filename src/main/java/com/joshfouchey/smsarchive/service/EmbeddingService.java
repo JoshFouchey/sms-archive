@@ -322,11 +322,14 @@ public class EmbeddingService {
         // Build the contextual document
         StringBuilder sb = new StringBuilder();
 
-        // Add conversation partner header
+        // Identify the conversation, not the individual message sender.
+        // Individual senders are already labeled per-message below ([Wife]:, [Me]:, etc.)
         String conversationPartner = null;
-        if (message.getSenderContact() != null && message.getSenderContact().getName() != null) {
-            conversationPartner = message.getSenderContact().getName();
-        } else {
+        if (message.getConversation() != null
+                && message.getConversation().getName() != null && !message.getConversation().getName().isBlank()) {
+            conversationPartner = message.getConversation().getName();
+        }
+        if (conversationPartner == null) {
             for (Map<String, Object> row : contextRows) {
                 if (row.get("sender_name") != null && "INBOUND".equals(String.valueOf(row.get("direction")))) {
                     conversationPartner = String.valueOf(row.get("sender_name"));
@@ -350,9 +353,15 @@ public class EmbeddingService {
             sb.append("[").append(sender).append("]: ").append(ctxBody).append("\n");
         }
 
-        // Add the target message
-        String targetSender = message.getDirection() != null
-                && message.getDirection().name().equals("OUTBOUND") ? "Me" : (conversationPartner != null ? conversationPartner : "Them");
+        // Add the target message — use actual sender contact name for INBOUND
+        String targetSender;
+        if (message.getDirection() != null && "OUTBOUND".equals(message.getDirection().name())) {
+            targetSender = "Me";
+        } else if (message.getSenderContact() != null && message.getSenderContact().getName() != null) {
+            targetSender = message.getSenderContact().getName();
+        } else {
+            targetSender = conversationPartner != null ? conversationPartner : "Them";
+        }
         sb.append("[").append(targetSender).append("]: ").append(body);
 
         return sb.toString();
