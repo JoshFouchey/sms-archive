@@ -43,6 +43,7 @@ public class TextToSqlService {
 
             Always filter by user_id = '__USER_ID__'. Max %d rows.
             To find messages with a contact, match contacts.name using ILIKE.
+            Do NOT filter by protocol unless the question specifically asks about SMS, MMS, or RCS.
 
             Question: %s""";
 
