@@ -42,6 +42,7 @@ public class TextToSqlService {
             - message_parts: id, message_id, ct (MIME type), name, file_path, size_bytes
 
             Always filter by user_id = '__USER_ID__'. Max %d rows.
+            "texts" means rows in the messages table.
             To find messages with a contact, match contacts.name using ILIKE.
             Do NOT filter by protocol unless the question specifically asks about SMS, MMS, or RCS.
 
