@@ -22,7 +22,6 @@ const routes: Array<RouteRecordRaw> = [
     // Redirects for old routes
     { path: "/search", redirect: "/" },
     { path: "/explore", redirect: "/" },
-    { path: "/knowledge-graph", redirect: "/" },
     { path: "/ai-settings", redirect: "/admin" },
     { path: "/import", redirect: "/admin" },
 ];

@@ -96,17 +96,22 @@ ORDER BY day_ts
         WHERE m.user_id = :userId 
         AND (
             to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
-            OR similarity(COALESCE(m.body, ''), :text) > 0.1
+            OR similarity(COALESCE(m.body, ''), :text) > 0.25
         )
         ORDER BY (
-            -- Weighted ranking: conversation name (A=1.0) + message body (B=0.4) + similarity (0.3) + recency boost
+            -- FTS match bonus: ensures actual word matches always outrank pure trigram hits
+            CASE WHEN to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
+                 THEN 1.0 ELSE 0.0 END +
+            -- Full-text relevance: conversation name (A=1.0) + message body (B=0.4)
             ts_rank(
                 setweight(to_tsvector('english', COALESCE(conv.name, '')), 'A') ||
                 setweight(to_tsvector('english', COALESCE(m.body, '')), 'B'),
                 plainto_tsquery('english', :text)
             ) * 2.0 +
-            similarity(COALESCE(m.body, ''), :text) * 1.5 +
-            (EXTRACT(EPOCH FROM (NOW() - m.timestamp)) / 31536000.0) * -0.01
+            -- Trigram fuzzy match (reduced weight — helps typos, shouldn't dominate)
+            similarity(COALESCE(m.body, ''), :text) * 0.5 +
+            -- Recency (minimal influence — relevance should dominate)
+            (EXTRACT(EPOCH FROM (NOW() - m.timestamp)) / 31536000.0) * -0.002
         ) DESC,
         m.timestamp DESC
         """, 
@@ -115,7 +120,7 @@ ORDER BY day_ts
         WHERE m.user_id = :userId 
         AND (
             to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
-            OR similarity(COALESCE(m.body, ''), :text) > 0.1
+            OR similarity(COALESCE(m.body, ''), :text) > 0.25
         )
         """,
         nativeQuery = true)
@@ -131,17 +136,18 @@ ORDER BY day_ts
         AND cc.contact_id = :contactId
         AND (
             to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
-            OR similarity(COALESCE(m.body, ''), :text) > 0.1
+            OR similarity(COALESCE(m.body, ''), :text) > 0.25
         )
         ORDER BY (
-            -- Weighted ranking: conversation name + message body + similarity + recency
+            CASE WHEN to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
+                 THEN 1.0 ELSE 0.0 END +
             ts_rank(
                 setweight(to_tsvector('english', COALESCE(conv.name, '')), 'A') ||
                 setweight(to_tsvector('english', COALESCE(m.body, '')), 'B'),
                 plainto_tsquery('english', :text)
             ) * 2.0 +
-            similarity(COALESCE(m.body, ''), :text) * 1.5 +
-            (EXTRACT(EPOCH FROM (NOW() - m.timestamp)) / 31536000.0) * -0.01
+            similarity(COALESCE(m.body, ''), :text) * 0.5 +
+            (EXTRACT(EPOCH FROM (NOW() - m.timestamp)) / 31536000.0) * -0.002
         ) DESC,
         m.timestamp DESC
         """,
@@ -153,7 +159,7 @@ ORDER BY day_ts
         AND cc.contact_id = :contactId
         AND (
             to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
-            OR similarity(COALESCE(m.body, ''), :text) > 0.1
+            OR similarity(COALESCE(m.body, ''), :text) > 0.25
         )
         """,
         nativeQuery = true)
@@ -167,17 +173,18 @@ ORDER BY day_ts
         AND m.conversation_id = :conversationId
         AND (
             to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
-            OR similarity(COALESCE(m.body, ''), :text) > 0.1
+            OR similarity(COALESCE(m.body, ''), :text) > 0.25
         )
         ORDER BY (
-            -- Weighted ranking: conversation name + message body + similarity + recency
+            CASE WHEN to_tsvector('english', COALESCE(m.body, '')) @@ plainto_tsquery('english', :text)
+                 THEN 1.0 ELSE 0.0 END +
             ts_rank(
                 setweight(to_tsvector('english', COALESCE(conv.name, '')), 'A') ||
                 setweight(to_tsvector('english', COALESCE(m.body, '')), 'B'),
                 plainto_tsquery('english', :text)
             ) * 2.0 +
-            similarity(COALESCE(m.body, ''), :text) * 1.5 +
-            (EXTRACT(EPOCH FROM (NOW() - m.timestamp)) / 31536000.0) * -0.01
+            similarity(COALESCE(m.body, ''), :text) * 0.5 +
+            (EXTRACT(EPOCH FROM (NOW() - m.timestamp)) / 31536000.0) * -0.002
         ) DESC,
         m.timestamp DESC
         """, nativeQuery = true)
