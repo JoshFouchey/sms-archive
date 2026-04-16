@@ -63,8 +63,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/login", "/api/auth/refresh", "/api/auth/register",
-                                "/media/**", // static media
-                                "/import/**", // adjust if should be secured
+                                "/media/**", // static media (TODO: secure with token-based access)
                                 "/actuator/health" // for Docker health checks
                         ).permitAll()
                         .anyRequest().authenticated()
