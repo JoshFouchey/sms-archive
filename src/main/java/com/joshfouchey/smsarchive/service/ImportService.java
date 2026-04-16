@@ -8,16 +8,22 @@ import com.joshfouchey.smsarchive.model.*;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
 import com.joshfouchey.smsarchive.repository.UserRepository;
-import com.joshfouchey.smsarchive.repository.UserRepository;
+import com.joshfouchey.smsarchive.service.importpipeline.ContactResolver;
+import com.joshfouchey.smsarchive.service.importpipeline.ConversationAssigner;
+import com.joshfouchey.smsarchive.service.importpipeline.DuplicateDetector;
+import com.joshfouchey.smsarchive.service.importpipeline.MediaHandler;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import lombok.Getter;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.core.task.TaskExecutor;
+import org.apache.commons.io.input.CountingInputStream;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
 
 import javax.xml.stream.XMLInputFactory;
@@ -27,11 +33,7 @@ import java.nio.file.*;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import org.apache.commons.io.input.CountingInputStream;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.math.NumberUtils;
 
 @Slf4j
 @Service
@@ -44,7 +46,6 @@ public class ImportService {
     private static final String TEXT_PLAIN = "text/plain";
     private static final String UNKNOWN_NORMALIZED = "__unknown__";
     private static final String APPLICATION_SMIL = "application/smil";
-    private static final String UNKNOWN_NUMBER_DISPLAY = "unknown";
 
     // Metadata/XML attribute constants (restored)
     private static final String XML_ATTR_ADDRESS = "address";
@@ -52,23 +53,6 @@ public class ImportService {
     private static final String META_TEMP_RECIPIENT = "_tempRecipient";
     private static final String META_TEMP_ADDRESS = "_tempAddress";
     private static final String META_NORMALIZED_NUMBER = "_normalizedNumber";
-    private static final Set<String> GROUP_KEYWORDS = Set.of("group","team","vacation","chat");
-
-    // Content-type mapping for file extensions
-    private static final Map<String,String> CONTENT_TYPE_EXT_MAP = Map.ofEntries(
-            Map.entry("image/jpeg", ".jpg"),
-            Map.entry("image/jpg", ".jpg"),
-            Map.entry("image/png", ".png"),
-            Map.entry("image/gif", ".gif"),
-            Map.entry("image/bmp", ".bmp"),
-            Map.entry("image/heic", ".heic"),
-            Map.entry("image/heif", ".heic"),
-            Map.entry("video/mp4", ".mp4"),
-            Map.entry("video/3gpp", ".3gp"),
-            Map.entry("audio/mpeg", ".mp3"),
-            Map.entry("audio/ogg", ".ogg"),
-            Map.entry(TEXT_PLAIN, ".txt")
-    );
 
     private final MessageRepository messageRepo;
     private final ContactRepository contactRepo;
@@ -78,14 +62,13 @@ public class ImportService {
     private TaskExecutor importTaskExecutor; // executor for async jobs (optional)
     private final CurrentUserProvider currentUserProvider;
     private final ApplicationEventPublisher eventPublisher;
+    private final DuplicateDetector duplicateDetector;
+    private final ContactResolver contactResolver;
+    private final ConversationAssigner conversationAssigner;
+    private MediaHandler mediaHandler;
     // ThreadLocal to hold the user for async import tasks (SecurityContext not propagated)
     private final ThreadLocal<User> threadLocalImportUser = new ThreadLocal<>();
 
-    // cache normalizedNumber -> Contact (bounded, auto-evicts after 10 min idle)
-    private final Cache<String, Contact> contactCache = Caffeine.newBuilder()
-            .maximumSize(1000)
-            .expireAfterAccess(java.time.Duration.ofMinutes(10))
-            .build();
     private final Cache<UUID, ImportProgress> progressMap = Caffeine.newBuilder()
             .maximumSize(50)
             .expireAfterWrite(java.time.Duration.ofHours(1))
@@ -109,6 +92,7 @@ public class ImportService {
         // Absolute path helps confirm volume mounts
         log.info("Resolved media root: {}", Paths.get(mediaRoot).toAbsolutePath());
         mediaRelocationHelper = new MediaRelocationHelper(thumbnailService, getMediaRoot());
+        mediaHandler = new MediaHandler(thumbnailService, getMediaRoot());
     }
 
     public ImportService(MessageRepository messageRepo, ContactRepository contactRepo,
@@ -122,6 +106,9 @@ public class ImportService {
         this.conversationService = conversationService;
         this.userRepository = userRepository;
         this.eventPublisher = eventPublisher;
+        this.duplicateDetector = new DuplicateDetector(messageRepo);
+        this.contactResolver = new ContactResolver(contactRepo);
+        this.conversationAssigner = new ConversationAssigner(conversationService);
     }
 
     // Remove multi-arg constructors added earlier
@@ -272,8 +259,8 @@ public class ImportService {
 
     private void handleSms(Message cur, String suggestedName, ImportProgress progress, Set<String> seenKeys, List<Message> batch) {
         finalizeStreamingContact(cur, suggestedName);
-        assignConversationForSms(cur, suggestedName); // Assign conversation after contact is resolved
-        boolean dup = isDuplicateInRunOrDb(cur, seenKeys, batch);
+        conversationAssigner.assignConversationForSms(cur, suggestedName, resolveImportUser());
+        boolean dup = duplicateDetector.isDuplicateInRunOrDb(cur, seenKeys, batch);
         if (dup) {
             progress.incDuplicateMessages();
         } else {
@@ -401,7 +388,7 @@ public class ImportService {
         if (!shouldConsiderAddrForParticipants(ctx.cur, addrType)) return;
         if (addrVal == null || addrVal.isBlank() || addrVal.equalsIgnoreCase(SENDER_ME)) return;
         if (ctx.participantNumbers == null) ctx.participantNumbers = new LinkedHashSet<>();
-        String norm = normalizeNumber(addrVal);
+        String norm = contactResolver.normalizeNumber(addrVal);
         if (!UNKNOWN_NORMALIZED.equals(norm)) ctx.participantNumbers.add(norm);
     }
     private boolean shouldConsiderAddrForParticipants(Message cur, String addrType) {
@@ -414,70 +401,7 @@ public class ImportService {
         return false;
     }
 
-    // Simplified conversation assignment for SMS
-    private void assignConversationForSms(Message msg, String suggestedName) {
-        String normalized = resolveNormalizedNumberForSms(msg);
-        if (normalized == null || normalized.isBlank() || UNKNOWN_NORMALIZED.equals(normalized)) {
-            log.debug("Skipping conversation assignment - normalized invalid: {}", normalized);
-            cleanupNormalizedMetadata(msg); // ensure cleanup even when skipping
-            return;
-        }
-        User user = resolveImportUser();
-        Conversation convo = conversationService.findOrCreateOneToOneForUser(user, normalized, suggestedName);
-        if (isInvalidConversation(convo)) {
-            log.error("Failed to create/find conversation for normalized number: {}", normalized);
-            cleanupNormalizedMetadata(msg);
-            return;
-        }
-        updateConversationLastMessage(convo, msg);
-        msg.setConversation(convo);
-        log.debug("Assigned message to conversation ID: {}", convo.getId());
-        cleanupNormalizedMetadata(msg);
-    }
-    private String resolveNormalizedNumberForSms(Message msg) {
-        if (msg.getSenderContact() != null) {
-            return msg.getSenderContact().getNormalizedNumber();
-        }
-        Map<String,Object> meta = msg.getMetadata();
-        if (meta != null && meta.containsKey(META_NORMALIZED_NUMBER)) {
-            return (String) meta.get(META_NORMALIZED_NUMBER);
-        }
-        return null;
-    }
-    private void cleanupNormalizedMetadata(Message msg) {
-        Map<String,Object> meta = msg.getMetadata();
-        if (meta == null) return;
-        meta.remove(META_NORMALIZED_NUMBER);
-        if (meta.isEmpty()) msg.setMetadata(null);
-    }
 
-    private void assignConversationForMultipart(Message msg, String threadKey, Set<String> participantNumbers, String suggestedName) {
-        if (participantNumbers == null || participantNumbers.isEmpty()) {
-            log.debug("Skipping conversation assignment - no participant numbers");
-            return;
-        }
-        if ((threadKey == null || threadKey.isBlank()) && participantNumbers.size() > 1) {
-            threadKey = buildSyntheticThreadKey(participantNumbers);
-        }
-        User user = resolveImportUser();
-        Conversation convo = (participantNumbers.size() == 1)
-                ? conversationService.findOrCreateOneToOneForUser(user, participantNumbers.iterator().next(), suggestedName)
-                : conversationService.findOrCreateGroupForUser(user, threadKey, participantNumbers, suggestedName);
-        if (isInvalidConversation(convo)) {
-            log.error("Failed to create/find conversation for participants: {}", participantNumbers);
-            return;
-        }
-        updateConversationLastMessage(convo, msg);
-        msg.setConversation(convo);
-        log.debug("Assigned multipart message to conversation ID: {}", convo.getId());
-    }
-    private boolean isInvalidConversation(Conversation convo) { return convo == null || convo.getId() == null; }
-    private void updateConversationLastMessage(Conversation convo, Message msg) {
-        if (convo.getLastMessageAt() == null || msg.getTimestamp().isAfter(convo.getLastMessageAt())) {
-            convo.setLastMessageAt(msg.getTimestamp());
-            conversationService.save(convo);
-        }
-    }
     private User resolveImportUser() {
         User user = threadLocalImportUser.get();
         return (user != null) ? user : currentUserProvider.getCurrentUser();
@@ -492,7 +416,7 @@ public class ImportService {
         String senderAddress = (msg.getDirection() == MessageDirection.INBOUND) ? (tempSender != null ? tempSender : tempAddress) : null;
         log.debug("finalizeGroupMessageContact - direction: {}", msg.getDirection());
         if (senderAddress != null && !senderAddress.isBlank()) {
-            Contact sender = resolveContact(user, senderAddress, null);
+            Contact sender = contactResolver.resolveContact(user, senderAddress, null);
             msg.setSenderContact(sender);
             log.debug("finalizeGroupMessageContact - resolved sender: id={}",
                     sender != null ? sender.getId() : null);
@@ -522,7 +446,7 @@ public class ImportService {
         User user = resolveImportUser();
         msg.setUser(user);
         log.debug("finalizeStreamingContact - resolved counterparty");
-        Contact contact = resolveContact(user, counterparty, suggestedName);
+        Contact contact = contactResolver.resolveContact(user, counterparty, suggestedName);
         log.debug("finalizeStreamingContact - resolved contact: id={}",
                 contact != null ? contact.getId() : null);
         if (msg.getDirection() == MessageDirection.INBOUND && senderAddress != null) {
@@ -580,50 +504,26 @@ public class ImportService {
         if (mediaRelocationHelper == null) {
             mediaRelocationHelper = new MediaRelocationHelper(thumbnailService, getMediaRoot());
         }
-    }
-
-    private boolean isGroupLikeName(String s) {
-        String lower = s.toLowerCase(Locale.ROOT);
-        if (lower.split("\\s+").length < 2) return false; // require >=2 words
-        for (String kw : GROUP_KEYWORDS) {
-            if (lower.contains(kw)) return true;
+        if (mediaHandler == null) {
+            mediaHandler = new MediaHandler(thumbnailService, getMediaRoot());
         }
-        return false;
     }
 
     // visible for testing
     String normalizeNumber(String number) {
-        if (number == null || number.isBlank()) {
-            return UNKNOWN_NORMALIZED;
-        }
-        // Strip all non-digits first
-        String digits = number.replaceAll("\\D", "");
-        if (digits.isEmpty()) return UNKNOWN_NORMALIZED;
-        
-        // NANP canonicalization: always 11 digits with leading 1
-        if (digits.length() == 10) {
-            digits = "1" + digits;
-        } else if (digits.length() == 11 && digits.startsWith("1")) {
-            // already canonical
-        } else {
-            // Keep as-is for non-NANP
-        }
-        
-        // IMPORTANT: Add + prefix to match database standard (E.164 format)
-        return "+" + digits;
+        return contactResolver.normalizeNumber(number);
     }
 
     // visible for testing
     String guessExtension(String contentType, String name) {
-        if (StringUtils.isNotBlank(name) && name.contains(".")) {
-            String ext = StringUtils.substringAfterLast(name, ".");
-            if (ext.length() <= 6) return "." + ext.toLowerCase();
-        }
-        if (StringUtils.isBlank(contentType)) return ".bin";
-        String lower = contentType.toLowerCase();
-        return CONTENT_TYPE_EXT_MAP.getOrDefault(lower, ".bin");
+        ensureMediaHelper();
+        return mediaHandler.guessExtension(contentType, name);
     }
-    /* visible for testing */ String computeDuplicateKeyForTest(Message msg) { return buildDuplicateKey(msg); }
+    /* visible for testing */ String computeDuplicateKeyForTest(Message msg) { return duplicateDetector.buildDuplicateKey(msg); }
+
+    // Delegating methods for test compatibility (accessed via reflection)
+    private String sanitizeContactName(String name) { return contactResolver.sanitizeContactName(name); }
+    private boolean isGroupLikeName(String s) { return contactResolver.isGroupLikeName(s); }
 
     public static class ImportProgress {
         @Getter
@@ -673,80 +573,7 @@ public class ImportService {
         void setDuplicateMessages(int v){duplicateMessages=v;}
     }
 
-    // ===== Duplicate & batch helpers (restored) =====
-    private boolean isDuplicateInRunOrDb(Message msg, Set<String> seenKeys, List<Message> currentBatch) {
-        String key = buildDuplicateKey(msg);
-        // Check in-memory tracking first (fastest)
-        if (seenKeys.contains(key)) {
-            log.debug("Duplicate found in seenKeys: {}", key);
-            return true;
-        }
-        // Check current batch (before it's persisted)
-        if (isDuplicateInBatch(msg, currentBatch)) {
-            log.debug("Duplicate found in current batch: {}", key);
-            return true;
-        }
-        // Check database (most expensive)
-        boolean dbDup = isDuplicate(msg);
-        if (dbDup) {
-            log.debug("Duplicate found in database: {}", key);
-        }
-        if (!dbDup) seenKeys.add(key);
-        return dbDup;
-    }
-
-    private boolean isDuplicateInBatch(Message msg, List<Message> batch) {
-        if (batch == null || batch.isEmpty()) return false;
-        String bodyNorm = msg.getBody() == null ? "" : msg.getBody().trim().toLowerCase();
-        for (Message existing : batch) {
-            if (areMessagesDuplicate(msg, existing, bodyNorm)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean areMessagesDuplicate(Message msg1, Message msg2, String body1Normalized) {
-        // Compare timestamps
-        if (!msg1.getTimestamp().equals(msg2.getTimestamp())) {
-            return false;
-        }
-        // Compare bodies (case-insensitive, trimmed)
-        String body2Norm = msg2.getBody() == null ? "" : msg2.getBody().trim().toLowerCase();
-        if (!body1Normalized.equals(body2Norm)) {
-            return false;
-        }
-        // Compare user
-        UUID userId1 = msg1.getUser() != null ? msg1.getUser().getId() : null;
-        UUID userId2 = msg2.getUser() != null ? msg2.getUser().getId() : null;
-        if (userId1 != null && userId2 != null && !userId1.equals(userId2)) {
-            return false;
-        }
-        // Compare conversation if both are set
-        Long convId1 = msg1.getConversation() != null ? msg1.getConversation().getId() : null;
-        Long convId2 = msg2.getConversation() != null ? msg2.getConversation().getId() : null;
-        if (convId1 != null && convId2 != null && !convId1.equals(convId2)) {
-            return false;
-        }
-        // Compare direction/msgBox
-        if (msg1.getMsgBox() != msg2.getMsgBox()) {
-            return false;
-        }
-        // Compare protocol
-        if (msg1.getProtocol() != msg2.getProtocol()) {
-            return false;
-        }
-        return true;
-    }
-
-    private String buildDuplicateKey(Message msg) {
-        String bodyNorm = msg.getBody() == null ? "" : msg.getBody().trim().toLowerCase();
-        Long conversationId = msg.getConversation() == null ? null : msg.getConversation().getId();
-        String conversationStr = (conversationId == null) ? "null" : conversationId.toString();
-        UUID userId = msg.getUser() != null ? msg.getUser().getId() : null;
-        String userStr = (userId == null) ? "null" : userId.toString();
-        return userStr + "|" + conversationStr + "|" + msg.getTimestamp() + "|" + msg.getMsgBox() + "|" + msg.getProtocol() + "|" + bodyNorm;
-    }
+    // ===== Batch helpers =====
     private void flushStreamingIfNeeded(List<Message> batch, ImportProgress progress) {
         if (batch.size() >= streamBatchSize) flushStreamingBatch(batch, progress);
     }
@@ -805,37 +632,6 @@ public class ImportService {
         }
     }
 
-    private boolean isDuplicate(Message msg) {
-        try {
-            String normalizedBody = msg.getBody() == null ? null : msg.getBody().trim().toLowerCase();
-            User user = msg.getUser();
-            if (user == null) {
-                log.warn("Message has no user set, cannot check for duplicates properly");
-                return false;
-            }
-            if (msg.getConversation() != null && msg.getConversation().getId() != null) {
-                return messageRepo.existsByConversationAndTimestampAndBody(
-                    msg.getConversation(),
-                    msg.getTimestamp(),
-                    normalizedBody,
-                    msg.getMsgBox(),
-                    msg.getProtocol(),
-                    user
-                );
-            }
-            return messageRepo.existsByTimestampAndBody(
-                msg.getTimestamp(),
-                normalizedBody,
-                msg.getMsgBox(),
-                msg.getProtocol(),
-                user
-            );
-        } catch (Exception e) {
-            log.warn("Duplicate check failed, proceeding to insert message: {}", e.getMessage());
-            return false;
-        }
-    }
-
     // ===== Message building (restored) =====
     private Message buildSmsStreaming(XMLStreamReader r) {
         Message msg = new Message();
@@ -882,47 +678,8 @@ public class ImportService {
                 Path mediaPath = Paths.get(fp).normalize();
                 mediaMap.put("filePath", mediaPath.toString());
                 curMedia.add(mediaMap);
-                ensureThumbnail(mediaPath, ct, true);
+                mediaHandler.ensureThumbnail(mediaPath, ct, true);
             }
-        }
-    }
-
-    private Optional<String> saveMediaPart(String base64, MessagePart part) {
-        try {
-            if (!isValidBase64(base64)) { log.error("Invalid Base64 input: {}", base64); return Optional.empty(); }
-            Message message = part.getMessage();
-            String conversationDirName = (message.getConversation() != null && message.getConversation().getId() != null)
-                    ? message.getConversation().getId().toString() : "_noconversation";
-            Path dir = getMediaRoot().resolve(conversationDirName);
-            Files.createDirectories(dir);
-            byte[] dataBytes = Base64.getDecoder().decode(base64);
-            String ext = guessExtension(part.getContentType(), part.getName());
-            Path original = MediaFileNamer.buildUniqueMediaPath(dir, message.getId(), part.getSeq(), message.getTimestamp(), dataBytes, ext);
-            Files.write(original, dataBytes);
-            ensureThumbnail(original, part.getContentType(), false);
-            part.setFilePath(original.toString());
-            safeSetSize(part, original);
-            return Optional.of(original.toString());
-        } catch (Exception e) { log.error("Media save failed", e); return Optional.empty(); }
-    }
-    private void ensureThumbnail(Path original, String contentType, boolean allowExisting) {
-        try {
-            Path thumb = thumbnailService.deriveStemThumbnail(original);
-            if (Files.exists(thumb) && allowExisting) return; // already present
-            thumbnailService.createThumbnail(original, thumb, contentType, true);
-        } catch (Exception ex) {
-            log.warn("Thumbnail generation failed for {}", original, ex);
-        }
-    }
-    // Added helper to set size with explanation
-    private void safeSetSize(MessagePart part, Path path) {
-        try {
-            if (Files.exists(path)) {
-                part.setSizeBytes(Files.size(path));
-            }
-        } catch (Exception ex) {
-            // Size is best-effort; failures (e.g. permissions) are non-fatal.
-            log.debug("Unable to determine size for media part at {}: {}", path, ex.getMessage());
         }
     }
 
@@ -935,72 +692,13 @@ public class ImportService {
         part.setText(nullIfBlank(r.getAttributeValue(null, "text")));
         String data = r.getAttributeValue(null, "data");
         if (data != null && !data.isBlank()) {
-            saveMediaPart(data, part).ifPresent(part::setFilePath);
+            mediaHandler.saveMediaPart(data, part).ifPresent(part::setFilePath);
             if (part.getFilePath() != null) {
-                safeSetSize(part, Path.of(part.getFilePath())); // replaced empty catch
+                mediaHandler.safeSetSize(part, Path.of(part.getFilePath()));
             }
         }
         return part;
     }
-
-    // ===== Contact resolution & name sanitization (restored) =====
-    private Contact resolveContact(User user, String number, String suggestedName) {
-        String normalized = normalizeNumber(number);
-        String cacheKey = user.getId() + "|" + normalized;
-        Contact cached = contactCache.getIfPresent(cacheKey);
-        if (cached != null) {
-            if (shouldUpdateContactName(cached, suggestedName)) {
-                String sanitized = sanitizeContactName(suggestedName);
-                cached.setName(sanitized);
-                cached = contactRepo.save(cached);
-                contactCache.put(cacheKey, cached);
-                log.debug("Updated contact {} name", cached.getId());
-            }
-            return cached;
-        }
-        // Find or create contact with retry on duplicate key violation
-        Contact contact = contactRepo.findByUserAndNormalizedNumber(user, normalized).orElseGet(() -> {
-            try {
-                Contact c = new Contact();
-                c.setUser(user);
-                c.setNumber(number == null ? UNKNOWN_NUMBER_DISPLAY : number);
-                c.setNormalizedNumber(normalized);
-                String sanitizedName = sanitizeContactName(suggestedName);
-                c.setName(sanitizedName != null ? sanitizedName : c.getNumber());
-                return contactRepo.save(c);
-            } catch (org.springframework.dao.DataIntegrityViolationException e) {
-                // Contact was created by another thread/transaction, fetch it again
-                return contactRepo.findByUserAndNormalizedNumber(user, normalized)
-                        .orElseThrow(() -> new RuntimeException("Failed to find or create contact for: " + normalized));
-            }
-        });
-        if (shouldUpdateContactName(contact, suggestedName)) {
-            String sanitized = sanitizeContactName(suggestedName);
-            contact.setName(sanitized);
-            contact = contactRepo.save(contact);
-        }
-        contactCache.put(cacheKey, contact);
-        return contact;
-    }
-    private boolean shouldUpdateContactName(Contact contact, String suggestedName) {
-        String sanitizedSuggested = sanitizeContactName(suggestedName);
-        if (sanitizedSuggested == null) return false;
-        String currentName = contact.getName();
-        if (currentName == null || currentName.isBlank()) return true;
-        if (currentName.equalsIgnoreCase(UNKNOWN_NUMBER_DISPLAY)) return true;
-        String currentNameNormalized = normalizeNumber(currentName);
-        return currentNameNormalized.equals(contact.getNormalizedNumber());
-    }
-    private String sanitizeContactName(String name) {
-        if (name == null || name.isBlank()) return null;
-        String trimmed = name.trim();
-        if (trimmed.equalsIgnoreCase(UNKNOWN_NUMBER_DISPLAY) ||
-            trimmed.equalsIgnoreCase("(" + UNKNOWN_NUMBER_DISPLAY + ")") ||
-            trimmed.matches("^\\(.*" + UNKNOWN_NUMBER_DISPLAY + ".*\\)$")) return null;
-        if (isGroupLikeName(trimmed)) return null; // group labels not used for contact names
-        return trimmed;
-    }
-    // isGroupLikeName already defined earlier (kept refactored version)
 
     // Added missing end-element handler (restored after refactor)
     private void handleEndElement(XMLStreamReader r,
@@ -1011,8 +709,8 @@ public class ImportService {
         String local = r.getLocalName();
         if (ctx.inMultipart && ctx.cur != null && ("mms".equals(local) || "rcs".equals(local))) {
             finalizeMultipart(ctx.cur, ctx.suggestedName, ctx.curParts, ctx.curMedia, ctx.textAgg, ctx.participantNumbers);
-            assignConversationForMultipart(ctx.cur, ctx.threadKey, ctx.participantNumbers, ctx.suggestedName);
-            boolean dup = isDuplicateInRunOrDb(ctx.cur, seenKeys, batch);
+            conversationAssigner.assignConversationForMultipart(ctx.cur, ctx.threadKey, ctx.participantNumbers, ctx.suggestedName, resolveImportUser());
+            boolean dup = duplicateDetector.isDuplicateInRunOrDb(ctx.cur, seenKeys, batch);
             if (dup) { progress.incDuplicateMessages(); }
             else { batch.add(ctx.cur); progress.incImportedMessages(); }
             progress.incProcessedMessages();
@@ -1051,16 +749,6 @@ public class ImportService {
         }
         ensureMediaHelper();
         mediaRelocationHelper.relocate(cur);
-    }
-
-    private String buildSyntheticThreadKey(Set<String> participantNumbers) {
-        List<String> sorted = new ArrayList<>(participantNumbers);
-        Collections.sort(sorted);
-        return "GROUP:" + String.join(";", sorted);
-    }
-
-    private boolean isValidBase64(String base64) { // restored helper
-        try { Base64.getDecoder().decode(base64); return true; } catch (IllegalArgumentException _) { return false; }
     }
 
     private void startMultipart() {

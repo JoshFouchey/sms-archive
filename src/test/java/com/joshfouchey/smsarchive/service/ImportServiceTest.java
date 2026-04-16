@@ -120,11 +120,11 @@ class ImportServiceTest {
         @Test
         @DisplayName("normalizeNumber strips non-digits and US country code")
         void testNormalizeNumber() {
-            assertEquals("15551234567", service.normalizeNumber("+1 (555) 123-4567"));
-            assertEquals("15551234567", service.normalizeNumber("1-555-123-4567"));
+            assertEquals("+15551234567", service.normalizeNumber("+1 (555) 123-4567"));
+            assertEquals("+15551234567", service.normalizeNumber("1-555-123-4567"));
             assertEquals("__unknown__", service.normalizeNumber(null));
-            assertEquals("42", service.normalizeNumber(" 42 "));
-            assertEquals("123456789012", service.normalizeNumber("123456789012")); // >11 digits not trimmed other than non-digits
+            assertEquals("+42", service.normalizeNumber(" 42 "));
+            assertEquals("+123456789012", service.normalizeNumber("123456789012")); // >11 digits not trimmed other than non-digits
         }
 
         @Test

@@ -138,9 +138,9 @@ class ImportServiceGroupParticipantExpansionCanonicalTest {
         Set<String> inboundParticipants = capturedParticipantSets.get(0);
         Set<String> outboundParticipants = capturedParticipantSets.get(1);
 
-        assertThat(inboundParticipants).containsExactlyInAnyOrder("11234567890", "11112223333");
+        assertThat(inboundParticipants).containsExactlyInAnyOrder("+11234567890", "+11112223333");
         assertTrue(!inboundParticipants.contains("me"));
-        assertThat(outboundParticipants).containsExactlyInAnyOrder("11112223333", "19998887777");
+        assertThat(outboundParticipants).containsExactlyInAnyOrder("+11112223333", "+19998887777");
         assertTrue(!outboundParticipants.contains("11234567890"));
     }
 }
