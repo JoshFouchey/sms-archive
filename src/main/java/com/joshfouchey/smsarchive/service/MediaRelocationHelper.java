@@ -12,7 +12,7 @@ import java.util.UUID;
  * import directories ("_noconversation") into their final conversation-specific directory.
  */
 @Slf4j
-class MediaRelocationHelper {
+public class MediaRelocationHelper {
     private final ThumbnailService thumbnailService;
     private final Path mediaRoot;
 
@@ -21,7 +21,7 @@ class MediaRelocationHelper {
         this.mediaRoot = mediaRoot;
     }
 
-    void relocate(Message msg) {
+    public void relocate(Message msg) {
         if (msg == null || msg.getConversation() == null || msg.getConversation().getId() == null || msg.getParts() == null) return;
         Path targetDir = mediaRoot.resolve(msg.getConversation().getId().toString());
         try { Files.createDirectories(targetDir); } catch (Exception e) { log.error("Failed creating target media dir {}", targetDir, e); return; }
