@@ -16,6 +16,9 @@ public class RestClientConfig {
 
     @Bean
     RestClientCustomizer httpRequestFactoryCustomizer() {
-        return builder -> builder.requestFactory(new SimpleClientHttpRequestFactory());
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(java.time.Duration.ofSeconds(10));
+        factory.setReadTimeout(java.time.Duration.ofSeconds(120));
+        return builder -> builder.requestFactory(factory);
     }
 }

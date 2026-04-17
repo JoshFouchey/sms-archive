@@ -1,6 +1,7 @@
 package com.joshfouchey.smsarchive.service;
 
 import com.joshfouchey.smsarchive.dto.ConversationSummaryDto;
+import com.joshfouchey.smsarchive.exception.ResourceNotFoundException;
 import com.joshfouchey.smsarchive.dto.ConversationTimelineDto;
 import com.joshfouchey.smsarchive.dto.MessageDto;
 import com.joshfouchey.smsarchive.dto.PagedResponse;
@@ -116,7 +117,7 @@ public class ConversationService {
 
         // Verify conversation belongs to user
         Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
-                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
 
         Sort sort = Sort.by("timestamp");
         sort = "asc".equalsIgnoreCase(sortDir) ? sort.ascending() : sort.descending();
@@ -171,7 +172,7 @@ public class ConversationService {
 
         // Verify conversation belongs to user
         Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
-                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
 
         // Search for matches using full-text search
         List<Message> matches = messageRepository.searchWithinConversation(conversationId, query, user.getId());
@@ -197,7 +198,7 @@ public class ConversationService {
 
         // Verify conversation belongs to user
         Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
-                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
 
         // Load messages with safety limit of 50,000 (sorted by timestamp ascending)
         // Uses batched query without @EntityGraph to avoid in-memory pagination
@@ -238,7 +239,7 @@ public class ConversationService {
 
         // Verify conversation belongs to user
         conversationRepository.findByIdAndUser(conversationId, user)
-                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
 
         return messageRepository.countByConversationIdAndUser(conversationId, user);
     }
@@ -250,7 +251,7 @@ public class ConversationService {
 
         // Verify conversation belongs to user
         Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
-                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
 
         List<MessageRepository.TimelineBucketProjection> buckets =
                 messageRepository.getConversationTimeline(conversationId, user.getId());
@@ -299,7 +300,7 @@ public class ConversationService {
 
         // Verify conversation belongs to user
         Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
-                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
 
         Instant dateFrom = parseDate(dateFromStr);
         Instant dateTo = parseDate(dateToStr);
@@ -473,7 +474,7 @@ public class ConversationService {
         } catch (DataIntegrityViolationException e) {
             // Contact was created by another thread/transaction, fetch it again
             return contactRepository.findByUserAndNormalizedNumber(user, safeNormalized)
-                    .orElseThrow(() -> new RuntimeException("Failed to find or create contact for: " + safeNormalized));
+                    .orElseThrow(() -> new ResourceNotFoundException("Failed to find or create contact for: " + safeNormalized));
         }
     }
     
@@ -534,7 +535,7 @@ public class ConversationService {
     public ConversationSummaryDto renameConversation(Long conversationId, String newName) {
         var user = currentUserProvider.getCurrentUser();
         Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
-                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
         
         conversation.setName(newName);
         conversationRepository.save(conversation);
@@ -546,7 +547,7 @@ public class ConversationService {
     public void deleteConversationById(Long conversationId) {
         var user = currentUserProvider.getCurrentUser();
         Conversation conversation = conversationRepository.findByIdAndUser(conversationId, user)
-                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
         // Fetch messages for this conversation (with safety limit, though delete should handle all)
         Pageable unpaged = Pageable.unpaged();
         List<Message> messages = messageRepository.findAllByConversationIdAndUser(conversationId, user, unpaged);
