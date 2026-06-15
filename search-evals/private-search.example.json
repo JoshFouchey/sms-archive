@@ -1,0 +1,24 @@
+{
+  "description": "Copy to private-search.local.json for local-only search checks. Keep real message IDs and personal prompts out of git.",
+  "semanticSearch": [
+    {
+      "query": "conversation I vaguely remember",
+      "mode": "SEARCH",
+      "expectedMessageIds": [],
+      "expectedConversationId": null,
+      "mustContain": [],
+      "dateRange": {
+        "from": null,
+        "to": null
+      }
+    }
+  ],
+  "textToSql": [
+    {
+      "question": "How many texts did I send in 2024?",
+      "expectedColumns": [],
+      "expectedRowCount": null,
+      "expectedValues": {}
+    }
+  ]
+}
