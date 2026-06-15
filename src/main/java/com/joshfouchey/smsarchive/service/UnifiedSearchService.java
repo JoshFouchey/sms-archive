@@ -7,7 +7,6 @@ import com.joshfouchey.smsarchive.repository.MessageRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
@@ -68,7 +67,7 @@ public class UnifiedSearchService {
         int fetchK = conversationDedup ? k * 3 : k;
 
         UnifiedSearchResult raw = switch (mode) {
-            case KEYWORD -> keywordSearch(query, userId, contactId, fetchK);
+            case KEYWORD -> keywordSearch(query, userId, conversationId, contactId, fetchK);
             case SEMANTIC -> semanticSearch(query, userId, conversationId, contactId, fetchK);
             case HYBRID -> hybridSearch(query, userId, conversationId, contactId, fetchK);
             case AUTO -> hybridSearch(query, userId, conversationId, contactId, fetchK);
@@ -77,7 +76,7 @@ public class UnifiedSearchService {
         // Apply post-processing: time-decay, min-score filter, conversation dedup
         List<UnifiedSearchHit> processed = postProcess(raw.hits(), k, query);
 
-        return new UnifiedSearchResult(raw.query(), raw.mode(), processed, processed.size());
+        return new UnifiedSearchResult(raw.query(), raw.mode(), processed, processed.size(), diagnostics(raw.mode(), processed));
     }
 
     /**
@@ -236,19 +235,18 @@ public class UnifiedSearchService {
 
     private record ScoredHit(UnifiedSearchHit hit, double score) {}
 
-    // ---- Search implementations ----
-
-    private UnifiedSearchResult keywordSearch(String query, UUID userId, Long contactId, int topK) {
-        Page<Message> page = messageRepository.searchByTextUserPaginated(
-                query, userId, PageRequest.of(0, topK));
-
-        List<UnifiedSearchHit> hits = page.getContent().stream()
-                .map(m -> new UnifiedSearchHit(MessageMapper.toDto(m), 1.0 / (RRF_K + 1), "KEYWORD",
-                        m.getConversation() != null ? m.getConversation().getId() : null, 0))
-                .toList();
-
-        return new UnifiedSearchResult(query, "KEYWORD", hits, (int) page.getTotalElements());
+    private Map<String, Object> diagnostics(String mode, List<UnifiedSearchHit> hits) {
+        Map<String, Long> sourceCounts = hits.stream()
+                .collect(Collectors.groupingBy(UnifiedSearchHit::source, LinkedHashMap::new, Collectors.counting()));
+        Map<String, Object> diagnostics = new LinkedHashMap<>();
+        diagnostics.put("mode", mode);
+        diagnostics.put("sourceCounts", sourceCounts);
+        diagnostics.put("dedupEnabled", conversationDedup);
+        diagnostics.put("minScore", minScore);
+        return diagnostics;
     }
+
+    // ---- Search implementations ----
 
     private UnifiedSearchResult semanticSearch(
             String query, UUID userId, Long conversationId, Long contactId, int topK) {
@@ -264,7 +262,7 @@ public class UnifiedSearchService {
             return new UnifiedSearchResult(query, "SEMANTIC", hits, result.totalHits());
         } catch (Exception e) {
             log.warn("Semantic search failed, falling back to keyword: {}", e.getMessage());
-            return keywordSearch(query, userId, contactId, topK);
+            return keywordSearch(query, userId, conversationId, contactId, topK);
         }
     }
 
@@ -276,8 +274,7 @@ public class UnifiedSearchService {
             String query, UUID userId, Long conversationId, Long contactId, int topK) {
 
         // Run both searches
-        Page<Message> keywordPage = messageRepository.searchByTextUserPaginated(
-                query, userId, PageRequest.of(0, topK));
+        List<Message> keywordMessages = keywordMessages(query, userId, conversationId, contactId, topK);
 
         SemanticSearchResult semanticResult;
         try {
@@ -295,7 +292,6 @@ public class UnifiedSearchService {
         Map<Long, Long> conversationIds = new HashMap<>();
 
         // Score keyword results
-        List<Message> keywordMessages = keywordPage.getContent();
         for (int i = 0; i < keywordMessages.size(); i++) {
             Message m = keywordMessages.get(i);
             Long msgId = m.getId();
@@ -331,5 +327,32 @@ public class UnifiedSearchService {
                 .toList();
 
         return new UnifiedSearchResult(query, "HYBRID", hits, hits.size());
+    }
+
+    private UnifiedSearchResult keywordSearch(
+            String query, UUID userId, Long conversationId, Long contactId, int topK) {
+        List<Message> messages = keywordMessages(query, userId, conversationId, contactId, topK);
+
+        List<UnifiedSearchHit> hits = messages.stream()
+                .map(m -> new UnifiedSearchHit(MessageMapper.toDto(m), 1.0 / (RRF_K + 1), "KEYWORD",
+                        m.getConversation() != null ? m.getConversation().getId() : null, 0))
+                .toList();
+
+        return new UnifiedSearchResult(query, "KEYWORD", hits, hits.size());
+    }
+
+    private List<Message> keywordMessages(
+            String query, UUID userId, Long conversationId, Long contactId, int topK) {
+        if (conversationId != null) {
+            return messageRepository.searchWithinConversation(conversationId, query, userId).stream()
+                    .limit(topK)
+                    .toList();
+        }
+        if (contactId != null) {
+            return messageRepository.searchByTextAndContactUser(
+                    query, contactId, userId, PageRequest.of(0, topK)).getContent();
+        }
+        return messageRepository.searchByTextUserPaginated(
+                query, userId, PageRequest.of(0, topK)).getContent();
     }
 }

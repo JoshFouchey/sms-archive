@@ -14,6 +14,7 @@ public final class InputLimits {
     public static final int CONTACT_NAME_MAX = 100;
     public static final int CONVERSATION_NAME_MAX = 100;
     public static final int QA_QUESTION_MAX = 1000;
+    public static final int SQL_QUERY_MAX = 10000;
 
     /** Truncate to max length (safe, never throws). */
     public static String truncate(String input, int max) {

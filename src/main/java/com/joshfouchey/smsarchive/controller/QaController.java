@@ -2,6 +2,7 @@ package com.joshfouchey.smsarchive.controller;
 
 import com.joshfouchey.smsarchive.dto.QaRequest;
 import com.joshfouchey.smsarchive.dto.QaResponse;
+import com.joshfouchey.smsarchive.dto.SqlRunRequest;
 import com.joshfouchey.smsarchive.service.CurrentUserProvider;
 import com.joshfouchey.smsarchive.service.QaService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -34,5 +35,17 @@ public class QaController {
                 request.mode(), request.conversationId(), request.contactId());
         var response = qaService.ask(user, safe);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/sql/run")
+    public ResponseEntity<QaResponse> runSql(@RequestBody SqlRunRequest request) {
+        if (request.sql() == null || request.sql().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        if (request.sql().length() > SQL_QUERY_MAX) {
+            return ResponseEntity.badRequest().build();
+        }
+        var user = currentUserProvider.getCurrentUser();
+        return ResponseEntity.ok(qaService.runSql(user, request.sql()));
     }
 }

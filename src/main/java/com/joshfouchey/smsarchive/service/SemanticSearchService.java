@@ -34,6 +34,9 @@ public class SemanticSearchService {
     @Value("${smsarchive.ai.search.similarity-threshold:0.30}")
     private double similarityThreshold;
 
+    @Value("${smsarchive.ai.embedding.model:qwen3-embedding:0.6b}")
+    private String modelName;
+
     public SemanticSearchService(
             EmbeddingService embeddingService,
             MessageEmbeddingRepository embeddingRepository,
@@ -72,13 +75,13 @@ public class SemanticSearchService {
         List<Object[]> rawResults;
         if (conversationId != null) {
             rawResults = embeddingRepository.findSimilarInConversation(
-                    userId, conversationId, vectorString, k);
+                    userId, modelName, conversationId, vectorString, k);
         } else if (contactId != null) {
             rawResults = embeddingRepository.findSimilarByContact(
-                    userId, contactId, vectorString, k);
+                    userId, modelName, contactId, vectorString, k);
         } else {
             rawResults = embeddingRepository.findSimilarMessages(
-                    userId, vectorString, k);
+                    userId, modelName, vectorString, k);
         }
 
         // Step 3: Deduplicate by message_id (chunks of the same message may appear

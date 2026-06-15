@@ -54,6 +54,23 @@ public class QaService {
         };
     }
 
+    public QaResponse runSql(User user, String sql) {
+        long start = System.currentTimeMillis();
+        if (textToSqlService == null) {
+            return QaResponse.analytics("Data query service is not available. Check that the SQL model is configured.", null,
+                    System.currentTimeMillis() - start);
+        }
+
+        try {
+            TextToSqlResult result = textToSqlService.executeUserSql(sql, user.getId());
+            return analyticsResponse(result, System.currentTimeMillis() - start);
+        } catch (TextToSqlException e) {
+            log.warn("Manual SQL execution failed: {}", e.getMessage());
+            return QaResponse.analytics("SQL execution failed: " + e.getMessage(), sqlErrorData(e),
+                    System.currentTimeMillis() - start);
+        }
+    }
+
     /** DATA mode: text-to-SQL only */
     private QaResponse askData(User user, String question, QaRequest request, long start) {
         if (textToSqlService != null) {
@@ -63,7 +80,7 @@ public class QaService {
                 log.warn("Text-to-SQL failed for '{}': {}", question, e.getMessage());
                 String errorMsg = "SQL generation failed: " + e.getMessage()
                         + ". Try rephrasing your question.";
-                return QaResponse.analytics(errorMsg, null, System.currentTimeMillis() - start);
+                return QaResponse.analytics(errorMsg, sqlErrorData(e), System.currentTimeMillis() - start);
             }
         }
 
@@ -90,11 +107,17 @@ public class QaService {
 
     private QaResponse handleTextToSql(User user, String question, long startTime) {
         TextToSqlResult result = textToSqlService.generateAndExecute(question, user.getId());
-        long elapsed = System.currentTimeMillis() - startTime;
+        return analyticsResponse(result, System.currentTimeMillis() - startTime);
+    }
 
+    private QaResponse analyticsResponse(TextToSqlResult result, long elapsed) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("type", "sql_result");
         data.put("sql", result.generatedSql());
+        data.put("generatedSql", result.generatedSql());
+        data.put("executedSql", result.executedSql());
+        data.put("generationMs", result.generationMs());
+        data.put("executionMs", result.executionMs());
         if (!result.rows().isEmpty()) {
             data.put("columns", new ArrayList<>(result.rows().get(0).keySet()));
         } else {
@@ -104,6 +127,16 @@ public class QaService {
         data.put("rowCount", result.rows().size());
 
         return QaResponse.analytics(result.answer(), data, elapsed);
+    }
+
+    private Map<String, Object> sqlErrorData(TextToSqlException e) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("type", "sql_error");
+        data.put("error", e.getMessage());
+        data.put("dbError", e.getDbError());
+        data.put("generatedSql", e.getGeneratedSql());
+        data.put("executedSql", e.getExecutedSql());
+        return data;
     }
 
     private QaResponse handleSearch(User user, String question, QaRequest request, long startTime) {

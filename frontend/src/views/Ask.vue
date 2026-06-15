@@ -40,6 +40,14 @@
         <p class="text-xs text-gray-400 dark:text-gray-500 text-center mt-2">
           {{ mode === 'SEARCH' ? 'Find messages by meaning — great for conversations, topics, and agreements' : 'Ask data questions — the AI writes SQL to query your archive' }}
         </p>
+        <div v-if="mode === 'DATA'" class="flex justify-center mt-2">
+          <button
+            @click="showSchema = !showSchema"
+            class="text-xs text-blue-500 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 font-medium"
+          >
+            <i class="pi pi-info-circle mr-1"></i>{{ showSchema ? 'Hide schema' : 'Show schema cheat-sheet' }}
+          </button>
+        </div>
       </div>
 
       <!-- Search Bar -->
@@ -93,6 +101,16 @@
           >
             {{ chip }}
           </button>
+        </div>
+
+        <!-- Schema Cheat-Sheet -->
+        <div v-if="mode === 'DATA' && showSchema" class="mt-3 rounded-xl border border-blue-100 dark:border-blue-900 bg-blue-50/70 dark:bg-blue-900/20 p-3 text-left">
+          <div class="grid sm:grid-cols-2 gap-2">
+            <div v-for="table in schemaTables" :key="table.name" class="rounded-lg bg-white/70 dark:bg-gray-800/70 p-2">
+              <p class="text-xs font-semibold text-blue-600 dark:text-blue-300 mb-1">{{ table.name }}</p>
+              <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed">{{ table.columns.join(', ') }}</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -161,24 +179,127 @@
         <!-- Analytics Data (charts/tables) -->
         <div v-if="response && response.intent === 'ANALYTICS' && response.analyticsData">
 
+          <!-- SQL Error (from text-to-SQL) -->
+          <div v-if="sqlData?.type === 'sql_error'" class="mt-2 space-y-3">
+            <div class="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4">
+              <div class="flex items-start gap-2">
+                <i class="pi pi-exclamation-triangle text-red-500 mt-0.5"></i>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold text-red-700 dark:text-red-300">SQL query failed</p>
+                  <p class="text-sm text-red-600 dark:text-red-400 break-words">{{ sqlData.dbError || sqlData.error }}</p>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 mt-3">
+                <button
+                  @click="regenerateQuestion"
+                  :disabled="loading || !query.trim()"
+                  class="px-2.5 py-1.5 rounded-lg text-xs bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/60 disabled:opacity-50"
+                >
+                  <i class="pi pi-refresh mr-1"></i>Regenerate
+                </button>
+                <button
+                  v-if="sqlForDisplay"
+                  @click="startSqlEdit"
+                  class="px-2.5 py-1.5 rounded-lg text-xs bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-red-200 dark:border-red-800"
+                >
+                  <i class="pi pi-pencil mr-1"></i>Edit SQL
+                </button>
+              </div>
+            </div>
+            <details v-if="sqlForDisplay" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+              <summary class="cursor-pointer px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Generated SQL
+              </summary>
+              <div class="border-t border-gray-100 dark:border-gray-700">
+                <div v-if="editingSql" class="p-3 space-y-2">
+                  <textarea v-model="sqlDraft" class="w-full min-h-40 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-3 text-xs font-mono text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30"></textarea>
+                  <div class="flex gap-2 justify-end">
+                    <button @click="cancelSqlEdit" class="px-2.5 py-1.5 rounded-lg text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">Cancel</button>
+                    <button @click="runEditedSql" :disabled="sqlRunning || !sqlDraft.trim()" class="px-2.5 py-1.5 rounded-lg text-xs bg-blue-500 text-white hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-600">
+                      <i :class="sqlRunning ? 'pi pi-spin pi-spinner' : 'pi pi-play'" class="mr-1"></i>Run SQL
+                    </button>
+                  </div>
+                </div>
+                <div v-else class="relative">
+                  <div class="absolute top-2 right-2 flex gap-1">
+                    <button @click="startSqlEdit" class="px-2 py-1 rounded-md text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
+                      <i class="pi pi-pencil mr-1"></i>Edit
+                    </button>
+                    <button @click="copySql" class="px-2 py-1 rounded-md text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
+                      <i class="pi pi-copy mr-1"></i>Copy
+                    </button>
+                  </div>
+                  <pre class="p-4 pr-32 text-xs overflow-x-auto text-gray-700 dark:text-gray-300"><code>{{ sqlForDisplay }}</code></pre>
+                </div>
+              </div>
+            </details>
+          </div>
+
           <!-- SQL Result Table (from text-to-SQL) -->
-          <div v-if="response.analyticsData.type === 'sql_result' && response.analyticsData.rows?.length" class="mt-2">
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <div class="overflow-x-auto">
-              <table class="w-full text-sm min-w-[400px]">
-                <thead>
+          <div v-if="sqlData?.type === 'sql_result'" class="mt-2 space-y-3">
+            <div class="flex flex-wrap items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+              <span class="font-mono">{{ sqlData.rowCount ?? sortedSqlRows.length }} rows</span>
+              <span v-if="typeof sqlData.generationMs === 'number'" class="font-mono">AI {{ sqlData.generationMs }}ms</span>
+              <span v-if="typeof sqlData.executionMs === 'number'" class="font-mono">DB {{ sqlData.executionMs }}ms</span>
+              <button
+                v-if="sortedSqlRows.length"
+                @click="downloadCsv"
+                class="ml-auto px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                <i class="pi pi-download mr-1"></i>CSV
+              </button>
+            </div>
+
+            <details class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+              <summary class="cursor-pointer px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                SQL details
+              </summary>
+              <div class="border-t border-gray-100 dark:border-gray-700">
+                <div v-if="editingSql" class="p-3 space-y-2">
+                  <textarea v-model="sqlDraft" class="w-full min-h-40 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-3 text-xs font-mono text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30"></textarea>
+                  <div class="flex gap-2 justify-end">
+                    <button @click="cancelSqlEdit" class="px-2.5 py-1.5 rounded-lg text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">Cancel</button>
+                    <button @click="runEditedSql" :disabled="sqlRunning || !sqlDraft.trim()" class="px-2.5 py-1.5 rounded-lg text-xs bg-blue-500 text-white hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-600">
+                      <i :class="sqlRunning ? 'pi pi-spin pi-spinner' : 'pi pi-play'" class="mr-1"></i>Run SQL
+                    </button>
+                  </div>
+                </div>
+                <div v-else class="relative">
+                  <div class="absolute top-2 right-2 flex gap-1">
+                    <button @click="startSqlEdit" class="px-2 py-1 rounded-md text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
+                      <i class="pi pi-pencil mr-1"></i>Edit
+                    </button>
+                    <button @click="copySql" class="px-2 py-1 rounded-md text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
+                      <i class="pi pi-copy mr-1"></i>Copy
+                    </button>
+                  </div>
+                  <pre class="p-4 pr-32 text-xs overflow-x-auto text-gray-700 dark:text-gray-300"><code>{{ sqlForDisplay }}</code></pre>
+                </div>
+              </div>
+            </details>
+
+            <div v-if="sortedSqlRows.length" class="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div class="overflow-x-auto max-h-[60vh]">
+              <table class="w-full text-sm min-w-[400px] table-fixed">
+                <thead class="sticky top-0 z-10">
                   <tr class="bg-gray-50 dark:bg-gray-800">
-                    <th v-for="col in response.analyticsData.columns" :key="col"
-                      class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      {{ col.replace(/_/g, ' ') }}
+                    <th v-for="col in sqlColumns" :key="col"
+                      @click="sortByColumn(col)"
+                      class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200">
+                      <span class="inline-flex items-center gap-1">
+                        {{ col.replace(/_/g, ' ') }}
+                        <i v-if="sortKey === col" :class="sortDirection === 'asc' ? 'pi pi-sort-up-fill' : 'pi pi-sort-down-fill'" class="text-[10px]"></i>
+                        <i v-else class="pi pi-sort-alt text-[10px] opacity-40"></i>
+                      </span>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(row, i) in response.analyticsData.rows" :key="i"
+                  <tr v-for="(row, i) in sortedSqlRows" :key="i"
                     class="border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
-                    <td v-for="col in response.analyticsData.columns" :key="col"
-                      class="px-4 py-2.5 text-gray-700 dark:text-gray-300">
+                    <td v-for="col in sqlColumns" :key="col"
+                      class="px-4 py-2.5 text-gray-700 dark:text-gray-300 truncate"
+                      :title="row[col] == null ? '' : String(row[col])">
                       {{ formatCell(row[col], col) }}
                     </td>
                   </tr>
@@ -186,10 +307,9 @@
               </table>
               </div>
             </div>
-            <p class="text-[10px] text-gray-400 dark:text-gray-500 mt-2 font-mono truncate"
-               :title="response.analyticsData.sql">
-              <i class="pi pi-database mr-1"></i>{{ response.analyticsData.sql }}
-            </p>
+            <div v-else class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 text-sm text-gray-500 dark:text-gray-400">
+              Query ran successfully and returned no rows.
+            </div>
           </div>
 
           <!-- Top Contacts Table (legacy fast-path) -->
@@ -214,6 +334,9 @@
             <i class="pi pi-search text-xs"></i>
             {{ response.searchResults.totalHits }} results
             <span class="text-xs font-normal text-gray-400">({{ response.searchResults.mode }})</span>
+            <span v-for="entry in searchSourceCounts" :key="entry[0]" class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 font-normal">
+              {{ entry[0] }} {{ entry[1] }}
+            </span>
             <span class="ml-auto text-xs font-normal text-gray-400">{{ (response.processingTimeMs / 1000).toFixed(1) }}s</span>
           </h3>
           <div class="space-y-2">
@@ -301,7 +424,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { marked } from 'marked';
-import { askQuestion, getMessageContext, type QaResponse, type Message } from '../services/api';
+import { askQuestion, getMessageContext, runSql, type QaResponse, type Message } from '../services/api';
 import MessageBubble from '../components/MessageBubble.vue';
 
 const router = useRouter();
@@ -311,6 +434,26 @@ const loading = ref(false);
 const error = ref('');
 const response = ref<QaResponse | null>(null);
 const mode = ref<'SEARCH' | 'DATA'>('SEARCH');
+const sortKey = ref<string | null>(null);
+const sortDirection = ref<'asc' | 'desc'>('asc');
+const showSchema = ref(false);
+const editingSql = ref(false);
+const sqlDraft = ref('');
+const sqlRunning = ref(false);
+
+interface SqlAnalyticsData {
+  type: 'sql_result' | 'sql_error';
+  sql?: string;
+  generatedSql?: string;
+  executedSql?: string;
+  columns?: string[];
+  rows?: Record<string, any>[];
+  rowCount?: number;
+  generationMs?: number;
+  executionMs?: number;
+  error?: string;
+  dbError?: string;
+}
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -335,6 +478,29 @@ const dataSuggestions = [
   'How many photos did I send?',
 ];
 
+const schemaTables = [
+  {
+    name: 'messages',
+    columns: ['id', 'user_id', 'sender_contact_id', 'conversation_id', 'timestamp', 'body', 'direction', 'protocol'],
+  },
+  {
+    name: 'contacts',
+    columns: ['id', 'user_id', 'number', 'normalized_number', 'name'],
+  },
+  {
+    name: 'conversations',
+    columns: ['id', 'user_id', 'name', 'last_message_at'],
+  },
+  {
+    name: 'conversation_contacts',
+    columns: ['conversation_id', 'contact_id'],
+  },
+  {
+    name: 'message_parts',
+    columns: ['id', 'message_id', 'ct', 'name', 'file_path', 'size_bytes'],
+  },
+];
+
 const activeSuggestions = computed(() =>
   mode.value === 'SEARCH' ? searchSuggestions : dataSuggestions
 );
@@ -343,6 +509,8 @@ function switchMode(newMode: 'SEARCH' | 'DATA') {
   mode.value = newMode;
   response.value = null;
   error.value = '';
+  sortKey.value = null;
+  editingSql.value = false;
   searchInput.value?.focus();
 }
 
@@ -360,6 +528,8 @@ async function submitQuestion() {
 
   try {
     response.value = await askQuestion({ question: q, mode: mode.value });
+    sortKey.value = null;
+    editingSql.value = false;
   } catch (e: any) {
     error.value = e?.response?.data?.message || e?.message || 'Failed to get answer';
   } finally {
@@ -457,5 +627,118 @@ function formatCell(val: any, col?: string): string {
   // Truncate long strings (e.g. message bodies)
   const str = String(val);
   return str.length > 100 ? str.substring(0, 100) + '…' : str;
+}
+
+const sqlData = computed<SqlAnalyticsData | null>(() => {
+  const data = response.value?.analyticsData;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  if (data.type !== 'sql_result' && data.type !== 'sql_error') return null;
+  return data as SqlAnalyticsData;
+});
+
+const sqlForDisplay = computed(() =>
+  sqlData.value?.executedSql || sqlData.value?.sql || sqlData.value?.generatedSql || ''
+);
+
+const sqlColumns = computed(() => sqlData.value?.columns || []);
+
+const searchSourceCounts = computed(() =>
+  Object.entries(response.value?.searchResults?.diagnostics?.sourceCounts || {})
+);
+
+const sortedSqlRows = computed(() => {
+  const rows = sqlData.value?.rows || [];
+  const key = sortKey.value;
+  if (!key) return rows;
+
+  return [...rows].sort((a, b) => {
+    const av = a[key];
+    const bv = b[key];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+
+    const an = typeof av === 'number' ? av : Number(av);
+    const bn = typeof bv === 'number' ? bv : Number(bv);
+    const bothNumeric = Number.isFinite(an) && Number.isFinite(bn);
+    const comparison = bothNumeric
+      ? an - bn
+      : String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' });
+
+    return sortDirection.value === 'asc' ? comparison : -comparison;
+  });
+});
+
+function sortByColumn(col: string) {
+  if (sortKey.value === col) {
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey.value = col;
+    sortDirection.value = 'asc';
+  }
+}
+
+function startSqlEdit() {
+  sqlDraft.value = sqlForDisplay.value;
+  editingSql.value = true;
+}
+
+function cancelSqlEdit() {
+  editingSql.value = false;
+  sqlDraft.value = '';
+}
+
+async function runEditedSql() {
+  const sql = sqlDraft.value.trim();
+  if (!sql || sqlRunning.value) return;
+
+  sqlRunning.value = true;
+  error.value = '';
+  try {
+    response.value = await runSql(sql);
+    sortKey.value = null;
+    editingSql.value = false;
+  } catch (e: any) {
+    error.value = e?.response?.data?.message || e?.message || 'Failed to run SQL';
+  } finally {
+    sqlRunning.value = false;
+  }
+}
+
+function regenerateQuestion() {
+  editingSql.value = false;
+  submitQuestion();
+}
+
+async function copySql() {
+  if (!sqlForDisplay.value) return;
+  try {
+    await navigator.clipboard.writeText(sqlForDisplay.value);
+  } catch (e) {
+    console.error('Failed to copy SQL', e);
+  }
+}
+
+function csvEscape(value: any): string {
+  if (value == null) return '';
+  const str = String(value);
+  return /[",\n\r]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+}
+
+function downloadCsv() {
+  const data = sqlData.value;
+  if (!data?.columns?.length) return;
+
+  const lines = [
+    data.columns.map(csvEscape).join(','),
+    ...sortedSqlRows.value.map(row => data.columns!.map(col => csvEscape(row[col])).join(',')),
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'sms-archive-query.csv';
+  link.click();
+  URL.revokeObjectURL(url);
 }
 </script>

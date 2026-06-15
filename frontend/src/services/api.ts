@@ -368,6 +368,12 @@ export interface UnifiedSearchResult {
   mode: string;
   hits: UnifiedSearchHit[];
   totalHits: number;
+  diagnostics?: {
+    mode?: string;
+    sourceCounts?: Record<string, number>;
+    dedupEnabled?: boolean;
+    minScore?: number;
+  };
 }
 
 export interface EmbeddingStats {
@@ -455,16 +461,35 @@ export interface QaSource {
   relevance: number;
 }
 
+export interface SqlAnalyticsData {
+  type: 'sql_result' | 'sql_error';
+  sql?: string;
+  generatedSql?: string;
+  executedSql?: string;
+  columns?: string[];
+  rows?: Record<string, any>[];
+  rowCount?: number;
+  generationMs?: number;
+  executionMs?: number;
+  error?: string;
+  dbError?: string;
+}
+
 export interface QaResponse {
   intent: 'ANALYTICS' | 'SEARCH';
   answer: string | null;
   sources: QaSource[];
-  analyticsData: any;
+  analyticsData: SqlAnalyticsData | any[] | Record<string, any> | null;
   searchResults: UnifiedSearchResult | null;
   processingTimeMs: number;
 }
 
 export async function askQuestion(request: QaRequest): Promise<QaResponse> {
   const res = await axios.post(`${API_BASE}/api/qa/ask`, request);
+  return res.data;
+}
+
+export async function runSql(sql: string): Promise<QaResponse> {
+  const res = await axios.post(`${API_BASE}/api/qa/sql/run`, { sql });
   return res.data;
 }

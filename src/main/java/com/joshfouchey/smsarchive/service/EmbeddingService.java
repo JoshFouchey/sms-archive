@@ -447,7 +447,7 @@ public class EmbeddingService {
 
     public EmbeddingStatsDto getStats(User user) {
         long total = messageRepository.countByUser(user);
-        long embedded = embeddingRepository.countByUserAndModelName(user, modelName);
+        long embedded = embeddingRepository.countDistinctMessagesByUserAndModel(user.getId(), modelName);
         double pct = total > 0 ? (embedded * 100.0) / total : 0;
         return new EmbeddingStatsDto(total, embedded, pct, modelName);
     }

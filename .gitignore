@@ -68,3 +68,6 @@ frontend/.eslintcache
 *.swo
 /docker-compose.yml
 /src/main/resources/test_files/
+
+# Private local search evals may contain personal archive details.
+/search-evals/*.local.json

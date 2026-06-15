@@ -17,11 +17,13 @@ public interface MessageEmbeddingRepository extends JpaRepository<MessageEmbeddi
             FROM messages m
             JOIN message_embeddings me ON me.message_id = m.id
             WHERE me.user_id = :userId
+              AND me.model_name = :modelName
             ORDER BY me.embedding <=> CAST(:queryVector AS vector)
             LIMIT :topK
             """, nativeQuery = true)
     List<Object[]> findSimilarMessages(
             @Param("userId") UUID userId,
+            @Param("modelName") String modelName,
             @Param("queryVector") String queryVector,
             @Param("topK") int topK);
 
@@ -30,12 +32,14 @@ public interface MessageEmbeddingRepository extends JpaRepository<MessageEmbeddi
             FROM messages m
             JOIN message_embeddings me ON me.message_id = m.id
             WHERE me.user_id = :userId
+              AND me.model_name = :modelName
               AND m.conversation_id = :conversationId
             ORDER BY me.embedding <=> CAST(:queryVector AS vector)
             LIMIT :topK
             """, nativeQuery = true)
     List<Object[]> findSimilarInConversation(
             @Param("userId") UUID userId,
+            @Param("modelName") String modelName,
             @Param("conversationId") Long conversationId,
             @Param("queryVector") String queryVector,
             @Param("topK") int topK);
@@ -44,13 +48,16 @@ public interface MessageEmbeddingRepository extends JpaRepository<MessageEmbeddi
             SELECT m.*, (1 - (me.embedding <=> CAST(:queryVector AS vector))) AS similarity
             FROM messages m
             JOIN message_embeddings me ON me.message_id = m.id
+            JOIN conversation_contacts cc ON cc.conversation_id = m.conversation_id
             WHERE me.user_id = :userId
-              AND m.sender_contact_id = :contactId
+              AND me.model_name = :modelName
+              AND cc.contact_id = :contactId
             ORDER BY me.embedding <=> CAST(:queryVector AS vector)
             LIMIT :topK
             """, nativeQuery = true)
     List<Object[]> findSimilarByContact(
             @Param("userId") UUID userId,
+            @Param("modelName") String modelName,
             @Param("contactId") Long contactId,
             @Param("queryVector") String queryVector,
             @Param("topK") int topK);
@@ -71,6 +78,15 @@ public interface MessageEmbeddingRepository extends JpaRepository<MessageEmbeddi
             @Param("modelName") String modelName);
 
     long countByUserAndModelName(User user, String modelName);
+
+    @Query(value = """
+            SELECT COUNT(DISTINCT message_id)
+            FROM message_embeddings
+            WHERE user_id = :userId AND model_name = :modelName
+            """, nativeQuery = true)
+    long countDistinctMessagesByUserAndModel(
+            @Param("userId") UUID userId,
+            @Param("modelName") String modelName);
 
     boolean existsByMessageId(Long messageId);
 

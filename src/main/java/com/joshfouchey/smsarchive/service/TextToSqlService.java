@@ -60,51 +60,53 @@ public class TextToSqlService {
     }
 
     public TextToSqlResult generateAndExecute(String question, UUID userId) {
-        String sql = generateSql(question);
+        GeneratedSql generated = generateSql(question);
+        String sql = generated.sql();
+        long generationMs = generated.generationMs();
 
         // If the SQL looks incomplete (no FROM clause), retry once
         if (!sql.toLowerCase().contains("from")) {
             log.info("Text-to-SQL looks incomplete (no FROM), retrying...");
-            sql = generateSql(question);
+            generated = generateSql(question);
+            sql = generated.sql();
+            generationMs += generated.generationMs();
         }
 
         if (!sql.toLowerCase().contains("from")) {
-            throw new TextToSqlException("Generated SQL is incomplete (no FROM clause)");
+            throw new TextToSqlException("Generated SQL is incomplete (no FROM clause)", sql, null, null);
         }
 
-        String safeSql = injectUserId(sql, userId);
-
-        // If model forgot user_id filter, inject it
-        if (!safeSql.toLowerCase().contains("user_id")) {
-            log.info("Text-to-SQL missing user_id, injecting filter");
-            safeSql = injectUserIdFilter(safeSql, userId);
-        }
-
-        validateSql(safeSql);
+        String safeSql = prepareSql(sql, userId);
         try {
-            List<Map<String, Object>> rows = executeSql(safeSql);
-            String answer = formatAnswer(question, rows);
-            return new TextToSqlResult(answer, sql, rows);
+            TimedRows result = executeSql(safeSql);
+            String answer = formatAnswer(question, result.rows());
+            return new TextToSqlResult(answer, sql, safeSql, result.rows(), generationMs, result.executionMs());
         } catch (TextToSqlException e) {
             // Retry once with a fresh generation if execution fails
             log.info("Text-to-SQL first attempt failed ({}), retrying...", e.getMessage());
-            sql = generateSql(question);
-            safeSql = injectUserId(sql, userId);
-            if (!safeSql.toLowerCase().contains("user_id")) {
-                safeSql = injectUserIdFilter(safeSql, userId);
-            }
-            validateSql(safeSql);
-            List<Map<String, Object>> rows = executeSql(safeSql);
-            String answer = formatAnswer(question, rows);
-            return new TextToSqlResult(answer, sql, rows);
+            generated = generateSql(question);
+            sql = generated.sql();
+            generationMs += generated.generationMs();
+            safeSql = prepareSql(sql, userId);
+            TimedRows result = executeSql(safeSql);
+            String answer = formatAnswer(question, result.rows());
+            return new TextToSqlResult(answer, sql, safeSql, result.rows(), generationMs, result.executionMs());
         }
     }
 
-    private String generateSql(String question) {
+    public TextToSqlResult executeUserSql(String sql, UUID userId) {
+        String safeSql = prepareSql(sql, userId);
+        TimedRows result = executeSql(safeSql);
+        String answer = formatAnswer("Edited SQL", result.rows());
+        return new TextToSqlResult(answer, sql, safeSql, result.rows(), 0, result.executionMs());
+    }
+
+    private GeneratedSql generateSql(String question) {
         String normalizedQuestion = normalizeQuestion(question);
         String prompt = String.format(SCHEMA_PROMPT, MAX_ROWS, normalizedQuestion);
 
         try {
+            long start = System.currentTimeMillis();
             ChatResponse response = chatModel.call(
                     new Prompt(prompt, OpenAiChatOptions.builder()
                             .model(sqlModelName)
@@ -116,10 +118,23 @@ public class TextToSqlService {
             String raw = response.getResult().getOutput().getText().trim();
             raw = extractSql(raw);
             log.info("Text-to-SQL generated: {}", raw.replace("\n", " "));
-            return raw;
+            return new GeneratedSql(raw, System.currentTimeMillis() - start);
         } catch (Exception e) {
             throw new TextToSqlException("Failed to generate SQL: " + e.getMessage(), e);
         }
+    }
+
+    String prepareSql(String sql, UUID userId) {
+        String safeSql = injectUserId(sql, userId);
+
+        // If the query is not already scoped to this exact user, add a defensive filter.
+        if (!safeSql.contains(userId.toString())) {
+            log.info("Text-to-SQL missing user_id, injecting filter");
+            safeSql = injectUserIdFilter(safeSql, userId);
+        }
+
+        validateSql(safeSql);
+        return safeSql;
     }
 
     /** Extract SQL from model output, handling cases where the model wraps it in prose. */
@@ -192,38 +207,40 @@ public class TextToSqlService {
         return sql + " WHERE " + filter;
     }
 
-    private void validateSql(String sql) {
+    void validateSql(String sql) {
         if (!SELECT_ONLY.matcher(sql).find()) {
             log.warn("Text-to-SQL validation failed: not a SELECT query. SQL: {}", sql);
-            throw new TextToSqlException("Generated SQL is not a SELECT query");
+            throw new TextToSqlException("Generated SQL is not a SELECT query", sql, null, null);
         }
         if (DANGEROUS_SQL.matcher(sql).find()) {
             log.warn("Text-to-SQL validation failed: prohibited keywords. SQL: {}", sql);
-            throw new TextToSqlException("Generated SQL contains prohibited keywords");
+            throw new TextToSqlException("Generated SQL contains prohibited keywords", sql, null, null);
         }
         if (!sql.toLowerCase().contains("user_id")) {
             log.warn("Text-to-SQL validation failed: missing user_id filter. SQL: {}", sql);
-            throw new TextToSqlException("Generated SQL missing user_id filter");
+            throw new TextToSqlException("Generated SQL missing user_id filter", sql, null, null);
         }
         // Reject multiple statements
         long semiCount = sql.chars().filter(c -> c == ';').count();
         if (semiCount > 0) {
-            throw new TextToSqlException("Generated SQL contains multiple statements");
+            throw new TextToSqlException("Generated SQL contains multiple statements", sql, null, null);
         }
     }
 
     @SuppressWarnings("deprecation")
-    private List<Map<String, Object>> executeSql(String sql) {
+    private TimedRows executeSql(String sql) {
+        long start = System.currentTimeMillis();
         try {
             jdbcTemplate.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
-            return jdbcTemplate.queryForList(sql);
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+            return new TimedRows(rows, System.currentTimeMillis() - start);
         } catch (Exception e) {
             // Surface the root PostgreSQL error, not just Spring's wrapper
             Throwable root = e;
             while (root.getCause() != null) root = root.getCause();
             String detail = root.getMessage() != null ? root.getMessage() : e.getMessage();
             log.error("Text-to-SQL execution failed. Detail: {}. SQL: {}", detail, sql);
-            throw new TextToSqlException("SQL execution failed: " + detail, e);
+            throw new TextToSqlException("SQL execution failed: " + detail, null, sql, detail, e);
         } finally {
             jdbcTemplate.setQueryTimeout(0);
         }
@@ -293,11 +310,42 @@ public class TextToSqlService {
     public record TextToSqlResult(
             String answer,
             String generatedSql,
-            List<Map<String, Object>> rows
+            String executedSql,
+            List<Map<String, Object>> rows,
+            long generationMs,
+            long executionMs
     ) {}
 
+    private record GeneratedSql(String sql, long generationMs) {}
+
+    private record TimedRows(List<Map<String, Object>> rows, long executionMs) {}
+
     public static class TextToSqlException extends RuntimeException {
-        public TextToSqlException(String message) { super(message); }
-        public TextToSqlException(String message, Throwable cause) { super(message, cause); }
+        private final String generatedSql;
+        private final String executedSql;
+        private final String dbError;
+
+        public TextToSqlException(String message) {
+            this(message, null, null, null);
+        }
+        public TextToSqlException(String message, Throwable cause) {
+            this(message, null, null, null, cause);
+        }
+        public TextToSqlException(String message, String generatedSql, String executedSql, String dbError) {
+            super(message);
+            this.generatedSql = generatedSql;
+            this.executedSql = executedSql;
+            this.dbError = dbError;
+        }
+        public TextToSqlException(String message, String generatedSql, String executedSql, String dbError, Throwable cause) {
+            super(message, cause);
+            this.generatedSql = generatedSql;
+            this.executedSql = executedSql;
+            this.dbError = dbError;
+        }
+
+        public String getGeneratedSql() { return generatedSql; }
+        public String getExecutedSql() { return executedSql; }
+        public String getDbError() { return dbError; }
     }
 }
