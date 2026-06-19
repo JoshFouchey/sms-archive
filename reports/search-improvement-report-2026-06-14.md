@@ -229,6 +229,92 @@ Best future relevance workflow:
 3. Tune one variable at a time.
 4. Compare Precision@5, Precision@10, MRR, and no-result behavior.
 
+## Issues Found (2026-06-15 Follow-Up Review)
+
+### Bugs
+
+1. **`maxTokens` too low causes SQL truncation** (`TextToSqlService.java:114`) — ✅ **FIXED**
+   - `maxTokens(512)` can truncate generated SQL mid-query, causing "Unterminated string literal" PostgreSQL errors.
+   - **Fix:** Increased to `maxTokens(1024)`.
+
+2. **Retry path skips FROM-clause validation** (`TextToSqlService.java:84-94`) — ✅ **FIXED**
+   - When first SQL execution fails and retries, the regenerated SQL is not checked for the `FROM` clause before being sent to the database.
+   - **Fix:** Added FROM-clause check in both initial and retry paths before executing SQL.
+
+3. **`injectUserIdFilter` is fragile** (`TextToSqlService.java:187-208`) — ✅ **FIXED**
+   - String-based injection finds `"where"` (lowercase) and inserts after 5 characters. If `WHERE` appears inside a string literal (e.g., `body ILIKE '%where%'`), it injects into the wrong position.
+   - **Fix:** Replaced substring matching with `findSqlKeyword()` helper that checks for whitespace boundaries before keywords.
+
+4. **`setQueryTimeout` thread-safety concern** (`TextToSqlService.java:231-247`) — ✅ **FIXED**
+   - Mutates a shared `JdbcTemplate`'s query timeout via `setQueryTimeout()` with a `finally` reset. Under concurrent requests on the same thread (e.g., async dispatch), one request's timeout could interfere with another.
+   - **Fix:** Refactored `executeSql` to use `JdbcTemplate.execute()` with per-statement `PreparedStatement.setQueryTimeout()` callback instead of mutating shared state.
+
+5. **Empty error bodies on validation failure** (`QaController.java:29-30, 42-46`) — ✅ **FIXED**
+   - Returns `ResponseEntity.badRequest().build()` with no body. Client receives a 400 with no explanation.
+   - **Fix:** Updated `QaController` to return JSON error bodies for all validation failures (e.g., `{"error": "Question is required"}`).
+
+6. **Silent question truncation** (`QaController.java:34`) — ✅ **FIXED**
+   - Questions over `QA_QUESTION_MAX` (1000 chars) are silently truncated, potentially cutting mid-sentence with no indication to the user.
+   - **Fix:** `QaController` now rejects questions exceeding `QA_QUESTION_MAX` with a 400 error instead of silently truncating.
+
+7. **Duplicate `generatedSql` field in response** (`QaService.java:116-117`) — ✅ **FIXED**
+   - Response data map contains both `"sql"` and `"generatedSql"` pointing to the same value.
+   - **Fix:** Removed duplicate `sql` field from `analyticsResponse`, keeping only `generatedSql`.
+
+### Security
+
+8. **No table whitelist for user-supplied SQL** (`TextToSqlService.java:97-102`) — ✅ **FIXED**
+   - `executeUserSql` (exposed via `POST /api/qa/sql/run`) allows querying any table including `information_schema`, `pg_catalog`, etc. No check that the query references only the allowed tables.
+   - **Fix:** Added `ALLOWED_TABLES` set (`messages`, `contacts`, `conversations`, `conversation_contacts`, `message_parts`) and `validateTableWhitelist()` method. `executeUserSql` now rejects queries referencing disallowed tables.
+
+9. **Regex-based SQL validation is bypassable** (`TextToSqlService.java:25-29`) — ✅ **FIXED**
+   - `\b` word boundaries can be defeated with SQL comments (e.g., `DEL/**/ETE`). Does not block `pg_ls_dir`, `pg_read_file`, `COPY TO`, or other data exfiltration functions.
+   - **Fix:** Added `stripComments()` method that removes `--`, `/* ... */`, and `#` comments before validation. Normalizes whitespace to prevent multi-line bypass. Expanded `DANGEROUS_SQL` pattern to block `pg_ls_dir`, `pg_read_file`, `pg_read_binary_file`, `pg_listening_channels`, `dblink`, `lo_export`, `lo_import`, `convert_to`, `pg_catalog`.
+
+10. **DB error details leaked to client** (`TextToSqlService.java:238-244`) — ✅ **FIXED**
+    - PostgreSQL error messages can reveal table names, column names, constraint names, and schema details. These flow into `sqlErrorData()` and are returned to the client.
+    - **Fix:** `TextToSqlService` now passes `null` for `dbError` in `TextToSqlException`, keeping raw PostgreSQL details only in server logs.
+
+### Missing Features
+
+11. **No rate limiting on AI endpoints** (`QaController.java:27-50`) — ✅ **FIXED**
+    - LLM calls are expensive and slow. No protection against rapid requests exhausting the LLM server.
+    - **Fix:** Added `RateLimiter` utility class (in-memory token bucket). Configured as Spring bean with 10 requests/minute per user. Both `/ask` and `/sql/run` endpoints now check the rate limiter before processing, returning 429 Too Many Requests when exceeded.
+
+12. **No timeout on LLM calls** (`TextToSqlService.java:108-121`) — ✅ **FIXED**
+    - `chatModel.call()` has no timeout. If the LLM server hangs, the request blocks indefinitely.
+    - **Fix:** LLM calls are now wrapped in `CompletableFuture` with configurable timeout (`smsarchive.ai.llm.timeout-seconds`, default 180s). Timeout throws `TextToSqlException` with clear error message.
+
+13. **Missing user ID in error logs** (`QaService.java:68, 80, 98`) — ✅ **FIXED**
+    - SQL error log messages do not include the user ID, making debugging difficult in a multi-tenant system.
+    - **Fix:** Added `user.getId()` to all log statements in `QaService` (3 sites) and `TextToSqlService` (2 retry sites) for multi-tenant debugging.
+
+### Code Quality
+
+14. **`formatValue` does not handle Date/BigDecimal** (`TextToSqlService.java:299-308`) — ✅ **FIXED**
+    - PostgreSQL can return `BigDecimal`, `java.sql.Timestamp`, `UUID`, etc. Dates produce ISO format strings which may be confusing. BigDecimal may produce scientific notation.
+    - **Fix:** Added `BigDecimal` handling (uses `toPlainString()` to avoid scientific notation) and `Date` handling (formats as readable timestamp via `java.sql.Timestamp.valueOf()`).
+
+15. **`DATA_QUESTION_PATTERN` regex may match false positives** (`QaService.java:25-34`) — ✅ **FIXED**
+    - e.g., "which month" matches, but so would "which" in any context. Could trigger text-to-SQL for questions meant for simple search.
+    - **Fix:** Removed bare `\d{4}` pattern (matched any year in any context). Added `\b` word boundaries to `count`, `total`, `average`. Changed `least` to `least\s+(recent|active)`. Added `\b` boundaries to `since \d{4}` and `in \d{4}`.
+
 ## Current Best Next Task
 
-Implement **query history + saved prompts + feedback buttons**. This is low risk, useful immediately, and creates signals for future relevance improvements.
+All issues from this report have been addressed (2026-06-18). Next recommended work:
+
+1. **Query history + saved prompts + feedback buttons** — low risk, useful immediately, creates signals for future relevance improvements.
+2. **Search diagnostics accordion** — expand source-count badges into a compact diagnostics panel.
+3. **Chart toggle for simple SQL outputs** — render bar/line charts for one categorical + one numeric column.
+
+See "Recommended Next Steps" section above for full details.
+
+## Files Changed (2026-06-18 Follow-Up Fixes)
+
+Additional files changed by follow-up fixes:
+
+- `src/main/java/com/joshfouchey/smsarchive/service/TextToSqlService.java` — SQL validation hardening, comment stripping, table whitelist, LLM timeout, Date/BigDecimal formatting, user ID logging
+- `src/main/java/com/joshfouchey/smsarchive/service/QaService.java` — user ID logging, refined DATA_QUESTION_PATTERN
+- `src/main/java/com/joshfouchey/smsarchive/controller/QaController.java` — JSON error bodies, length validation rejection, rate limiting
+- `src/main/java/com/joshfouchey/smsarchive/config/AsyncConfig.java` — aiRateLimiter bean
+- `src/main/java/com/joshfouchey/smsarchive/util/RateLimiter.java` — new in-memory token bucket rate limiter (new file)

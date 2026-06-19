@@ -21,15 +21,24 @@ public class QaService {
 
     private static final Logger log = LoggerFactory.getLogger(QaService.class);
 
-    // Broader pattern to detect data/analytics questions that text-to-SQL can handle
+ // Pattern to detect data/analytics questions that text-to-SQL can handle
+    // Uses word boundaries to avoid matching inside unrelated words
     private static final Pattern DATA_QUESTION_PATTERN = Pattern.compile(
-            "(how\\s+many|how\\s+often|count|total|average|first\\s+(text|message)|last\\s+(text|message)|" +
-            "most\\s+(recent|common|frequent|active|text|message|contact)|least|busiest|longest|earliest|latest|" +
-            "per\\s+(day|week|month|year)|since\\s+\\d{4}|in\\s+\\d{4}|between|during|" +
-            "statistics|frequency|percentage|ratio|sent\\s+to|received\\s+from|" +
-            "\\d{4}|which\\s+(month|year|day|week)|when\\s+did\\s+i\\s+(first|last)|" +
-            "who\\s+do\\s+i\\s+(text|message|talk|chat)\\s+(the\\s+)?most|top\\s+\\d*\\s*contact|" +
-            "compared|rank|breakdown)",
+            "(how\\s+many|how\\s+often|" +
+            "\\bcount\\b|\\btotal\\b|\\baverage\\b|" +
+            "first\\s+(text|message)|last\\s+(text|message)|" +
+            "most\\s+(recent|common|frequent|active|text|message|contact)|" +
+            "least\\s+(recent|active)|" +
+            "busiest|longest|earliest|latest|" +
+            "per\\s+(day|week|month|year)|" +
+            "\\bsince\\s+\\d{4}|\\bin\\s+\\d{4}\\b|" +
+            "statistics|frequency|percentage|ratio|" +
+            "sent\\s+to|received\\s+from|" +
+            "which\\s+(month|year|day|week)|" +
+            "when\\s+did\\s+i\\s+(first|last)|" +
+            "who\\s+do\\s+i\\s+(text|message|talk|chat)\\s+(the\\s+)?most|" +
+            "top\\s+\\d*\\s*contact|" +
+            "compared|breakdown)",
             Pattern.CASE_INSENSITIVE
     );
 
@@ -65,7 +74,7 @@ public class QaService {
             TextToSqlResult result = textToSqlService.executeUserSql(sql, user.getId());
             return analyticsResponse(result, System.currentTimeMillis() - start);
         } catch (TextToSqlException e) {
-            log.warn("Manual SQL execution failed: {}", e.getMessage());
+            log.warn("Manual SQL execution failed for user {}: {}", user.getId(), e.getMessage());
             return QaResponse.analytics("SQL execution failed: " + e.getMessage(), sqlErrorData(e),
                     System.currentTimeMillis() - start);
         }
@@ -77,7 +86,7 @@ public class QaService {
             try {
                 return handleTextToSql(user, question, start);
             } catch (TextToSqlException e) {
-                log.warn("Text-to-SQL failed for '{}': {}", question, e.getMessage());
+                log.warn("Text-to-SQL failed for user {} on '{}': {}", user.getId(), question, e.getMessage());
                 String errorMsg = "SQL generation failed: " + e.getMessage()
                         + ". Try rephrasing your question.";
                 return QaResponse.analytics(errorMsg, sqlErrorData(e), System.currentTimeMillis() - start);
@@ -95,7 +104,7 @@ public class QaService {
             try {
                 return handleTextToSql(user, question, start);
             } catch (TextToSqlException e) {
-                log.info("Text-to-SQL failed in auto mode: {}", e.getMessage());
+                log.info("Text-to-SQL failed in auto mode for user {}: {}", user.getId(), e.getMessage());
             }
         }
 
@@ -113,7 +122,6 @@ public class QaService {
     private QaResponse analyticsResponse(TextToSqlResult result, long elapsed) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("type", "sql_result");
-        data.put("sql", result.generatedSql());
         data.put("generatedSql", result.generatedSql());
         data.put("executedSql", result.executedSql());
         data.put("generationMs", result.generationMs());

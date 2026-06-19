@@ -1,5 +1,6 @@
 package com.joshfouchey.smsarchive.config;
 
+import com.joshfouchey.smsarchive.util.RateLimiter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskExecutor;
@@ -28,6 +29,12 @@ public class AsyncConfig {
         exec.setThreadNamePrefix("ai-worker-");
         exec.initialize();
         return exec;
+    }
+
+    /** Rate limiter for AI endpoints: 10 requests per minute per user. */
+    @Bean
+    public RateLimiter aiRateLimiter() {
+        return new RateLimiter(10, 60_000);
     }
 }
 

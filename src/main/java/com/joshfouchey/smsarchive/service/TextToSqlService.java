@@ -10,7 +10,12 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -22,10 +27,20 @@ public class TextToSqlService {
     private static final int MAX_ROWS = 50;
     private static final int QUERY_TIMEOUT_SECONDS = 10;
 
+    private static final Set<String> ALLOWED_TABLES = Set.of(
+            "messages", "contacts", "conversations", "conversation_contacts", "message_parts"
+    );
+
+    private static final Pattern TABLE_REF = Pattern.compile(
+            "(?i)(?:FROM|JOIN)\\s+(?:`|#|\"|\\w+\\.)?([\\w]+)"
+    );
+
     private static final Pattern DANGEROUS_SQL = Pattern.compile(
             "\\b(INSERT\\s+INTO|UPDATE\\s+\\w|DELETE\\s+FROM|DROP\\s|ALTER\\s|CREATE\\s|TRUNCATE\\s|" +
             "GRANT\\s|REVOKE\\s|EXECUTE\\s|EXEC\\s|CALL\\s|" +
-            "MERGE\\s|COPY\\s|VACUUM\\s|REINDEX\\s|COMMENT\\s+ON|SECURITY\\s|OWNER\\s|pg_sleep)\\b",
+            "MERGE\\s|COPY\\s|VACUUM\\s|REINDEX\\s|COMMENT\\s+ON|SECURITY\\s|OWNER\\s|" +
+            "pg_sleep|pg_ls_dir|pg_read_file|pg_read_binary_file|pg_listening_channels|" +
+            "dblink|lo_export|lo_import|convert_to|pg_catalog)\\b",
             Pattern.CASE_INSENSITIVE);
 
     private static final Pattern SELECT_ONLY = Pattern.compile(
@@ -54,6 +69,9 @@ public class TextToSqlService {
     @Value("${smsarchive.ai.sql.model:qwen2.5-coder-3b-instruct}")
     private String sqlModelName;
 
+    @Value("${smsarchive.ai.llm.timeout-seconds:180}")
+    private int llmTimeoutSeconds;
+
     public TextToSqlService(ChatModel chatModel, JdbcTemplate jdbcTemplate) {
         this.chatModel = chatModel;
         this.jdbcTemplate = jdbcTemplate;
@@ -66,7 +84,7 @@ public class TextToSqlService {
 
         // If the SQL looks incomplete (no FROM clause), retry once
         if (!sql.toLowerCase().contains("from")) {
-            log.info("Text-to-SQL looks incomplete (no FROM), retrying...");
+            log.info("Text-to-SQL looks incomplete (no FROM) for user {}, retrying...", userId);
             generated = generateSql(question);
             sql = generated.sql();
             generationMs += generated.generationMs();
@@ -83,10 +101,13 @@ public class TextToSqlService {
             return new TextToSqlResult(answer, sql, safeSql, result.rows(), generationMs, result.executionMs());
         } catch (TextToSqlException e) {
             // Retry once with a fresh generation if execution fails
-            log.info("Text-to-SQL first attempt failed ({}), retrying...", e.getMessage());
+            log.info("Text-to-SQL first attempt failed for user {} ({}), retrying...", userId, e.getMessage());
             generated = generateSql(question);
             sql = generated.sql();
             generationMs += generated.generationMs();
+            if (!sql.toLowerCase().contains("from")) {
+                throw new TextToSqlException("Generated SQL is incomplete (no FROM clause)", sql, null, null);
+            }
             safeSql = prepareSql(sql, userId);
             TimedRows result = executeSql(safeSql);
             String answer = formatAnswer(question, result.rows());
@@ -95,10 +116,26 @@ public class TextToSqlService {
     }
 
     public TextToSqlResult executeUserSql(String sql, UUID userId) {
+        validateTableWhitelist(sql);
         String safeSql = prepareSql(sql, userId);
         TimedRows result = executeSql(safeSql);
         String answer = formatAnswer("Edited SQL", result.rows());
         return new TextToSqlResult(answer, sql, safeSql, result.rows(), 0, result.executionMs());
+    }
+
+    /** Validate that the query only references allowed tables. */
+    private void validateTableWhitelist(String sql) {
+        Set<String> referenced = new HashSet<>();
+        var matcher = TABLE_REF.matcher(sql);
+        while (matcher.find()) {
+            referenced.add(matcher.group(1).toLowerCase());
+        }
+        for (String table : referenced) {
+            if (!ALLOWED_TABLES.contains(table)) {
+                log.warn("User SQL references disallowed table: {}. SQL: {}", table, sql);
+                throw new TextToSqlException("Query references disallowed table: " + table, sql, null, null);
+            }
+        }
     }
 
     private GeneratedSql generateSql(String question) {
@@ -107,13 +144,7 @@ public class TextToSqlService {
 
         try {
             long start = System.currentTimeMillis();
-            ChatResponse response = chatModel.call(
-                    new Prompt(prompt, OpenAiChatOptions.builder()
-                            .model(sqlModelName)
-                            .temperature(0.1)
-                            .maxTokens(512)
-                            .frequencyPenalty(1.2)
-                            .build()));
+            ChatResponse response = callWithTimeout(prompt);
 
             String raw = response.getResult().getOutput().getText().trim();
             raw = extractSql(raw);
@@ -121,6 +152,30 @@ public class TextToSqlService {
             return new GeneratedSql(raw, System.currentTimeMillis() - start);
         } catch (Exception e) {
             throw new TextToSqlException("Failed to generate SQL: " + e.getMessage(), e);
+        }
+    }
+
+    /** Call the LLM with a timeout to prevent indefinite hangs. */
+    private ChatResponse callWithTimeout(String prompt) {
+        CompletableFuture<ChatResponse> future = CompletableFuture.supplyAsync(() ->
+                chatModel.call(new Prompt(prompt, OpenAiChatOptions.builder()
+                        .model(sqlModelName)
+                        .temperature(0.1)
+                        .maxTokens(1024)
+                        .frequencyPenalty(1.2)
+                        .build())));
+
+        try {
+            return future.get(llmTimeoutSeconds, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            log.warn("LLM call timed out after {} seconds", llmTimeoutSeconds);
+            throw new TextToSqlException("LLM call timed out after " + llmTimeoutSeconds + " seconds", null, null, null, e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new TextToSqlException("LLM call was interrupted", null, null, null, e);
+        } catch (java.util.concurrent.ExecutionException e) {
+            throw new TextToSqlException("Failed to generate SQL: " + e.getCause().getMessage(), null, null, null, e.getCause());
         }
     }
 
@@ -184,20 +239,22 @@ public class TextToSqlService {
      * If the model forgot the user_id filter, inject it into the WHERE clause.
      * Finds the first WHERE and appends, or adds WHERE before ORDER BY/GROUP BY/LIMIT.
      */
-    private String injectUserIdFilter(String sql, UUID userId) {
+   private String injectUserIdFilter(String sql, UUID userId) {
         String filter = "m.user_id = '" + userId.toString() + "'";
         String lower = sql.toLowerCase();
 
-        if (lower.contains("where")) {
+        // Find WHERE as a standalone keyword (preceded by whitespace or start of string)
+        int wherePos = findSqlKeyword(lower, "where");
+        if (wherePos >= 0) {
             // Append to existing WHERE
-            int whereIdx = lower.indexOf("where") + 5;
-            return sql.substring(0, whereIdx) + " " + filter + " AND" + sql.substring(whereIdx);
+            int afterWhere = wherePos + 5;
+            return sql.substring(0, afterWhere) + " " + filter + " AND" + sql.substring(afterWhere);
         }
 
         // No WHERE — insert before ORDER BY, GROUP BY, or LIMIT
         String[] insertBefore = {"order by", "group by", "limit"};
         for (String keyword : insertBefore) {
-            int idx = lower.indexOf(keyword);
+            int idx = findSqlKeyword(lower, keyword);
             if (idx > 0) {
                 return sql.substring(0, idx) + "WHERE " + filter + " " + sql.substring(idx);
             }
@@ -207,16 +264,35 @@ public class TextToSqlService {
         return sql + " WHERE " + filter;
     }
 
+    /**
+     * Find a SQL keyword that appears as a standalone word (preceded by whitespace or start of string).
+     * Returns the index of the keyword, or -1 if not found.
+     */
+    private int findSqlKeyword(String lowerSql, String keyword) {
+        int idx = 0;
+        while (true) {
+            idx = lowerSql.indexOf(keyword, idx);
+            if (idx == -1) return -1;
+            // Check that it's preceded by whitespace or is at the start
+            if (idx == 0 || Character.isWhitespace(lowerSql.charAt(idx - 1))) {
+                return idx;
+            }
+            idx++;
+        }
+    }
+
     void validateSql(String sql) {
-        if (!SELECT_ONLY.matcher(sql).find()) {
+        // Strip SQL comments and normalize whitespace to prevent regex bypass
+        String sanitized = stripComments(sql).replaceAll("\\s+", " ");
+        if (!SELECT_ONLY.matcher(sanitized).find()) {
             log.warn("Text-to-SQL validation failed: not a SELECT query. SQL: {}", sql);
             throw new TextToSqlException("Generated SQL is not a SELECT query", sql, null, null);
         }
-        if (DANGEROUS_SQL.matcher(sql).find()) {
+        if (DANGEROUS_SQL.matcher(sanitized).find()) {
             log.warn("Text-to-SQL validation failed: prohibited keywords. SQL: {}", sql);
             throw new TextToSqlException("Generated SQL contains prohibited keywords", sql, null, null);
         }
-        if (!sql.toLowerCase().contains("user_id")) {
+        if (!sanitized.toLowerCase().contains("user_id")) {
             log.warn("Text-to-SQL validation failed: missing user_id filter. SQL: {}", sql);
             throw new TextToSqlException("Generated SQL missing user_id filter", sql, null, null);
         }
@@ -227,12 +303,26 @@ public class TextToSqlService {
         }
     }
 
-    @SuppressWarnings("deprecation")
+    /** Strip SQL comments (-- line, /* block */, #) to prevent keyword hiding. */
+    private String stripComments(String sql) {
+        // Remove block comments /* ... */
+        sql = sql.replaceAll("/\\*.*?\\*/", " ");
+        // Remove line comments -- ... to end of line
+        sql = sql.replaceAll("--[^\\n]*", " ");
+        // Remove # comments (PostgreSQL style)
+        sql = sql.replaceAll("#[^\\n]*", " ");
+        return sql;
+    }
+
     private TimedRows executeSql(String sql) {
         long start = System.currentTimeMillis();
         try {
-            jdbcTemplate.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
-            List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+            List<Map<String, Object>> rows = jdbcTemplate.execute(sql,
+                    ps -> {
+                        ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+                        ResultSet rs = ps.executeQuery();
+                        return jdbcTemplate.extractData(rs, null, null);
+                    });
             return new TimedRows(rows, System.currentTimeMillis() - start);
         } catch (Exception e) {
             // Surface the root PostgreSQL error, not just Spring's wrapper
@@ -240,9 +330,7 @@ public class TextToSqlService {
             while (root.getCause() != null) root = root.getCause();
             String detail = root.getMessage() != null ? root.getMessage() : e.getMessage();
             log.error("Text-to-SQL execution failed. Detail: {}. SQL: {}", detail, sql);
-            throw new TextToSqlException("SQL execution failed: " + detail, null, sql, detail, e);
-        } finally {
-            jdbcTemplate.setQueryTimeout(0);
+            throw new TextToSqlException("SQL execution failed: " + detail, null, sql, null, e);
         }
     }
 
@@ -302,7 +390,13 @@ public class TextToSqlService {
             if (num instanceof Long || num instanceof Integer) {
                 return String.format("%,d", num.longValue());
             }
+            if (num instanceof java.math.BigDecimal) {
+                return num.toPlainString();
+            }
             return String.format("%.2f", num.doubleValue());
+        }
+        if (val instanceof java.util.Date date) {
+            return java.sql.Timestamp.valueOf(date).toString();
         }
         return val.toString();
     }
