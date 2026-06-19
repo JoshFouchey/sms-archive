@@ -5,6 +5,7 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -16,6 +17,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
@@ -67,6 +69,7 @@ public class TextToSqlService {
 
     private final ChatModel chatModel;
     private final JdbcTemplate jdbcTemplate;
+    private final Executor aiTaskExecutor;
 
     @Value("${smsarchive.ai.sql.model:qwen2.5-coder-3b-instruct}")
     private String sqlModelName;
@@ -74,47 +77,42 @@ public class TextToSqlService {
     @Value("${smsarchive.ai.llm.timeout-seconds:180}")
     private int llmTimeoutSeconds;
 
-    public TextToSqlService(ChatModel chatModel, JdbcTemplate jdbcTemplate) {
+    public TextToSqlService(ChatModel chatModel, JdbcTemplate jdbcTemplate,
+                            @Qualifier("aiTaskExecutor") Executor aiTaskExecutor) {
         this.chatModel = chatModel;
         this.jdbcTemplate = jdbcTemplate;
+        this.aiTaskExecutor = aiTaskExecutor;
     }
 
     public TextToSqlResult generateAndExecute(String question, UUID userId) {
-        GeneratedSql generated = generateSql(question);
-        String sql = generated.sql();
-        long generationMs = generated.generationMs();
+        long totalGenerationMs = 0;
+        TextToSqlException lastError = null;
 
-        // If the SQL looks incomplete (no FROM clause), retry once
-        if (!sql.toLowerCase().contains("from")) {
-            log.info("Text-to-SQL looks incomplete (no FROM) for user {}, retrying...", userId);
-            generated = generateSql(question);
-            sql = generated.sql();
-            generationMs += generated.generationMs();
-        }
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            GeneratedSql generated = generateSql(question);
+            totalGenerationMs += generated.generationMs();
+            String sql = generated.sql();
 
-        if (!sql.toLowerCase().contains("from")) {
-            throw new TextToSqlException("Generated SQL is incomplete (no FROM clause)", sql, null, null);
-        }
-
-        String safeSql = prepareSql(sql, userId);
-        try {
-            TimedRows result = executeSql(safeSql);
-            String answer = formatAnswer(question, result.rows());
-            return new TextToSqlResult(answer, sql, safeSql, result.rows(), generationMs, result.executionMs());
-        } catch (TextToSqlException e) {
-            // Retry once with a fresh generation if execution fails
-            log.info("Text-to-SQL first attempt failed for user {} ({}), retrying...", userId, e.getMessage());
-            generated = generateSql(question);
-            sql = generated.sql();
-            generationMs += generated.generationMs();
             if (!sql.toLowerCase().contains("from")) {
-                throw new TextToSqlException("Generated SQL is incomplete (no FROM clause)", sql, null, null);
+                log.info("Text-to-SQL looks incomplete (no FROM) for user {}, attempt {}", userId, attempt);
+                lastError = new TextToSqlException("Generated SQL is incomplete (no FROM clause)", sql, null, null);
+                continue;
             }
-            safeSql = prepareSql(sql, userId);
-            TimedRows result = executeSql(safeSql);
-            String answer = formatAnswer(question, result.rows());
-            return new TextToSqlResult(answer, sql, safeSql, result.rows(), generationMs, result.executionMs());
+
+            String safeSql = prepareSql(sql, userId);
+            validateTableWhitelist(safeSql);
+            try {
+                TimedRows result = executeSql(safeSql);
+                String answer = formatAnswer(question, result.rows());
+                return new TextToSqlResult(answer, sql, safeSql, result.rows(), totalGenerationMs, result.executionMs());
+            } catch (TextToSqlException e) {
+                log.info("Text-to-SQL attempt {} failed for user {} ({}), retrying...", attempt, userId, e.getMessage());
+                lastError = e;
+            }
         }
+
+        throw lastError != null ? lastError
+                : new TextToSqlException("Failed to generate valid SQL after retries", null, null, null);
     }
 
     public TextToSqlResult executeUserSql(String sql, UUID userId) {
@@ -159,13 +157,17 @@ public class TextToSqlService {
 
     /** Call the LLM with a timeout to prevent indefinite hangs. */
     private ChatResponse callWithTimeout(String prompt) {
+        // Run on the bounded aiTaskExecutor (coreSize=1) so LLM calls don't spawn
+        // unlimited common-pool threads. Note: cancel(true) cannot interrupt a
+        // blocking HTTP call — the thread continues until the LLM responds, but it
+        // stays within the bounded pool rather than leaking into the common pool.
         CompletableFuture<ChatResponse> future = CompletableFuture.supplyAsync(() ->
                 chatModel.call(new Prompt(prompt, OpenAiChatOptions.builder()
                         .model(sqlModelName)
                         .temperature(0.1)
                         .maxTokens(1024)
                         .frequencyPenalty(1.2)
-                        .build())));
+                        .build())), aiTaskExecutor);
 
         try {
             return future.get(llmTimeoutSeconds, TimeUnit.SECONDS);
@@ -307,8 +309,8 @@ public class TextToSqlService {
 
     /** Strip SQL comments (line comments, block comments, and # comments) to prevent keyword hiding. */
     private String stripComments(String sql) {
-        // Remove block comments /* ... */
-        sql = sql.replaceAll("/\\*.*?\\*/", " ");
+        // (?s) enables DOTALL so block comments spanning multiple lines are matched
+        sql = sql.replaceAll("(?s)/\\*.*?\\*/", " ");
         // Remove line comments -- ... to end of line
         sql = sql.replaceAll("--[^\\n]*", " ");
         // Remove # comments (PostgreSQL style)
@@ -327,6 +329,7 @@ public class TextToSqlService {
                         ResultSetMetaData meta = rs.getMetaData();
                         int cols = meta.getColumnCount();
                         while (rs.next()) {
+                            if (results.size() >= MAX_ROWS) break;
                             Map<String, Object> row = new LinkedHashMap<>();
                             for (int i = 1; i <= cols; i++) {
                                 row.put(meta.getColumnLabel(i), rs.getObject(i));

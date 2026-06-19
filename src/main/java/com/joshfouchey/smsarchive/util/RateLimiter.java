@@ -1,7 +1,6 @@
 package com.joshfouchey.smsarchive.util;
 
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Simple in-memory token bucket rate limiter.
