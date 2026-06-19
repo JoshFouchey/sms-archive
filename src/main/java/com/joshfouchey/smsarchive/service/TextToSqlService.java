@@ -104,7 +104,7 @@ public class TextToSqlService {
             try {
                 TimedRows result = executeSql(safeSql);
                 String answer = formatAnswer(question, result.rows());
-                return new TextToSqlResult(answer, sql, safeSql, result.rows(), totalGenerationMs, result.executionMs());
+                return new TextToSqlResult(answer, sql, safeSql, result.rows(), inferChartSuggestion(result.rows()), totalGenerationMs, result.executionMs());
             } catch (TextToSqlException e) {
                 log.info("Text-to-SQL attempt {} failed for user {} ({}), retrying...", attempt, userId, e.getMessage());
                 lastError = e;
@@ -120,7 +120,7 @@ public class TextToSqlService {
         String safeSql = prepareSql(sql, userId);
         TimedRows result = executeSql(safeSql);
         String answer = formatAnswer("Edited SQL", result.rows());
-        return new TextToSqlResult(answer, sql, safeSql, result.rows(), 0, result.executionMs());
+        return new TextToSqlResult(answer, sql, safeSql, result.rows(), inferChartSuggestion(result.rows()), 0, result.executionMs());
     }
 
     /** Validate that the query only references allowed tables. */
@@ -416,14 +416,56 @@ public class TextToSqlService {
         return val.toString();
     }
 
+    /**
+     * Inspects the Java types of result row values to suggest a chart type.
+     * Returns non-null only when there are exactly 2 columns: one label (String or Date)
+     * and one numeric. Date labels suggest a line chart; text labels suggest a bar chart.
+     */
+    SuggestedChart inferChartSuggestion(List<Map<String, Object>> rows) {
+        if (rows.isEmpty()) return null;
+        List<String> cols = new ArrayList<>(rows.get(0).keySet());
+        if (cols.size() != 2) return null;
+
+        String colA = cols.get(0), colB = cols.get(1);
+        Object valA = firstNonNull(rows, colA);
+        Object valB = firstNonNull(rows, colB);
+        if (valA == null || valB == null) return null;
+
+        String labelCol = null, valueCol = null;
+        boolean isDate = false;
+        if (isLabelVal(valA) && valB instanceof Number) {
+            labelCol = colA; valueCol = colB; isDate = valA instanceof java.util.Date;
+        } else if (isLabelVal(valB) && valA instanceof Number) {
+            labelCol = colB; valueCol = colA; isDate = valB instanceof java.util.Date;
+        } else {
+            return null;
+        }
+        return new SuggestedChart(isDate ? "line" : "bar", labelCol, valueCol);
+    }
+
+    private Object firstNonNull(List<Map<String, Object>> rows, String col) {
+        for (Map<String, Object> row : rows) {
+            Object v = row.get(col);
+            if (v != null) return v;
+        }
+        return null;
+    }
+
+    private boolean isLabelVal(Object val) {
+        return val instanceof String || val instanceof java.util.Date;
+    }
+
     public record TextToSqlResult(
             String answer,
             String generatedSql,
             String executedSql,
             List<Map<String, Object>> rows,
+            SuggestedChart suggestedChart,
             long generationMs,
             long executionMs
     ) {}
+
+    public record SuggestedChart(String type, String labelCol, String valueCol) {}
 
     private record GeneratedSql(String sql, long generationMs) {}
 

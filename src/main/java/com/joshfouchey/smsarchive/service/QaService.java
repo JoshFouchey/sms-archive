@@ -132,6 +132,9 @@ public class QaService {
         }
         data.put("rows", result.rows());
         data.put("rowCount", result.rows().size());
+        if (result.suggestedChart() != null) {
+            data.put("suggestedChart", result.suggestedChart());
+        }
 
         return QaResponse.analytics(result.answer(), data, elapsed);
     }

@@ -252,12 +252,31 @@
               <span v-if="typeof sqlData.generationMs === 'number'" class="font-mono">AI {{ sqlData.generationMs }}ms</span>
               <span v-if="typeof sqlData.executionMs === 'number'" class="font-mono">DB {{ sqlData.executionMs }}ms</span>
               <button
+                v-if="sqlData.suggestedChart && sortedSqlRows.length"
+                @click="showChart = !showChart"
+                :class="[
+                  'flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-colors',
+                  showChart
+                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ]"
+              >
+                <i :class="showChart ? 'pi pi-table' : 'pi pi-chart-bar'"></i>
+                {{ showChart ? 'Table' : 'Chart' }}
+              </button>
+              <button
                 v-if="sortedSqlRows.length"
                 @click="downloadCsv"
                 class="ml-auto px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 <i class="pi pi-download mr-1"></i>CSV
               </button>
+            </div>
+
+            <!-- Chart view -->
+            <div v-if="showChart && chartData" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+              <Line v-if="sqlData?.suggestedChart?.type === 'line'" :data="chartData" :options="chartOptions" />
+              <Bar v-else :data="chartData" :options="chartOptions" />
             </div>
 
             <details class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
@@ -288,7 +307,7 @@
               </div>
             </details>
 
-            <div v-if="sortedSqlRows.length" class="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div v-if="sortedSqlRows.length && !showChart" class="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div class="overflow-x-auto max-h-[60vh]">
               <table class="w-full text-sm min-w-[400px] table-fixed">
                 <thead class="sticky top-0 z-10">
@@ -478,8 +497,17 @@
 import { ref, computed, onMounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { marked } from 'marked';
+import { Bar, Line } from 'vue-chartjs';
+import {
+  Chart as ChartJS,
+  CategoryScale, LinearScale,
+  BarElement, LineElement, PointElement,
+  Title, Tooltip, Legend,
+} from 'chart.js';
 import { askQuestion, getMessageContext, runSql, type QaResponse, type Message } from '../services/api';
 import MessageBubble from '../components/MessageBubble.vue';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend);
 
 const router = useRouter();
 const searchInput = ref<HTMLInputElement | null>(null);
@@ -565,6 +593,7 @@ interface SqlAnalyticsData {
   executionMs?: number;
   error?: string;
   dbError?: string;
+  suggestedChart?: { type: 'bar' | 'line'; labelCol: string; valueCol: string } | null;
 }
 
 marked.setOptions({ breaks: true, gfm: true });
@@ -646,6 +675,7 @@ async function submitQuestion() {
     response.value = await askQuestion({ question: q, mode: mode.value });
     sortKey.value = null;
     editingSql.value = false;
+    showChart.value = false;
     addToHistory(q, mode.value, response.value);
   } catch (e: any) {
     error.value = e?.response?.data?.message || e?.message || 'Failed to get answer';
@@ -753,6 +783,33 @@ const sqlData = computed<SqlAnalyticsData | null>(() => {
   return data as SqlAnalyticsData;
 });
 
+const showChart = ref(false);
+
+const chartData = computed(() => {
+  const d = sqlData.value;
+  if (!d?.suggestedChart || !d.rows?.length) return null;
+  const { labelCol, valueCol } = d.suggestedChart;
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  return {
+    labels: d.rows.map(r => String(r[labelCol] ?? '')),
+    datasets: [{
+      label: valueCol.replace(/_/g, ' '),
+      data: d.rows.map(r => Number(r[valueCol] ?? 0)),
+      backgroundColor: isDark ? 'rgba(96, 165, 250, 0.5)' : 'rgba(59, 130, 246, 0.5)',
+      borderColor: isDark ? 'rgb(96, 165, 250)' : 'rgb(59, 130, 246)',
+      borderWidth: 2,
+      tension: 0.3,
+    }],
+  };
+});
+
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: true,
+  plugins: { legend: { display: false } },
+  scales: { y: { beginAtZero: true } },
+};
+
 const sqlForDisplay = computed(() =>
   sqlData.value?.executedSql || sqlData.value?.sql || sqlData.value?.generatedSql || ''
 );
@@ -815,6 +872,7 @@ async function runEditedSql() {
     response.value = await runSql(sql);
     sortKey.value = null;
     editingSql.value = false;
+    showChart.value = false;
     addToHistory(sql, 'DATA', response.value);
   } catch (e: any) {
     error.value = e?.response?.data?.message || e?.message || 'Failed to run SQL';
