@@ -178,7 +178,7 @@ New files:
 
 ### High-Value, Low-Risk
 
-1. **Query history drawer**
+1. **Query history drawer** — ✅ **DONE (2026-06-19)**
    - Store recent question, mode, generated/executed SQL, row count, and timings in frontend state/local storage.
    - Helps compare repeated query attempts and debug changes.
 
@@ -194,16 +194,20 @@ New files:
 4. **Search diagnostics accordion**
    - Expand source-count badges into a compact diagnostics panel.
    - Show mode, source counts, dedup state, min score, and processing time.
+   - *Note: source-count badges and inline timing already surface most of this. Full accordion may not be needed.*
 
 5. **Move schema cheat-sheet to backend**
    - Replace hardcoded frontend schema with `/api/qa/schema`.
    - Prevents frontend drift when schema changes.
+   - *Note: schema is stable and rarely changes. Low priority.*
 
 ### Medium-Term Enhancements
 
-1. **Chart toggle for simple SQL outputs**
-   - Detect one categorical/date column plus one numeric column.
-   - Render a simple lightweight bar/line chart.
+1. **Chart toggle for simple SQL outputs** — ✅ **DONE (2026-06-19)**
+   - Backend infers chart suggestion from result row Java types (String/Date = label, Number = value).
+   - Bar chart for text labels, line chart for date labels.
+   - Only triggers for exactly 2-column results.
+   - Frontend toggle button switches between Chart and Table views using Chart.js / vue-chartjs.
 
 2. **Smarter table formatting**
    - Date formatting for timestamp/date columns.
@@ -228,6 +232,53 @@ Best future relevance workflow:
 2. Run baseline.
 3. Tune one variable at a time.
 4. Compare Precision@5, Precision@10, MRR, and no-result behavior.
+
+## Issues Found (2026-06-19 Code Review)
+
+### Bugs
+
+1. **Javadoc comment broke compiler** (`TextToSqlService.java:306`) — ✅ **FIXED**
+   - Literal `/* block */` syntax inside a `/** ... */` Javadoc comment terminated the outer comment early, producing 4 compile errors and a broken build.
+   - **Fix:** Rewrote comment without literal block comment syntax.
+
+2. **`RateLimiter.Bucket` initialized with 0 tokens** (`RateLimiter.java:62`) — ✅ **FIXED**
+   - Every user's first AI request was denied with 429. Bucket started empty and the refill interval hadn't elapsed yet on first call.
+   - **Fix:** `Bucket` now initializes with `maxTokens`.
+
+3. **Missing imports and type mismatch in `QaController`** (`QaController.java:31-45`) — ✅ **FIXED**
+   - `UUID` and `Map` not imported. `Map.of(...)` returned `ResponseEntity<Map<...>>` where `ResponseEntity<QaResponse>` was expected.
+   - **Fix:** Added missing imports; replaced `Map.of(...)` error bodies with `QaResponse.analytics(...)`.
+
+4. **Raw PostgreSQL error still leaked to client** (`TextToSqlService.java:333`, `QaService.java:78,91`) — ✅ **FIXED**
+   - `dbError` field was nulled in `TextToSqlException` but raw DB message was still embedded in the exception message, which flowed into the `answer` field of the HTTP response.
+   - **Fix:** Exception message sanitized to `"SQL execution failed"`; client-facing strings in `QaService` no longer include `e.getMessage()`.
+
+### Security
+
+5. **Table whitelist not applied to AI-generated SQL** (`TextToSqlService.generateAndExecute`) — ✅ **FIXED**
+   - `validateTableWhitelist()` was only called for user-submitted SQL (`executeUserSql`), not for AI-generated SQL. AI queries could reference any table.
+   - **Fix:** `validateTableWhitelist()` now called in `generateAndExecute()` after `prepareSql()`.
+
+6. **Block comment regex missing DOTALL flag** (`TextToSqlService.stripComments`) — ✅ **FIXED**
+   - `/\\*.*?\\*/` doesn't match multi-line block comments by default in Java. A comment spanning two lines could hide prohibited keywords from validation.
+   - **Fix:** Added `(?s)` DOTALL flag to block comment pattern.
+
+### Code Quality
+
+7. **`MAX_ROWS` limit not enforced in code** (`TextToSqlService.executeSql`) — ✅ **FIXED**
+   - `MAX_ROWS = 50` was only sent to the LLM as a prompt instruction. The LLM could ignore it and return unlimited rows.
+   - **Fix:** Added `if (results.size() >= MAX_ROWS) break` in the ResultSet extraction loop.
+
+8. **Retry logic was duplicated code** (`TextToSqlService.generateAndExecute`) — ✅ **FIXED**
+   - Copy-pasted retry blocks made logic hard to reason about and change.
+   - **Fix:** Refactored into a clean 2-iteration `for` loop.
+
+9. **`callWithTimeout` used unbounded common ForkJoin pool** (`TextToSqlService.callWithTimeout`) — ✅ **FIXED**
+   - `CompletableFuture.supplyAsync()` without an executor uses the common pool. Under load, timed-out LLM calls left threads running in the common pool indefinitely.
+   - **Fix:** Now uses the bounded `aiTaskExecutor` (coreSize=1, matches VRAM constraint). Threads stay within the bounded pool rather than leaking.
+
+10. **Unused `AtomicInteger` import** (`RateLimiter.java`) — ✅ **FIXED**
+    - **Fix:** Removed.
 
 ## Issues Found (2026-06-15 Follow-Up Review)
 
@@ -299,15 +350,15 @@ Best future relevance workflow:
     - e.g., "which month" matches, but so would "which" in any context. Could trigger text-to-SQL for questions meant for simple search.
     - **Fix:** Removed bare `\d{4}` pattern (matched any year in any context). Added `\b` word boundaries to `count`, `total`, `average`. Changed `least` to `least\s+(recent|active)`. Added `\b` boundaries to `since \d{4}` and `in \d{4}`.
 
-## Current Best Next Task
+## Current Status (2026-06-19)
 
-All issues from this report have been addressed (2026-06-18). Next recommended work:
+All issues from the 2026-06-15 and 2026-06-19 reviews have been addressed. Remaining open work from Recommended Next Steps:
 
-1. **Query history + saved prompts + feedback buttons** — low risk, useful immediately, creates signals for future relevance improvements.
-2. **Search diagnostics accordion** — expand source-count badges into a compact diagnostics panel.
-3. **Chart toggle for simple SQL outputs** — render bar/line charts for one categorical + one numeric column.
-
-See "Recommended Next Steps" section above for full details.
+- **Saved prompt chips** — low effort, useful for repeated analytics questions.
+- **Feedback buttons (👍/👎)** — needs lightweight backend event capture endpoint + storage.
+- **Smarter table formatting** — date/percent/numeric column formatting improvements.
+- **Client-side filter within results** — filter rows without a backend call.
+- **Private local eval runner** — unblocked once feedback data or expected results exist.
 
 ## Files Changed (2026-06-18 Follow-Up Fixes)
 
@@ -318,3 +369,12 @@ Additional files changed by follow-up fixes:
 - `src/main/java/com/joshfouchey/smsarchive/controller/QaController.java` — JSON error bodies, length validation rejection, rate limiting
 - `src/main/java/com/joshfouchey/smsarchive/config/AsyncConfig.java` — aiRateLimiter bean
 - `src/main/java/com/joshfouchey/smsarchive/util/RateLimiter.java` — new in-memory token bucket rate limiter (new file)
+
+## Files Changed (2026-06-19 Code Review Fixes + Features)
+
+- `src/main/java/com/joshfouchey/smsarchive/service/TextToSqlService.java` — Javadoc fix, sanitized exception message, table whitelist on AI SQL, DOTALL block comment regex, MAX_ROWS hard limit, retry loop refactor, bounded executor for LLM calls, `SuggestedChart` record and `inferChartSuggestion()` method
+- `src/main/java/com/joshfouchey/smsarchive/service/QaService.java` — sanitized client-facing error strings, `suggestedChart` included in analytics response
+- `src/main/java/com/joshfouchey/smsarchive/controller/QaController.java` — missing `UUID`/`Map` imports, `Map.of()` replaced with `QaResponse.analytics()`
+- `src/main/java/com/joshfouchey/smsarchive/util/RateLimiter.java` — `Bucket` initialized with `maxTokens`, removed unused `AtomicInteger` import
+- `frontend/src/views/Ask.vue` — query history drawer (localStorage, slide-over panel, restore on click), chart toggle (Bar/Line via vue-chartjs, resets on new query)
+- `frontend/package.json` — added `chart.js` and `vue-chartjs` dependencies
