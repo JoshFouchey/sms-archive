@@ -86,6 +86,16 @@
           </button>
         </div>
 
+        <!-- History button -->
+        <div v-if="queryHistory.length > 0" class="flex justify-center mt-2">
+          <button
+            @click="showHistory = true"
+            class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 font-medium flex items-center gap-1 transition-colors"
+          >
+            <i class="pi pi-history"></i> {{ queryHistory.length }} recent {{ queryHistory.length === 1 ? 'query' : 'queries' }}
+          </button>
+        </div>
+
         <!-- Suggestion Chips -->
         <div v-if="!response && !loading" class="flex flex-wrap gap-2 mt-3 justify-center">
           <button
@@ -417,6 +427,50 @@
         </div>
       </div>
     </Teleport>
+    <!-- Query History Drawer -->
+    <Teleport to="body">
+      <div v-if="showHistory" class="fixed inset-0 z-50 flex justify-end" @click.self="showHistory = false">
+        <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" @click="showHistory = false"></div>
+        <div class="relative w-full max-w-sm bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col overflow-hidden">
+          <div class="shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <h2 class="font-semibold text-sm text-gray-800 dark:text-gray-200 flex items-center gap-2">
+              <i class="pi pi-history text-gray-400"></i>
+              Query History
+            </h2>
+            <div class="flex items-center gap-3">
+              <button @click="clearHistory" class="text-xs text-red-400 hover:text-red-500 transition-colors">Clear all</button>
+              <button @click="showHistory = false" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="pi pi-times text-sm"></i>
+              </button>
+            </div>
+          </div>
+          <div class="flex-1 overflow-y-auto">
+            <div v-if="!queryHistory.length" class="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
+              No history yet.
+            </div>
+            <button
+              v-for="entry in queryHistory"
+              :key="entry.id"
+              @click="restoreHistory(entry)"
+              class="w-full text-left px-4 py-3 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            >
+              <div class="flex items-center gap-2 mb-1">
+                <span :class="[
+                  'text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0',
+                  entry.mode === 'SEARCH'
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                ]">{{ entry.mode === 'SEARCH' ? 'Search' : 'Data' }}</span>
+                <span class="text-[10px] text-gray-400">{{ historyTimeAgo(entry.timestamp) }}</span>
+                <span v-if="historyStats(entry)" class="ml-auto text-[10px] text-gray-400 font-mono shrink-0">{{ historyStats(entry) }}</span>
+              </div>
+              <p class="text-sm text-gray-700 dark:text-gray-300 line-clamp-2 text-left">{{ entry.question }}</p>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
   </div>
 </template>
 
@@ -440,6 +494,64 @@ const showSchema = ref(false);
 const editingSql = ref(false);
 const sqlDraft = ref('');
 const sqlRunning = ref(false);
+const showHistory = ref(false);
+
+interface HistoryEntry {
+  id: string;
+  question: string;
+  mode: 'SEARCH' | 'DATA';
+  timestamp: number;
+  response: QaResponse;
+}
+
+const HISTORY_KEY = 'sms-ask-history';
+const MAX_HISTORY = 25;
+const queryHistory = ref<HistoryEntry[]>([]);
+
+function saveHistory() {
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(queryHistory.value)); } catch { /* ignore */ }
+}
+
+function addToHistory(question: string, entryMode: 'SEARCH' | 'DATA', resp: QaResponse) {
+  queryHistory.value = queryHistory.value.filter(e => !(e.question === question && e.mode === entryMode));
+  queryHistory.value.unshift({ id: String(Date.now()), question, mode: entryMode, timestamp: Date.now(), response: resp });
+  if (queryHistory.value.length > MAX_HISTORY) queryHistory.value = queryHistory.value.slice(0, MAX_HISTORY);
+  saveHistory();
+}
+
+function restoreHistory(entry: HistoryEntry) {
+  query.value = entry.question;
+  mode.value = entry.mode;
+  response.value = entry.response;
+  error.value = '';
+  sortKey.value = null;
+  editingSql.value = false;
+  showHistory.value = false;
+}
+
+function clearHistory() {
+  queryHistory.value = [];
+  localStorage.removeItem(HISTORY_KEY);
+}
+
+function historyTimeAgo(ts: number): string {
+  const mins = Math.floor((Date.now() - ts) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function historyStats(entry: HistoryEntry): string {
+  if (entry.mode === 'DATA' && entry.response.analyticsData) {
+    const d = entry.response.analyticsData as any;
+    if (d.type === 'sql_error') return 'error';
+    if (d.rowCount != null) return `${d.rowCount} rows`;
+  }
+  if (entry.response.searchResults) return `${entry.response.searchResults.totalHits} hits`;
+  return '';
+}
 
 interface SqlAnalyticsData {
   type: 'sql_result' | 'sql_error';
@@ -516,6 +628,10 @@ function switchMode(newMode: 'SEARCH' | 'DATA') {
 
 onMounted(() => {
   searchInput.value?.focus();
+  try {
+    const stored = localStorage.getItem(HISTORY_KEY);
+    if (stored) queryHistory.value = JSON.parse(stored);
+  } catch { /* ignore corrupt storage */ }
 });
 
 async function submitQuestion() {
@@ -530,6 +646,7 @@ async function submitQuestion() {
     response.value = await askQuestion({ question: q, mode: mode.value });
     sortKey.value = null;
     editingSql.value = false;
+    addToHistory(q, mode.value, response.value);
   } catch (e: any) {
     error.value = e?.response?.data?.message || e?.message || 'Failed to get answer';
   } finally {
@@ -698,6 +815,7 @@ async function runEditedSql() {
     response.value = await runSql(sql);
     sortKey.value = null;
     editingSql.value = false;
+    addToHistory(sql, 'DATA', response.value);
   } catch (e: any) {
     error.value = e?.response?.data?.message || e?.message || 'Failed to run SQL';
   } finally {
