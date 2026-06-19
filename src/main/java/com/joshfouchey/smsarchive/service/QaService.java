@@ -75,7 +75,7 @@ public class QaService {
             return analyticsResponse(result, System.currentTimeMillis() - start);
         } catch (TextToSqlException e) {
             log.warn("Manual SQL execution failed for user {}: {}", user.getId(), e.getMessage());
-            return QaResponse.analytics("SQL execution failed: " + e.getMessage(), sqlErrorData(e),
+            return QaResponse.analytics("SQL execution failed. Check your query and try again.", sqlErrorData(e),
                     System.currentTimeMillis() - start);
         }
     }
@@ -87,8 +87,7 @@ public class QaService {
                 return handleTextToSql(user, question, start);
             } catch (TextToSqlException e) {
                 log.warn("Text-to-SQL failed for user {} on '{}': {}", user.getId(), question, e.getMessage());
-                String errorMsg = "SQL generation failed: " + e.getMessage()
-                        + ". Try rephrasing your question.";
+                String errorMsg = "SQL generation failed. Try rephrasing your question.";
                 return QaResponse.analytics(errorMsg, sqlErrorData(e), System.currentTimeMillis() - start);
             }
         }

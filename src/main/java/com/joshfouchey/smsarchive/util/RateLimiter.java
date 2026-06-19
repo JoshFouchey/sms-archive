@@ -24,7 +24,7 @@ public class RateLimiter {
      * @return true if allowed, false if rate limited
      */
     public boolean tryAcquire(String key) {
-        Bucket bucket = buckets.computeIfAbsent(key, k -> new Bucket());
+        Bucket bucket = buckets.computeIfAbsent(key, k -> new Bucket(maxTokens));
         synchronized (bucket) {
             long now = System.currentTimeMillis();
             if (now - bucket.lastRefillTime >= refillIntervalMs) {
@@ -58,8 +58,8 @@ public class RateLimiter {
         int tokens;
         long lastRefillTime;
 
-        Bucket() {
-            this.tokens = 0;
+        Bucket(int initialTokens) {
+            this.tokens = initialTokens;
             this.lastRefillTime = System.currentTimeMillis();
         }
     }

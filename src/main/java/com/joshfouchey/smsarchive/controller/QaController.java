@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 import static com.joshfouchey.smsarchive.util.InputLimits.*;
 
 @RestController
@@ -39,10 +41,10 @@ public class QaController {
       @PostMapping("/ask")
     public ResponseEntity<QaResponse> ask(@RequestBody QaRequest request) {
         if (request.question() == null || request.question().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Question is required"));
+            return ResponseEntity.badRequest().body(QaResponse.analytics("Question is required", null, 0));
         }
         if (request.question().length() > QA_QUESTION_MAX) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Question exceeds maximum length of " + QA_QUESTION_MAX + " characters"));
+            return ResponseEntity.badRequest().body(QaResponse.analytics("Question exceeds maximum length of " + QA_QUESTION_MAX + " characters", null, 0));
         }
         var user = currentUserProvider.getCurrentUser();
         var limited = rateLimitCheck(user.getId());
@@ -57,10 +59,10 @@ public class QaController {
     @PostMapping("/sql/run")
     public ResponseEntity<QaResponse> runSql(@RequestBody SqlRunRequest request) {
         if (request.sql() == null || request.sql().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "SQL query is required"));
+            return ResponseEntity.badRequest().body(QaResponse.analytics("SQL query is required", null, 0));
         }
         if (request.sql().length() > SQL_QUERY_MAX) {
-            return ResponseEntity.badRequest().body(Map.of("error", "SQL query exceeds maximum length of " + SQL_QUERY_MAX + " characters"));
+            return ResponseEntity.badRequest().body(QaResponse.analytics("SQL query exceeds maximum length of " + SQL_QUERY_MAX + " characters", null, 0));
         }
         var user = currentUserProvider.getCurrentUser();
         var limited = rateLimitCheck(user.getId());

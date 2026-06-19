@@ -8,9 +8,11 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementCallback;
 import org.springframework.stereotype.Service;
 
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -303,7 +305,7 @@ public class TextToSqlService {
         }
     }
 
-    /** Strip SQL comments (-- line, /* block */, #) to prevent keyword hiding. */
+    /** Strip SQL comments (line comments, block comments, and # comments) to prevent keyword hiding. */
     private String stripComments(String sql) {
         // Remove block comments /* ... */
         sql = sql.replaceAll("/\\*.*?\\*/", " ");
@@ -318,10 +320,20 @@ public class TextToSqlService {
         long start = System.currentTimeMillis();
         try {
             List<Map<String, Object>> rows = jdbcTemplate.execute(sql,
-                    ps -> {
+                    (PreparedStatementCallback<List<Map<String, Object>>>) ps -> {
                         ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
                         ResultSet rs = ps.executeQuery();
-                        return jdbcTemplate.extractData(rs, null, null);
+                        List<Map<String, Object>> results = new ArrayList<>();
+                        ResultSetMetaData meta = rs.getMetaData();
+                        int cols = meta.getColumnCount();
+                        while (rs.next()) {
+                            Map<String, Object> row = new LinkedHashMap<>();
+                            for (int i = 1; i <= cols; i++) {
+                                row.put(meta.getColumnLabel(i), rs.getObject(i));
+                            }
+                            results.add(row);
+                        }
+                        return results;
                     });
             return new TimedRows(rows, System.currentTimeMillis() - start);
         } catch (Exception e) {
@@ -330,7 +342,7 @@ public class TextToSqlService {
             while (root.getCause() != null) root = root.getCause();
             String detail = root.getMessage() != null ? root.getMessage() : e.getMessage();
             log.error("Text-to-SQL execution failed. Detail: {}. SQL: {}", detail, sql);
-            throw new TextToSqlException("SQL execution failed: " + detail, null, sql, null, e);
+            throw new TextToSqlException("SQL execution failed", null, sql, null, e);
         }
     }
 
@@ -390,13 +402,13 @@ public class TextToSqlService {
             if (num instanceof Long || num instanceof Integer) {
                 return String.format("%,d", num.longValue());
             }
-            if (num instanceof java.math.BigDecimal) {
-                return num.toPlainString();
+            if (num instanceof java.math.BigDecimal bd) {
+                return bd.toPlainString();
             }
             return String.format("%.2f", num.doubleValue());
         }
         if (val instanceof java.util.Date date) {
-            return java.sql.Timestamp.valueOf(date).toString();
+            return new java.sql.Timestamp(date.getTime()).toLocalDateTime().toString();
         }
         return val.toString();
     }
