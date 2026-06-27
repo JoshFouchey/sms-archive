@@ -127,7 +127,6 @@ const initials = computed(() => username.value.substring(0, 2).toUpperCase());
 const items = [
   { label: "Ask", icon: "pi pi-sparkles", route: "/" },
   { label: "Messages", icon: "pi pi-comments", route: "/messages" },
-  { label: "Explore", icon: "pi pi-sitemap", route: "/explore" },
   { label: "Gallery", icon: "pi pi-images", route: "/gallery" },
   { label: "Contacts", icon: "pi pi-user", route: "/contacts" },
   { label: "Admin", icon: "pi pi-cog", route: "/admin" },
