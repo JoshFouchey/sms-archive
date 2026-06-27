@@ -17,11 +17,14 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    # Off by default (prod/docker inherit this). Enable per-session via the local profile.
+    show-sql: false
     properties:
       hibernate:
-        # Enable batch fetching to reduce N+1 queries
-        default_batch_fetch_size: 10
+        # Enable batch fetching to reduce N+1 queries.
+        # Batches lazy Conversation proxy init + participant Sets across multi-conversation
+        # result sets (e.g. search) into far fewer round-trips. Aligned with parts @BatchSize(50).
+        default_batch_fetch_size: 50
         jdbc:
           batch_size: 20
   application:
@@ -99,6 +102,8 @@ smsarchive.ai:
     auto-embed: true
   search:
     default-top-k: 20
+    # HNSW recall knob; kept >= candidates fetched (k*3 in hybrid). pgvector default is 40.
+    hnsw-ef-search: 100
     similarity-threshold: 0.30
     min-score: 0.005
     time-decay-half-life-days: 365

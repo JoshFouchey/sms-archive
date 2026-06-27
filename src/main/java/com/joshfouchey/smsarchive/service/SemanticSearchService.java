@@ -6,10 +6,16 @@ import com.joshfouchey.smsarchive.mapper.MessageMapper;
 import com.joshfouchey.smsarchive.model.Message;
 import com.joshfouchey.smsarchive.repository.MessageEmbeddingRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -27,6 +33,17 @@ public class SemanticSearchService {
     private final EmbeddingService embeddingService;
     private final MessageEmbeddingRepository embeddingRepository;
     private final MessageRepository messageRepository;
+    private final TransactionTemplate transactionTemplate;
+
+    // Small bounded cache of query string → embedding vector. Repeated/paginated/identical
+    // searches skip the embedding round-trip (and any model reload that would entail).
+    private final Cache<String, float[]> queryEmbeddingCache = Caffeine.newBuilder()
+            .maximumSize(256)
+            .expireAfterWrite(java.time.Duration.ofMinutes(30))
+            .build();
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Value("${smsarchive.ai.search.default-top-k:20}")
     private int defaultTopK;
@@ -34,16 +51,24 @@ public class SemanticSearchService {
     @Value("${smsarchive.ai.search.similarity-threshold:0.30}")
     private double similarityThreshold;
 
+    // HNSW recall parameter. pgvector defaults to 40; if it is below the number of
+    // candidates fetched, recall silently degrades. Applied per vector query below.
+    @Value("${smsarchive.ai.search.hnsw-ef-search:100}")
+    private int hnswEfSearch;
+
     @Value("${smsarchive.ai.embedding.model:qwen3-embedding:0.6b}")
     private String modelName;
 
     public SemanticSearchService(
             EmbeddingService embeddingService,
             MessageEmbeddingRepository embeddingRepository,
-            MessageRepository messageRepository) {
+            MessageRepository messageRepository,
+            PlatformTransactionManager transactionManager) {
         this.embeddingService = embeddingService;
         this.embeddingRepository = embeddingRepository;
         this.messageRepository = messageRepository;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.transactionTemplate.setReadOnly(true);
     }
 
     /**
@@ -71,17 +96,22 @@ public class SemanticSearchService {
         }
         String vectorString = EmbeddingService.toVectorString(queryVector);
 
-        // Step 2: ANN search — retrieve raw results from pgvector
+        // Step 2: ANN search — retrieve raw results from pgvector.
+        // Run inside one short transaction so `SET LOCAL hnsw.ef_search` applies to the
+        // vector query on the same connection; ef_search must be >= the rows fetched (k)
+        // or HNSW recall degrades. The embedding HTTP call already completed above, so no
+        // DB connection is held during a (possibly slow) model load. Falls back to the
+        // server default if the SET fails, so behavior is never worse than before.
+        final int efSearch = Math.max(hnswEfSearch, k);
         List<Object[]> rawResults;
-        if (conversationId != null) {
-            rawResults = embeddingRepository.findSimilarInConversation(
-                    userId, modelName, conversationId, vectorString, k);
-        } else if (contactId != null) {
-            rawResults = embeddingRepository.findSimilarByContact(
-                    userId, modelName, contactId, vectorString, k);
-        } else {
-            rawResults = embeddingRepository.findSimilarMessages(
-                    userId, modelName, vectorString, k);
+        try {
+            rawResults = transactionTemplate.execute(status -> {
+                entityManager.createNativeQuery("SET LOCAL hnsw.ef_search = " + efSearch).executeUpdate();
+                return runAnnQuery(userId, conversationId, contactId, vectorString, k);
+            });
+        } catch (Exception e) {
+            log.warn("Could not apply hnsw.ef_search={}, falling back to server default: {}", efSearch, e.getMessage());
+            rawResults = runAnnQuery(userId, conversationId, contactId, vectorString, k);
         }
 
         // Step 3: Deduplicate by message_id (chunks of the same message may appear
@@ -132,15 +162,34 @@ public class SemanticSearchService {
         return new SemanticSearchResult(naturalLanguageQuery, hits, hits.size());
     }
 
+    /** Dispatch to the correct pgvector ANN query based on optional scoping. */
+    private List<Object[]> runAnnQuery(UUID userId, Long conversationId, Long contactId, String vectorString, int k) {
+        if (conversationId != null) {
+            return embeddingRepository.findSimilarInConversation(userId, modelName, conversationId, vectorString, k);
+        } else if (contactId != null) {
+            return embeddingRepository.findSimilarByContact(userId, modelName, contactId, vectorString, k);
+        } else {
+            return embeddingRepository.findSimilarMessages(userId, modelName, vectorString, k);
+        }
+    }
+
     /**
      * Embed a query with retry logic (2 attempts with 1s backoff).
      * Handles transient LLM server failures gracefully.
      */
     private float[] embedQueryWithRetry(String query) {
+        String cacheKey = query == null ? "" : query.strip();
+        float[] cached = queryEmbeddingCache.getIfPresent(cacheKey);
+        if (cached != null) {
+            log.debug("Query embedding cache hit");
+            return cached;
+        }
         Exception lastException = null;
         for (int attempt = 0; attempt < 2; attempt++) {
             try {
-                return embeddingService.embedQuery(query);
+                float[] vector = embeddingService.embedQuery(query);
+                queryEmbeddingCache.put(cacheKey, vector);
+                return vector;
             } catch (Exception e) {
                 lastException = e;
                 log.debug("Embedding attempt {} failed: {}", attempt + 1, e.getMessage());
