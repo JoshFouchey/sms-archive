@@ -275,8 +275,7 @@
 
             <!-- Chart view -->
             <div v-if="showChart && chartData" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-              <Line v-if="sqlData?.suggestedChart?.type === 'line'" :data="chartData" :options="chartOptions" />
-              <Bar v-else :data="chartData" :options="chartOptions" />
+              <SqlChart :type="sqlData?.suggestedChart?.type" :data="chartData" :options="chartOptions" />
             </div>
 
             <details class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
@@ -494,20 +493,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, nextTick, defineAsyncComponent } from 'vue';
 import { useRouter } from 'vue-router';
 import { marked } from 'marked';
-import { Bar, Line } from 'vue-chartjs';
-import {
-  Chart as ChartJS,
-  CategoryScale, LinearScale,
-  BarElement, LineElement, PointElement,
-  Title, Tooltip, Legend,
-} from 'chart.js';
 import { askQuestion, getMessageContext, runSql, type QaResponse, type Message } from '../services/api';
 import MessageBubble from '../components/MessageBubble.vue';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend);
+// chart.js is heavy and only needed when the user toggles the chart view, so load it
+// lazily as a separate chunk instead of in this default-route ('/') bundle.
+const SqlChart = defineAsyncComponent(() => import('../components/SqlChart.vue'));
 
 const router = useRouter();
 const searchInput = ref<HTMLInputElement | null>(null);

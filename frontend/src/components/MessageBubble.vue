@@ -3,7 +3,7 @@
     :data-message-id="message.id"
     class="flex"
     :class="message.direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'"
-    v-show="!isReactionMessage(message)"
+    v-show="!isReactionMessage"
   >
     <div class="max-w-[85%]">
       <div
@@ -194,9 +194,9 @@ function parseReaction(msg: Message): ParsedReaction | undefined {
   };
 }
 
-function isReactionMessage(msg: Message): boolean {
-  return !!parseReaction(msg);
-}
+// Computed (not a per-render function call) so reaction parsing runs once per message
+// rather than on every re-render of every bubble.
+const isReactionMessage = computed(() => !!parseReaction(props.message));
 
 const groupedReactions = computed<GroupedReaction[]>(() => {
   if (!props.reactionIndex) return [];

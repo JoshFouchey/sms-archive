@@ -1052,6 +1052,8 @@ async function selectConversation(conversation: ConversationSummary) {
   showFilters.value = false;
   searchMatches.value = [];
   currentMatchIndex.value = 0;
+  // Release cached image-part lookups from the previous conversation to bound memory.
+  messageImageCache.clear();
   isSearchViewMode.value = false;
   searchContextMessages.value = [];
   
