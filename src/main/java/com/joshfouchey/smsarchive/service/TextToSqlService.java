@@ -8,13 +8,16 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.PreparedStatementCallback;
 import org.springframework.stereotype.Service;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -321,23 +324,40 @@ public class TextToSqlService {
     private TimedRows executeSql(String sql) {
         long start = System.currentTimeMillis();
         try {
-            List<Map<String, Object>> rows = jdbcTemplate.execute(sql,
-                    (PreparedStatementCallback<List<Map<String, Object>>>) ps -> {
+            List<Map<String, Object>> rows = jdbcTemplate.execute((ConnectionCallback<List<Map<String, Object>>>) conn -> {
+                boolean originalAutoCommit = conn.getAutoCommit();
+                conn.setAutoCommit(false);
+                try {
+                    // Force a read-only transaction so any write (writable CTEs, volatile
+                    // functions, etc.) fails at the database regardless of what SQL the model
+                    // produced. Must be the first statement in the transaction.
+                    try (Statement modeStmt = conn.createStatement()) {
+                        modeStmt.execute("SET TRANSACTION READ ONLY");
+                    }
+                    try (PreparedStatement ps = conn.prepareStatement(sql)) {
                         ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
-                        ResultSet rs = ps.executeQuery();
-                        List<Map<String, Object>> results = new ArrayList<>();
-                        ResultSetMetaData meta = rs.getMetaData();
-                        int cols = meta.getColumnCount();
-                        while (rs.next()) {
-                            if (results.size() >= MAX_ROWS) break;
-                            Map<String, Object> row = new LinkedHashMap<>();
-                            for (int i = 1; i <= cols; i++) {
-                                row.put(meta.getColumnLabel(i), rs.getObject(i));
+                        try (ResultSet rs = ps.executeQuery()) {
+                            List<Map<String, Object>> results = new ArrayList<>();
+                            ResultSetMetaData meta = rs.getMetaData();
+                            int cols = meta.getColumnCount();
+                            while (rs.next()) {
+                                if (results.size() >= MAX_ROWS) break;
+                                Map<String, Object> row = new LinkedHashMap<>();
+                                for (int i = 1; i <= cols; i++) {
+                                    row.put(meta.getColumnLabel(i), rs.getObject(i));
+                                }
+                                results.add(row);
                             }
-                            results.add(row);
+                            return results;
                         }
-                        return results;
-                    });
+                    }
+                } finally {
+                    // Read-only transaction: nothing to commit. Roll back to end it cleanly
+                    // and restore the pooled connection's original autocommit state.
+                    conn.rollback();
+                    conn.setAutoCommit(originalAutoCommit);
+                }
+            });
             return new TimedRows(rows, System.currentTimeMillis() - start);
         } catch (Exception e) {
             // Surface the root PostgreSQL error, not just Spring's wrapper

@@ -6,6 +6,7 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.UUID;
+import java.util.concurrent.Executor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -19,7 +20,7 @@ class TextToSqlServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new TextToSqlService(mock(ChatModel.class), mock(JdbcTemplate.class));
+        service = new TextToSqlService(mock(ChatModel.class), mock(JdbcTemplate.class), mock(Executor.class));
     }
 
     @Test

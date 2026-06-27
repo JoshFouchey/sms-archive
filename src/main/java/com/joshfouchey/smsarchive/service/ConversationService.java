@@ -543,6 +543,7 @@ public class ConversationService {
         return toSummaryDto(conversation);
     }
 
+    @Transactional
     @CacheEvict(value = {"conversationList", "conversationMessages", "conversationMessageCount", "conversationTimeline", "contactSummaries"}, allEntries = true)
     public void deleteConversationById(Long conversationId) {
         var user = currentUserProvider.getCurrentUser();
