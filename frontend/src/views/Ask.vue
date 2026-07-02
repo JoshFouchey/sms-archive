@@ -742,7 +742,13 @@ function closeContext() {
 
 function openInMessages() {
   if (contextModal.value.centerId) {
-    router.push({ path: '/messages', query: { messageId: String(contextModal.value.centerId) } });
+    router.push({
+      path: '/messages',
+      query: {
+        ...(contextModal.value.conversationId ? { conversationId: String(contextModal.value.conversationId) } : {}),
+        messageId: String(contextModal.value.centerId),
+      },
+    });
   }
   closeContext();
 }
@@ -783,7 +789,7 @@ const chartData = computed(() => {
   const d = sqlData.value;
   if (!d?.suggestedChart || !d.rows?.length) return null;
   const { labelCol, valueCol } = d.suggestedChart;
-  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = document.documentElement.classList.contains('dark');
   return {
     labels: d.rows.map(r => String(r[labelCol] ?? '')),
     datasets: [{

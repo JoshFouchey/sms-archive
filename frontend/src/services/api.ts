@@ -183,6 +183,23 @@ export async function getConversationMessages(
 }
 
 /**
+ * Fetch messages within a date range for a conversation (chronological).
+ * dateFrom/dateTo accept ISO instants (e.g. 2025-01-01T00:00:00Z) or yyyy-MM-dd.
+ */
+export async function getConversationMessagesByDateRange(
+    conversationId: number,
+    dateFrom?: string,
+    dateTo?: string,
+    size: number = 500
+): Promise<PagedResponse<Message>> {
+    const params: Record<string, string | number> = { page: 0, size, sort: "asc" };
+    if (dateFrom) params.dateFrom = dateFrom;
+    if (dateTo) params.dateTo = dateTo;
+    const res = await axios.get(`${API_BASE}/api/conversations/${conversationId}/messages`, { params });
+    return res.data;
+}
+
+/**
  * Delete a conversation by ID. Returns 'deleted' or 'not_found'.
  */
 export async function renameConversation(conversationId: number, newName: string): Promise<ConversationSummary> {

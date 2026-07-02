@@ -290,6 +290,24 @@
               </select>
             </div>
           </div>
+
+          <!-- Apply / Clear -->
+          <div class="flex items-center gap-2 pt-1">
+            <button
+              @click="applyDateFilter"
+              :disabled="!dateFrom && !dateTo"
+              class="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm font-medium border border-white/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              <i class="pi pi-filter"></i>Apply Filter
+            </button>
+            <button
+              v-if="dateFilterActive"
+              @click="clearDateFilter"
+              class="px-4 py-2 rounded-lg text-white/90 hover:bg-white/10 text-sm transition-all"
+            >
+              Clear
+            </button>
+          </div>
         </div>
       </div>
 
@@ -356,6 +374,38 @@
         <div v-else class="flex flex-col items-center justify-center py-12">
           <i class="pi pi-inbox text-5xl text-gray-400 mb-3"></i>
           <span class="text-sm text-gray-600 dark:text-gray-400">No search results</span>
+        </div>
+      </div>
+
+      <!-- Date Filter View -->
+      <div v-else-if="dateFilterActive" class="flex-1 overflow-y-auto p-4 pb-20 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
+        <div v-if="dateFilterLoading" class="flex flex-col items-center justify-center py-12">
+          <i class="pi pi-spin pi-spinner text-4xl text-blue-600 dark:text-blue-400 mb-3"></i>
+          <span class="text-sm text-gray-600 dark:text-gray-400">Loading messages...</span>
+        </div>
+        <div v-else class="max-w-4xl mx-auto">
+          <!-- Filter banner -->
+          <div class="sticky top-0 z-10 mb-3 flex items-center justify-between gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white shadow-md">
+            <span class="text-sm font-medium truncate">
+              <i class="pi pi-calendar mr-1"></i>{{ dateFilterLabel }} · {{ dateFilteredDisplay.length }} message{{ dateFilteredDisplay.length === 1 ? '' : 's' }}
+            </span>
+            <button @click="clearDateFilter" class="text-sm underline whitespace-nowrap">Clear</button>
+          </div>
+          <div v-if="dateFilteredDisplay.length" class="space-y-3">
+            <MessageBubble
+              v-for="msg in dateFilteredDisplay"
+              :key="msg.id"
+              :message="msg"
+              :is-group-chat="isGroupConversation"
+              :participant-color-map="participantColorMap"
+              :reaction-index="reactionIndex"
+              @image-click="openImage"
+            />
+          </div>
+          <div v-else class="flex flex-col items-center justify-center py-12">
+            <i class="pi pi-inbox text-5xl text-gray-400 mb-3"></i>
+            <span class="text-sm text-gray-600 dark:text-gray-400">No messages in this date range</span>
+          </div>
         </div>
       </div>
 
@@ -466,6 +516,7 @@ import {
   getConversationMessages,
   getAllConversationMessages,
   getConversationMessageCount,
+  getConversationMessagesByDateRange,
   searchWithinConversation,
   getMessageContext,
   renameConversation,
@@ -634,6 +685,55 @@ const uniqueSenders = computed(() => {
   return Array.from(senders).sort();
 });
 
+// --- Date-range filter ---
+const dateFilterActive = ref(false);
+const dateFilterLoading = ref(false);
+const dateFilterMessages = ref<Message[]>([]);
+const dateFilterLabel = ref('');
+
+// Date-range results, optionally narrowed by the sender dropdown.
+const dateFilteredDisplay = computed(() => {
+  if (!selectedSender.value) return dateFilterMessages.value;
+  return dateFilterMessages.value.filter(
+    m => m.direction === 'INBOUND' && m.contactName === selectedSender.value
+  );
+});
+
+async function applyDateFilter() {
+  if (!selectedConversation.value) return;
+  if (!dateFrom.value && !dateTo.value) return;
+  dateFilterLoading.value = true;
+  dateFilterActive.value = true;
+  showFilters.value = false;
+  // Date filter and text search are mutually exclusive views.
+  isSearchViewMode.value = false;
+  isSearchActive.value = false;
+  dateFilterLabel.value = `${dateFrom.value || 'start'} → ${dateTo.value || 'now'}`;
+  try {
+    // Inclusive UTC bounds (end-of-day for the To date).
+    const fromIso = dateFrom.value ? `${dateFrom.value}T00:00:00Z` : undefined;
+    const toIso = dateTo.value ? `${dateTo.value}T23:59:59Z` : undefined;
+    const res = await getConversationMessagesByDateRange(
+      selectedConversation.value.id, fromIso, toIso, 500
+    );
+    dateFilterMessages.value = res.content;
+  } catch (e) {
+    console.error('Date filter failed', e);
+    dateFilterMessages.value = [];
+  } finally {
+    dateFilterLoading.value = false;
+  }
+}
+
+function clearDateFilter() {
+  dateFilterActive.value = false;
+  dateFilterMessages.value = [];
+  dateFilterLabel.value = '';
+  dateFrom.value = '';
+  dateTo.value = '';
+  selectedSender.value = '';
+}
+
 // Reactions support
 interface ParsedReaction {
   emoji: string;
@@ -766,8 +866,14 @@ const isGroupConversation = computed(() => {
   return (selectedConversation.value?.participantCount ?? 0) >= 2;
 });
 
+// Message highlighted via a deep link (e.g. "Open in Messages" from Ask)
+const deepLinkHighlightId = ref<number | null>(null);
+
 // Get highlight class for a message (for search matches)
 function getMessageHighlightClass(messageId: number): string {
+  if (deepLinkHighlightId.value === messageId) {
+    return 'ring-4 ring-emerald-400 dark:ring-emerald-500 shadow-2xl scale-[1.03]';
+  }
   if (!isSearchActive.value) return '';
   
   if (isCurrentMatch(messageId)) {
@@ -1056,7 +1162,10 @@ async function selectConversation(conversation: ConversationSummary) {
   messageImageCache.clear();
   isSearchViewMode.value = false;
   searchContextMessages.value = [];
-  
+  dateFilterActive.value = false;
+  dateFilterMessages.value = [];
+  dateFilterLabel.value = '';
+
   selectedConversation.value = conversation;
   participantColorMap.value.clear(); // Clear color assignments for new conversation
   router.push({ name: 'MessagesDetail', params: { id: conversation.id } });
@@ -1081,7 +1190,10 @@ function clearConversation() {
   currentMatchIndex.value = 0;
   isSearchViewMode.value = false;
   searchContextMessages.value = [];
-  
+  dateFilterActive.value = false;
+  dateFilterMessages.value = [];
+  dateFilterLabel.value = '';
+
   router.push({ name: 'Messages' });
 }
 
@@ -1247,16 +1359,38 @@ async function confirmDelete(conversation: ConversationSummary) {
   }
 }
 
+// Scroll to and briefly highlight a specific message (deep link from Ask "Open in Messages").
+async function jumpToMessage(messageId: number) {
+  // Ensure the full thread is loaded so the target message is in the DOM, even for
+  // large conversations that don't auto-load everything.
+  if (!fullyLoaded.value) {
+    await loadAllMessagesInBackground();
+  }
+  await nextTick();
+  const el = document.querySelector(`[data-message-id="${messageId}"]`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  deepLinkHighlightId.value = messageId;
+  setTimeout(() => {
+    if (deepLinkHighlightId.value === messageId) deepLinkHighlightId.value = null;
+  }, 4000);
+}
+
 // Initialize
 onMounted(async () => {
   await loadConversations();
 
-  // Check for conversation ID in route
-  const id = route.params.id;
-  if (id) {
-    const conv = conversations.value.find(c => c.id === Number(id));
+  // Resolve target conversation from either the path param (/messages/:id) or the
+  // ?conversationId query (deep link from Ask). ?messageId scrolls to that message.
+  const convId = route.query.conversationId ?? route.params.id;
+  const targetMessageId = route.query.messageId ? Number(route.query.messageId) : null;
+  if (convId) {
+    const conv = conversations.value.find(c => c.id === Number(convId));
     if (conv) {
       await selectConversation(conv);
+      if (targetMessageId) {
+        await jumpToMessage(targetMessageId);
+      }
     }
   }
 });
