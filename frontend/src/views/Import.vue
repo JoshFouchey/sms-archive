@@ -112,10 +112,11 @@
         <button
           v-if="jobId && !completed"
           @click="cancelPolling"
+          title="Stops updating this page. The import keeps running on the server."
           class="flex-1 sm:flex-none px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl transition-all font-semibold shadow-md hover:shadow-lg flex items-center justify-center gap-2"
         >
-          <i class="pi pi-stop-circle"></i>
-          <span>Stop Polling</span>
+          <i class="pi pi-eye-slash"></i>
+          <span>Stop Watching</span>
         </button>
       </div>
 
@@ -258,6 +259,9 @@
 import { ref, computed, onUnmounted } from 'vue';
 import { startStreamingImport, getImportProgress, type ImportProgress } from '../services/api';
 import FileUpload, { type FileUploadSelectEvent } from 'primevue/fileupload';
+import { useToast } from 'primevue/usetoast';
+
+const toast = useToast();
 
 defineProps<{ hideHeader?: boolean }>();
 
@@ -290,7 +294,12 @@ async function start() {
     startPolling();
   } catch (err: any) {
     console.error(err);
-    alert('Failed to start import: ' + err.message);
+    toast.add({
+      severity: 'error',
+      summary: 'Import Failed to Start',
+      detail: err?.response?.data?.message || err?.message || 'Server error',
+      life: 6000,
+    });
   } finally {
     starting.value = false;
   }

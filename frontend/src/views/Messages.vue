@@ -527,7 +527,11 @@ import {
 import ImageViewer from '@/components/ImageViewer.vue';
 import MessageBubble from '@/components/MessageBubble.vue';
 import type { ViewerImage } from '@/components/ImageViewer.vue';
+import { useToast } from 'primevue/usetoast';
+import { useConfirm } from 'primevue/useconfirm';
 
+const toast = useToast();
+const confirmDialog = useConfirm();
 const route = useRoute();
 const router = useRouter();
 
@@ -1323,7 +1327,7 @@ async function submitRename() {
     newConversationName.value = '';
   } catch (error) {
     console.error('Failed to rename conversation', error);
-    alert('Failed to rename conversation');
+    toast.add({ severity: 'error', summary: 'Rename Failed', detail: 'Could not rename the conversation.', life: 5000 });
   }
 }
 
@@ -1334,28 +1338,36 @@ function cancelRename() {
 }
 
 // Delete conversation
-async function confirmDelete(conversation: ConversationSummary) {
-  if (!confirm(`Are you sure you want to delete the conversation with "${conversation.name}"? This will delete all messages in this conversation.`)) {
-    return;
-  }
-  
+function confirmDelete(conversation: ConversationSummary) {
+  confirmDialog.require({
+    header: 'Delete Conversation',
+    message: `Delete the conversation with "${conversation.name}"? All messages in this conversation will be permanently deleted.`,
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Delete', severity: 'danger' },
+    accept: () => performDelete(conversation),
+  });
+}
+
+async function performDelete(conversation: ConversationSummary) {
   try {
     const result = await deleteConversation(conversation.id);
-    
+
     if (result === 'deleted') {
       // Remove from list
       conversations.value = conversations.value.filter(c => c.id !== conversation.id);
-      
+
       // Clear selected if it was the deleted one
       if (selectedConversation.value?.id === conversation.id) {
         clearConversation();
       }
+      toast.add({ severity: 'success', summary: 'Conversation Deleted', detail: `"${conversation.name}" was deleted.`, life: 4000 });
     } else {
-      alert('Conversation not found or already deleted');
+      toast.add({ severity: 'warn', summary: 'Not Found', detail: 'Conversation not found or already deleted.', life: 5000 });
     }
   } catch (error) {
     console.error('Failed to delete conversation', error);
-    alert('Failed to delete conversation');
+    toast.add({ severity: 'error', summary: 'Delete Failed', detail: 'Could not delete the conversation.', life: 5000 });
   }
 }
 

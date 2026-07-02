@@ -256,6 +256,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue';
 import { getDistinctContacts, updateContactName, mergeContacts, type Contact } from '../services/api';
 import { useToast } from 'primevue/usetoast';
+import { useConfirm } from 'primevue/useconfirm';
 import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
 
@@ -270,6 +271,7 @@ const editName = ref('');
 const originalName = ref<string | null>(null);
 const saving = ref(false);
 const toast = useToast();
+const confirmDialog = useConfirm();
 const editInputEl = ref<HTMLInputElement | null>(null);
 
 // Merge state
@@ -320,7 +322,21 @@ function closeMergeDialog() {
   selectedMergeTarget.value = null;
 }
 
-async function performMerge() {
+function performMerge() {
+  if (!contactToMerge.value || !selectedMergeTarget.value) return;
+
+  const source = contactToMerge.value.name || contactToMerge.value.number;
+  confirmDialog.require({
+    header: 'Merge Contacts',
+    message: `Merge "${source}" into "${selectedMergeTarget.value.label}"? All messages will be transferred and "${source}" will be deleted. This cannot be undone.`,
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Merge', severity: 'danger' },
+    accept: executeMerge,
+  });
+}
+
+async function executeMerge() {
   if (!contactToMerge.value || !selectedMergeTarget.value) return;
 
   merging.value = true;

@@ -129,6 +129,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
+import { useToast } from 'primevue/usetoast';
+import { useConfirm } from 'primevue/useconfirm';
 import {
   getEmbeddingStats,
   startEmbeddingJob,
@@ -141,6 +143,9 @@ import {
 } from '../services/api';
 
 defineProps<{ hideHeader?: boolean }>();
+
+const toast = useToast();
+const confirmDialog = useConfirm();
 
 const embeddingStats = ref<EmbeddingStats | null>(null);
 const embeddingJobs = ref<EmbeddingJob[]>([]);
@@ -188,6 +193,21 @@ async function pollActiveJobs() {
       const job = await getEmbeddingJobStatus(activeEmbeddingJob.value.id);
       activeEmbeddingJob.value = job;
       if (job.status === 'COMPLETED' || job.status === 'FAILED') {
+        if (job.status === 'FAILED') {
+          toast.add({
+            severity: 'error',
+            summary: 'Embedding Job Failed',
+            detail: job.errorMessage || 'The job failed without an error message.',
+            life: 8000,
+          });
+        } else {
+          toast.add({
+            severity: 'success',
+            summary: 'Embedding Complete',
+            detail: `Processed ${job.processed.toLocaleString()} messages${job.failed > 0 ? ` (${job.failed} failed)` : ''}.`,
+            life: 5000,
+          });
+        }
         activeEmbeddingJob.value = null;
         // Refresh stats and history
         const [stats, history] = await Promise.all([
@@ -214,18 +234,38 @@ async function handleStartEmbedding() {
     startPolling();
   } catch (e: any) {
     console.error('Failed to start embedding job', e);
+    toast.add({
+      severity: 'error',
+      summary: 'Failed to Start Embedding',
+      detail: e?.response?.data?.message || e?.message || 'Server error',
+      life: 6000,
+    });
   }
 }
 
-async function handleReembed() {
-  if (!confirm('This will delete ALL existing embeddings and re-embed every message with conversational context. This may take a long time. Continue?')) return;
-  try {
-    const job = await startReembeddingJob();
-    activeEmbeddingJob.value = job;
-    startPolling();
-  } catch (e: any) {
-    console.error('Failed to start re-embedding job', e);
-  }
+function handleReembed() {
+  confirmDialog.require({
+    header: 'Re-embed All Messages',
+    message: 'This will delete ALL existing embeddings and re-embed every message with conversational context. This may take a long time.',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Re-embed All', severity: 'warn' },
+    accept: async () => {
+      try {
+        const job = await startReembeddingJob();
+        activeEmbeddingJob.value = job;
+        startPolling();
+      } catch (e: any) {
+        console.error('Failed to start re-embedding job', e);
+        toast.add({
+          severity: 'error',
+          summary: 'Failed to Start Re-embedding',
+          detail: e?.response?.data?.message || e?.message || 'Server error',
+          life: 6000,
+        });
+      }
+    },
+  });
 }
 
 async function handleCancelEmbedding() {
@@ -234,8 +274,15 @@ async function handleCancelEmbedding() {
     await cancelEmbeddingJob(activeEmbeddingJob.value.id);
     activeEmbeddingJob.value = null;
     embeddingJobs.value = await getEmbeddingJobHistory().catch(() => []);
-  } catch (e) {
+    toast.add({ severity: 'info', summary: 'Job Cancelled', detail: 'The embedding job was cancelled.', life: 4000 });
+  } catch (e: any) {
     console.error('Failed to cancel embedding job', e);
+    toast.add({
+      severity: 'error',
+      summary: 'Cancel Failed',
+      detail: e?.response?.data?.message || e?.message || 'Server error',
+      life: 6000,
+    });
   }
 }
 

@@ -120,6 +120,7 @@
     ]">
       <!-- Toast Container -->
       <Toast position="top-right" />
+      <ConfirmDialog />
 
       <!-- Main -->
       <main :class="mainClasses">
@@ -133,6 +134,7 @@
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import Toast from "primevue/toast";
+import ConfirmDialog from "primevue/confirmdialog";
 import { useAuthStore } from './stores/authStore';
 import { useDarkMode } from './composables/useDarkMode';
 

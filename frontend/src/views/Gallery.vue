@@ -1,7 +1,5 @@
 <template>
   <div class="space-y-6">
-    <Toast />
-    <ConfirmDialog />
 
     <!-- Header Section -->
     <div class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
@@ -160,8 +158,6 @@ import { ref, onMounted, onUnmounted, computed } from "vue";
 import Button from "primevue/button";
 import Select from "primevue/select";
 import ProgressSpinner from "primevue/progressspinner";
-import Toast from "primevue/toast";
-import ConfirmDialog from 'primevue/confirmdialog';
 import { useToast } from "primevue/usetoast";
 import { useConfirm } from 'primevue/useconfirm';
 import { getImages, deleteImageById, getDistinctContacts, type GalleryImage, type Contact } from "../services/api";
