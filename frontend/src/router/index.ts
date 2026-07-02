@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from "vue-router";
 
 // Lazy-loaded route components — each becomes a separate chunk
 const Ask = () => import("../views/Ask.vue");
+const Dashboard = () => import("../views/Dashboard.vue");
 const Messages = () => import("../views/Messages.vue");
 const Gallery = () => import("../views/Gallery.vue");
 const Contacts = () => import("../views/Contacts.vue");
@@ -12,6 +13,7 @@ const Register = () => import("../views/Register.vue");
 
 const routes: Array<RouteRecordRaw> = [
     { path: "/", name: "Ask", component: Ask },
+    { path: "/dashboard", name: "Dashboard", component: Dashboard },
     { path: "/messages", name: "Messages", component: Messages },
     { path: "/messages/:id", name: "MessagesDetail", component: Messages },
     { path: "/gallery", name: "Gallery", component: Gallery },
