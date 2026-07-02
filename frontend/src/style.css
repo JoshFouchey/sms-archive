@@ -2,6 +2,10 @@
 @plugin "@tailwindcss/typography";
 @import "primeicons/primeicons.css";
 
+/* Drive `dark:` utilities from a `.dark` class on <html> (toggled in JS) instead of
+   the OS preference, so the in-app dark-mode toggle works. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Base font + dark mode handling */
 :root {
     color-scheme: light dark;
@@ -31,10 +35,8 @@ a {
 a:hover {
     color: var(--accent-hover);
 }
-@media (prefers-color-scheme: dark) {
-    a { color: var(--accent-dark); }
-    a:hover { color: var(--accent-dark-hover); }
-}
+.dark a { color: var(--accent-dark); }
+.dark a:hover { color: var(--accent-dark-hover); }
 
 /* Buttons focus ring -> accent */
 button {

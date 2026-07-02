@@ -47,6 +47,16 @@
           </div>
         </div>
         
+        <!-- Dark Mode Toggle -->
+        <button
+          @click="toggleDarkMode"
+          class="flex items-center justify-center p-3 rounded-xl hover:bg-white/10 transition-all duration-200"
+          :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+          :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+        >
+          <i :class="[isDark ? 'pi pi-sun' : 'pi pi-moon', 'text-xl text-white']"></i>
+        </button>
+
         <!-- Logout Button -->
         <button
           @click="handleLogout"
@@ -85,6 +95,14 @@
           </a>
         </router-link>
         <button
+          @click="toggleDarkMode"
+          class="flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 rounded-xl hover:bg-white/10 transition-all duration-200 min-w-[3rem]"
+          :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+        >
+          <i :class="[isDark ? 'pi pi-sun' : 'pi pi-moon', 'text-lg text-white']"></i>
+          <span class="text-[10px] leading-tight text-white/90 font-medium">Theme</span>
+        </button>
+        <button
           @click="handleLogout"
           class="flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 rounded-xl hover:bg-white/10 transition-all duration-200 min-w-[3rem]"
           aria-label="Logout"
@@ -116,16 +134,19 @@ import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import Toast from "primevue/toast";
 import { useAuthStore } from './stores/authStore';
+import { useDarkMode } from './composables/useDarkMode';
 
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
+const { isDark, toggle: toggleDarkMode } = useDarkMode();
 
 const username = computed(() => auth.user?.username || 'Guest');
 const initials = computed(() => username.value.substring(0, 2).toUpperCase());
 
 const items = [
   { label: "Ask", icon: "pi pi-sparkles", route: "/" },
+  { label: "Dashboard", icon: "pi pi-chart-bar", route: "/dashboard" },
   { label: "Messages", icon: "pi pi-comments", route: "/messages" },
   { label: "Gallery", icon: "pi pi-images", route: "/gallery" },
   { label: "Contacts", icon: "pi pi-user", route: "/contacts" },

@@ -8,6 +8,10 @@ import ConfirmationService from 'primevue/confirmationservice';
 import { createPinia } from 'pinia';
 import './style.css'
 import { useAuthStore } from './stores/authStore';
+import { initDarkMode } from './composables/useDarkMode';
+
+// Apply the saved/OS theme before mount to avoid a flash of the wrong theme.
+initDarkMode();
 
 const app = createApp(App);
 app.use(createPinia());
