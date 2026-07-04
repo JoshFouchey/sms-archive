@@ -1,28 +1,9 @@
 <template>
   <div class="space-y-6">
     <!-- Header Section -->
-    <div class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
-      <div class="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 class="text-2xl sm:text-4xl font-bold mb-2 flex items-center gap-3">
-            <i class="pi pi-users"></i>
-            Contacts
-          </h1>
-          <p class="text-blue-100 dark:text-blue-200">Manage and edit your contact names</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <div class="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
-            <div class="flex items-center gap-2">
-              <i class="pi pi-user text-lg"></i>
-              <div class="text-left">
-                <p class="text-xs text-blue-100">Total Contacts</p>
-                <p class="text-2xl font-bold">{{ contacts.length }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <PageHeader title="Contacts" subtitle="Manage and edit your contact names" icon="pi pi-users">
+      <PageHeaderStat label="Total Contacts" :value="contacts.length" icon="pi pi-user" />
+    </PageHeader>
 
     <!-- Filter Section -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 border border-gray-200 dark:border-gray-700">
@@ -157,7 +138,7 @@
           <div class="mt-3 flex gap-2">
             <button
               @click="openMergeDialog(c)"
-              class="flex-1 px-3 py-2 rounded-lg bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-800/40 text-purple-700 dark:text-purple-300 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-95"
+              class="flex-1 px-3 py-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-800/40 text-blue-700 dark:text-blue-300 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-95"
             >
               <i class="pi pi-code-branch"></i>
               Merge
@@ -202,7 +183,7 @@
           >
             <template #value="slotProps">
               <div v-if="slotProps.value" class="flex items-center gap-2">
-                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-400 flex items-center justify-center text-white text-xs font-bold">
+                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-white text-xs font-bold">
                   {{ slotProps.value.label.charAt(0).toUpperCase() }}
                 </div>
                 <span>{{ slotProps.value.label }}</span>
@@ -211,7 +192,7 @@
             </template>
             <template #option="slotProps">
               <div class="flex items-center gap-2">
-                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-400 flex items-center justify-center text-white text-xs font-bold">
+                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-white text-xs font-bold">
                   {{ slotProps.option.label.charAt(0).toUpperCase() }}
                 </div>
                 <span>{{ slotProps.option.label }}</span>
@@ -240,7 +221,7 @@
           <button
             @click="performMerge"
             :disabled="!selectedMergeTarget || merging"
-            class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white text-sm font-semibold transition-all flex items-center gap-2"
+            class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold transition-all flex items-center gap-2"
           >
             <i v-if="!merging" class="pi pi-code-branch"></i>
             <i v-else class="pi pi-spin pi-spinner"></i>
@@ -258,6 +239,8 @@ import { getDistinctContacts, updateContactName, mergeContacts, type Contact } f
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
 import Dialog from 'primevue/dialog';
+import PageHeader from '@/components/PageHeader.vue';
+import PageHeaderStat from '@/components/PageHeaderStat.vue';
 import Select from 'primevue/select';
 
 const contacts = ref<Contact[]>([]);

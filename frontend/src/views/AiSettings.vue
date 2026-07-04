@@ -1,27 +1,13 @@
 <template>
   <div class="space-y-6">
     <!-- Header -->
-    <div v-if="!hideHeader" class="bg-gradient-to-r from-violet-600 to-purple-500 rounded-2xl p-4 sm:p-6 text-white shadow-lg">
-      <div class="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 class="text-2xl font-bold flex items-center gap-3">
-            <i class="pi pi-microchip text-3xl"></i>
-            AI Settings
-          </h1>
-          <p class="text-white/80 mt-1">Manage semantic embeddings and search configuration</p>
-        </div>
-        <div class="hidden sm:flex gap-3">
-          <div class="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2 text-center">
-            <div class="text-2xl font-bold">{{ embeddingStats?.embeddedMessages ?? '—' }}</div>
-            <div class="text-xs text-white/70">Embedded</div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <PageHeader v-if="!hideHeader" title="AI Settings" subtitle="Manage semantic embeddings and search configuration" icon="pi pi-microchip">
+      <PageHeaderStat class="hidden sm:block" label="Embedded" :value="embeddingStats?.embeddedMessages?.toLocaleString() ?? '—'" icon="pi pi-database" />
+    </PageHeader>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="max-w-3xl">
       <!-- Embedding Section -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-wrap gap-3">
           <div class="flex items-center gap-3">
             <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
@@ -129,6 +115,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
+import PageHeader from '@/components/PageHeader.vue';
+import PageHeaderStat from '@/components/PageHeaderStat.vue';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
 import {

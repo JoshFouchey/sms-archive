@@ -4,7 +4,7 @@
     <div class="shrink-0 px-4 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4">
       <div class="max-w-3xl mx-auto text-center mb-4">
         <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1 flex items-center justify-center gap-2">
-          <i class="pi pi-sparkles text-amber-500"></i>
+          <i class="pi pi-sparkles text-blue-500"></i>
           Ask
         </h1>
       </div>
@@ -132,8 +132,8 @@
         <!-- Loading State -->
         <div v-if="loading" class="flex flex-col items-center py-12">
           <div class="relative">
-            <div class="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center animate-pulse">
-              <i class="pi pi-sparkles text-2xl text-amber-500"></i>
+            <div class="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center animate-pulse">
+              <i class="pi pi-sparkles text-2xl text-blue-500"></i>
             </div>
           </div>
           <p class="mt-4 text-sm text-gray-500 dark:text-gray-400 animate-pulse">Thinking...</p>
@@ -145,9 +145,9 @@
         </div>
 
         <!-- AI Answer Panel (FACTUAL & ANALYTICS) -->
-        <div v-if="response && response.answer" class="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-5 shadow-md">
+        <div v-if="response && response.answer" class="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-5 shadow-md">
           <div class="flex items-start gap-3">
-            <div class="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center shrink-0">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shrink-0">
               <i class="pi pi-sparkles text-white text-sm"></i>
             </div>
             <div class="flex-1 min-w-0">
@@ -174,7 +174,7 @@
           </h3>
           <div class="space-y-2">
             <div v-for="src in response.sources" :key="src.messageId"
-              class="p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-amber-300 dark:hover:border-amber-700 transition-colors cursor-pointer"
+              class="p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 transition-colors cursor-pointer"
               @click="goToMessage(src.messageId, src.contactName)">
               <div class="flex items-center gap-2 mb-1">
                 <span class="text-xs font-semibold text-blue-600 dark:text-blue-400">{{ src.contactName }}</span>
@@ -378,8 +378,8 @@
                 <span class="text-xs font-semibold text-blue-600 dark:text-blue-400">{{ hit.message.contactName || hit.message.conversationName || hit.message.contactNumber }}</span>
                 <span :class="[
                   'text-[10px] px-1.5 py-0.5 rounded-full font-medium',
-                  hit.source === 'BOTH' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
-                  hit.source === 'SEMANTIC' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' :
+                  hit.source === 'BOTH' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' :
+                  hit.source === 'SEMANTIC' ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' :
                   'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
                 ]">{{ hit.source }}</span>
                 <span v-if="hit.moreFromConversation > 0"

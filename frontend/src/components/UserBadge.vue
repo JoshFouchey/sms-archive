@@ -1,7 +1,7 @@
 <template>
   <div class="flex items-center gap-3" v-if="ready">
     <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700">
-      <div class="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-500 text-white font-semibold" :title="username">
+      <div class="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 text-white font-semibold" :title="username">
         {{ initials }}
       </div>
       <div class="text-sm leading-tight">

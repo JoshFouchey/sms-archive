@@ -2,28 +2,9 @@
   <div class="space-y-6">
 
     <!-- Header Section -->
-    <div class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
-      <div class="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 class="text-2xl sm:text-4xl font-bold mb-2 flex items-center gap-3">
-            <i class="pi pi-images"></i>
-            Image Gallery
-          </h1>
-          <p class="text-blue-100 dark:text-blue-200">Browse and manage your message attachments</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <div class="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
-            <div class="flex items-center gap-2">
-              <i class="pi pi-image text-lg"></i>
-              <div class="text-left">
-                <p class="text-xs text-blue-100">Total Images</p>
-                <p class="text-2xl font-bold">{{ images.length }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <PageHeader title="Image Gallery" subtitle="Browse and manage your message attachments" icon="pi pi-images">
+      <PageHeaderStat label="Total Images" :value="images.length" icon="pi pi-image" />
+    </PageHeader>
 
     <!-- Filter Section -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 border border-gray-200 dark:border-gray-700">
@@ -50,7 +31,6 @@
           <Button
             :label="loading ? 'Loading...' : 'Search'"
             icon="pi pi-search"
-            severity="success"
             @click="reloadImages"
             :disabled="loading"
             :loading="loading"
@@ -126,8 +106,8 @@
     <!-- No Results -->
     <div v-else class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-8 border border-gray-200 dark:border-gray-700 text-center">
       <div class="flex flex-col items-center gap-4">
-        <div class="bg-yellow-100 dark:bg-yellow-900/30 p-4 rounded-full">
-          <i class="pi pi-image text-4xl text-yellow-600 dark:text-yellow-400"></i>
+        <div class="bg-blue-100 dark:bg-blue-900/30 p-4 rounded-full">
+          <i class="pi pi-image text-4xl text-blue-600 dark:text-blue-400"></i>
         </div>
         <div>
           <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">No Images Found</h3>
@@ -162,6 +142,8 @@ import { useToast } from "primevue/usetoast";
 import { useConfirm } from 'primevue/useconfirm';
 import { getImages, deleteImageById, getDistinctContacts, type GalleryImage, type Contact } from "../services/api";
 import ImageViewer from '@/components/ImageViewer.vue';
+import PageHeader from '@/components/PageHeader.vue';
+import PageHeaderStat from '@/components/PageHeaderStat.vue';
 import type { ViewerImage } from '@/components/ImageViewer.vue';
 
 const toast = useToast();

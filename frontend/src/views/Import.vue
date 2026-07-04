@@ -1,28 +1,14 @@
 <template>
   <div class="space-y-6">
     <!-- Header Section -->
-    <div v-if="!hideHeader" class="bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 rounded-2xl shadow-lg p-6 text-white">
-      <div class="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 class="text-4xl font-bold mb-2 flex items-center gap-3">
-            <i class="pi pi-upload"></i>
-            Import Messages
-          </h1>
-          <p class="text-blue-100 dark:text-blue-200">Upload an XML export file for streaming import</p>
-        </div>
-        <div v-if="jobId && progress" class="flex items-center gap-2">
-          <div class="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
-            <div class="flex items-center gap-2">
-              <i :class="progress.status === 'COMPLETED' ? 'pi pi-check-circle' : progress.status === 'FAILED' ? 'pi pi-times-circle' : 'pi pi-spinner pi-spin'" class="text-lg"></i>
-              <div class="text-left">
-                <p class="text-xs text-blue-100">Status</p>
-                <p class="text-2xl font-bold">{{ progress.status }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <PageHeader v-if="!hideHeader" title="Import Messages" subtitle="Upload an XML export file for streaming import" icon="pi pi-upload">
+      <PageHeaderStat
+        v-if="jobId && progress"
+        label="Status"
+        :value="progress.status"
+        :icon="progress.status === 'COMPLETED' ? 'pi pi-check-circle' : progress.status === 'FAILED' ? 'pi pi-times-circle' : 'pi pi-spinner pi-spin'"
+      />
+    </PageHeader>
 
     <!-- Main Import Card -->
     <div class="bg-white dark:bg-gray-800 shadow-lg rounded-xl p-6 border border-gray-200 dark:border-gray-700 space-y-6">
@@ -122,7 +108,7 @@
           v-if="jobId && !completed"
           @click="cancelPolling"
           title="Stops updating this page. The import keeps running on the server."
-          class="flex-1 sm:flex-none px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl transition-all font-semibold shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+          class="flex-1 sm:flex-none px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-xl transition-all font-semibold shadow-md hover:shadow-lg flex items-center justify-center gap-2"
         >
           <i class="pi pi-eye-slash"></i>
           <span>Stop Watching</span>
@@ -268,6 +254,8 @@
 import { ref, computed, onUnmounted } from 'vue';
 import { startStreamingImport, getImportProgress, type ImportProgress } from '../services/api';
 import { useToast } from 'primevue/usetoast';
+import PageHeader from '@/components/PageHeader.vue';
+import PageHeaderStat from '@/components/PageHeaderStat.vue';
 
 const toast = useToast();
 
