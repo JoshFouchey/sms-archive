@@ -45,27 +45,36 @@
           <i class="pi pi-file text-xs mr-1"></i>
           Select XML File
         </label>
-        <FileUpload
-          mode="basic"
+        <input
+          ref="fileInput"
+          type="file"
           accept=".xml,text/xml,application/xml"
+          class="hidden"
+          @change="onFileInputChange"
+        />
+        <button
+          type="button"
           :disabled="starting || !!jobId"
-          @select="onFileSelect"
-          :auto="false"
-          chooseLabel="Choose XML File"
-          :class="{ 'opacity-50 pointer-events-none': starting || !!jobId }"
+          @click="fileInput?.click()"
+          @dragover.prevent="dragActive = true"
+          @dragleave.prevent="dragActive = false"
+          @drop.prevent="onFileDrop"
+          :class="[
+            'w-full flex items-center justify-center flex-col p-12 border-2 border-dashed rounded-xl transition-all',
+            'disabled:opacity-50 disabled:pointer-events-none',
+            dragActive
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+              : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/30 hover:border-blue-400 dark:hover:border-blue-600'
+          ]"
         >
-          <template #empty>
-            <div class="flex items-center justify-center flex-col p-12 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-900/30 hover:border-blue-400 dark:hover:border-blue-600 transition-all">
-              <i class="pi pi-cloud-upload text-5xl text-blue-600 dark:text-blue-400 mb-4"></i>
-              <p class="text-base font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Drag and drop your XML file here
-              </p>
-              <p class="text-sm text-gray-500 dark:text-gray-400">
-                or click to browse
-              </p>
-            </div>
-          </template>
-        </FileUpload>
+          <i class="pi pi-cloud-upload text-5xl text-blue-600 dark:text-blue-400 mb-4"></i>
+          <p class="text-base font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            Drag and drop your XML file here
+          </p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            or click to browse
+          </p>
+        </button>
       </div>
 
       <!-- Selected File Display -->
@@ -258,7 +267,6 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue';
 import { startStreamingImport, getImportProgress, type ImportProgress } from '../services/api';
-import FileUpload, { type FileUploadSelectEvent } from 'primevue/fileupload';
 import { useToast } from 'primevue/usetoast';
 
 const toast = useToast();
@@ -275,14 +283,31 @@ const completed = computed(() => progress.value?.status === 'COMPLETED' || progr
 const percentBytes = computed(() => progress.value?.percentBytes ?? 0);
 const disableStreaming = computed(() => !selectedFile.value || starting.value || !!jobId.value);
 
-function onFileSelect(event: FileUploadSelectEvent) {
-  if (event.files && event.files.length > 0) {
-    selectedFile.value = event.files[0];
+const fileInput = ref<HTMLInputElement | null>(null);
+const dragActive = ref(false);
+
+function onFileInputChange(event: Event) {
+  const files = (event.target as HTMLInputElement).files;
+  if (files && files.length > 0) {
+    selectedFile.value = files[0];
   }
+}
+
+function onFileDrop(event: DragEvent) {
+  dragActive.value = false;
+  const file = event.dataTransfer?.files?.[0];
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith('.xml')) {
+    toast.add({ severity: 'warn', summary: 'Not an XML File', detail: 'Import expects an SMS backup .xml file.', life: 4000 });
+    return;
+  }
+  selectedFile.value = file;
 }
 
 function clearSelectedFile() {
   selectedFile.value = null;
+  // Reset the native input so re-selecting the same file fires a change event
+  if (fileInput.value) fileInput.value.value = '';
 }
 
 async function start() {

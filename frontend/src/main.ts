@@ -15,7 +15,9 @@ initDarkMode();
 
 const app = createApp(App);
 app.use(createPinia());
-app.use(PrimeVue, { theme: { preset: Aura } });
+// darkModeSelector ties PrimeVue's dark theme to our .dark class (default follows the
+// OS setting, which would disagree with the in-app toggle).
+app.use(PrimeVue, { theme: { preset: Aura, options: { darkModeSelector: '.dark' } } });
 app.use(ToastService);
 app.use(ConfirmationService);
 app.use(router);

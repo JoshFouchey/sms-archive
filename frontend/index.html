@@ -3,8 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>SMS Archive</title>
+    <script>
+      // Apply the saved/OS theme before first paint to avoid a light-mode flash.
+      // Must match the logic in src/composables/useDarkMode.ts (same storage key).
+      (function () {
+        try {
+          var stored = localStorage.getItem('sms-archive-theme');
+          var dark = stored ? stored === 'dark'
+            : window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) { /* ignore */ }
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

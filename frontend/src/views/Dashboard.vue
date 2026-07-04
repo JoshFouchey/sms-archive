@@ -63,6 +63,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, defineAsyncComponent } from 'vue';
 import { getAnalyticsDashboard, getAllConversations, type AnalyticsDashboardDto } from '../services/api';
+import { useDarkMode } from '../composables/useDarkMode';
 
 // Lazy chunk — keeps chart.js out of the dashboard's initial load.
 const SqlChart = defineAsyncComponent(() => import('../components/SqlChart.vue'));
@@ -102,17 +103,19 @@ const dateSpan = computed(() => {
   return `${fmt(days[0])} – ${fmt(days[days.length - 1])}`;
 });
 
+// Reactive theme ref so the chart recolors when the user toggles dark mode.
+const { isDark } = useDarkMode();
+
 const activityData = computed(() => {
   const m = monthly.value;
   if (!m.length) return null;
-  const isDark = document.documentElement.classList.contains('dark');
   return {
     labels: m.map(([month]) => month),
     datasets: [{
       label: 'Messages',
       data: m.map(([, count]) => count),
-      backgroundColor: isDark ? 'rgba(96, 165, 250, 0.5)' : 'rgba(59, 130, 246, 0.5)',
-      borderColor: isDark ? 'rgb(96, 165, 250)' : 'rgb(59, 130, 246)',
+      backgroundColor: isDark.value ? 'rgba(96, 165, 250, 0.5)' : 'rgba(59, 130, 246, 0.5)',
+      borderColor: isDark.value ? 'rgb(96, 165, 250)' : 'rgb(59, 130, 246)',
       borderWidth: 2,
       tension: 0.3,
       pointRadius: 0,
@@ -120,12 +123,28 @@ const activityData = computed(() => {
   };
 });
 
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: { legend: { display: false } },
-  scales: { y: { beginAtZero: true } },
-};
+// Chart.js defaults assume a light background; set tick/grid/tooltip colors per theme.
+const chartOptions = computed(() => {
+  const dark = isDark.value;
+  const tickColor = dark ? 'rgba(255, 255, 255, 0.65)' : 'rgba(0, 0, 0, 0.6)';
+  const gridColor = dark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: dark ? 'rgba(30, 41, 59, 0.95)' : 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#fff',
+        bodyColor: dark ? 'rgba(255, 255, 255, 0.85)' : 'rgba(255, 255, 255, 0.9)',
+      },
+    },
+    scales: {
+      x: { ticks: { color: tickColor }, grid: { color: gridColor } },
+      y: { beginAtZero: true, ticks: { color: tickColor }, grid: { color: gridColor } },
+    },
+  };
+});
 
 function barWidth(count: number): string {
   const max = dashboard.value?.topContacts?.[0]?.messageCount ?? 0;

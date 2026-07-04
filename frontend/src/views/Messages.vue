@@ -278,12 +278,14 @@
                 v-model="selectedSender"
                 class="w-full px-3 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:bg-white/30 focus:border-white/50 focus:outline-none transition-all text-sm min-w-0"
               >
-                <option value="" class="bg-slate-700">All Senders</option>
+                <!-- Options render in the native dropdown (not on the gradient), so they
+                     need theme-appropriate colors, not the glassy header treatment. -->
+                <option value="" class="bg-white text-gray-900 dark:bg-slate-700 dark:text-white">All Senders</option>
                 <option
                   v-for="sender in uniqueSenders"
                   :key="sender"
                   :value="sender"
-                  class="bg-slate-700"
+                  class="bg-white text-gray-900 dark:bg-slate-700 dark:text-white"
                 >
                   {{ sender }}
                 </option>

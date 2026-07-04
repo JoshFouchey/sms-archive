@@ -324,7 +324,7 @@
                 </thead>
                 <tbody>
                   <tr v-for="(row, i) in sortedSqlRows" :key="i"
-                    class="border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                    class="border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/60 transition-colors">
                     <td v-for="col in sqlColumns" :key="col"
                       class="px-4 py-2.5 text-gray-700 dark:text-gray-300 truncate"
                       :title="row[col] == null ? '' : String(row[col])">
@@ -344,7 +344,7 @@
           <div v-else-if="Array.isArray(response.analyticsData)" class="mt-2">
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div v-for="(item, i) in response.analyticsData" :key="i"
-                class="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700 last:border-0 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                class="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700 last:border-0 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/60 transition-colors">
                 <span class="text-lg font-bold text-gray-300 dark:text-gray-600 w-6 text-right">{{ i + 1 }}</span>
                 <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-white text-sm font-bold">
                   {{ (item.displayName || '?').charAt(0).toUpperCase() }}
@@ -498,6 +498,7 @@ import { useRouter } from 'vue-router';
 import { marked } from 'marked';
 import { askQuestion, getMessageContext, runSql, type QaResponse, type Message } from '../services/api';
 import MessageBubble from '../components/MessageBubble.vue';
+import { useDarkMode } from '../composables/useDarkMode';
 
 // chart.js is heavy and only needed when the user toggles the chart view, so load it
 // lazily as a separate chunk instead of in this default-route ('/') bundle.
@@ -785,30 +786,48 @@ const sqlData = computed<SqlAnalyticsData | null>(() => {
 
 const showChart = ref(false);
 
+// Reactive theme ref so charts recolor when the user toggles dark mode.
+const { isDark } = useDarkMode();
+
 const chartData = computed(() => {
   const d = sqlData.value;
   if (!d?.suggestedChart || !d.rows?.length) return null;
   const { labelCol, valueCol } = d.suggestedChart;
-  const isDark = document.documentElement.classList.contains('dark');
   return {
     labels: d.rows.map(r => String(r[labelCol] ?? '')),
     datasets: [{
       label: valueCol.replace(/_/g, ' '),
       data: d.rows.map(r => Number(r[valueCol] ?? 0)),
-      backgroundColor: isDark ? 'rgba(96, 165, 250, 0.5)' : 'rgba(59, 130, 246, 0.5)',
-      borderColor: isDark ? 'rgb(96, 165, 250)' : 'rgb(59, 130, 246)',
+      backgroundColor: isDark.value ? 'rgba(96, 165, 250, 0.5)' : 'rgba(59, 130, 246, 0.5)',
+      borderColor: isDark.value ? 'rgb(96, 165, 250)' : 'rgb(59, 130, 246)',
       borderWidth: 2,
       tension: 0.3,
     }],
   };
 });
 
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: true,
-  plugins: { legend: { display: false } },
-  scales: { y: { beginAtZero: true } },
-};
+// Chart.js defaults assume a light background; set tick/grid/tooltip colors per theme.
+const chartOptions = computed(() => {
+  const dark = isDark.value;
+  const tickColor = dark ? 'rgba(255, 255, 255, 0.65)' : 'rgba(0, 0, 0, 0.6)';
+  const gridColor = dark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
+  return {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: dark ? 'rgba(30, 41, 59, 0.95)' : 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#fff',
+        bodyColor: dark ? 'rgba(255, 255, 255, 0.85)' : 'rgba(255, 255, 255, 0.9)',
+      },
+    },
+    scales: {
+      x: { ticks: { color: tickColor }, grid: { color: gridColor } },
+      y: { beginAtZero: true, ticks: { color: tickColor }, grid: { color: gridColor } },
+    },
+  };
+});
 
 const sqlForDisplay = computed(() =>
   sqlData.value?.executedSql || sqlData.value?.sql || sqlData.value?.generatedSql || ''

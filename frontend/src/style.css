@@ -6,52 +6,33 @@
    the OS preference, so the in-app dark-mode toggle works. */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Base font + dark mode handling */
+/* Base font + dark mode handling.
+   color-scheme follows the in-app theme (not the OS) so native controls -
+   scrollbars, date pickers, <option> lists - match the toggled theme. */
 :root {
-    color-scheme: light dark;
-    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+    color-scheme: light;
+    font-family: system-ui, sans-serif;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Accent palette (OKLCH) */
-    --accent: oklch(52% 0.105 223.128);
-    --accent-hover: oklch(56% 0.11 223.128);
-    --accent-muted-bg: oklch(92% 0.02 223.128);
-    --accent-text-soft: oklch(96% 0.01 223.128);
-    --accent-text-subtle: oklch(88% 0.03 223.128);
-    --accent-dark: oklch(70% 0.08 223.128);
-    --accent-dark-hover: oklch(74% 0.09 223.128);
+}
+.dark {
+    color-scheme: dark;
 }
 
 html, body, #app {
     @apply min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
 }
 
-/* Links use accent */
+/* Default link color for links without explicit utility classes.
+   NOTE: no global button rules here - a previous element-level
+   `button:hover { background: ... }` shorthand was wiping the
+   background-image (gradients) off every button in the app. Buttons are
+   styled where they are declared. */
 a {
-    color: var(--accent);
+    @apply text-blue-600 dark:text-blue-400;
     transition: color .15s ease;
 }
 a:hover {
-    color: var(--accent-hover);
+    @apply text-blue-700 dark:text-blue-300;
 }
-.dark a { color: var(--accent-dark); }
-.dark a:hover { color: var(--accent-dark-hover); }
-
-/* Buttons focus ring -> accent */
-button {
-    @apply rounded-md font-medium focus:outline-none focus:ring-2;
-    --tw-ring-color: var(--accent);
-}
-button:hover {
-    background: var(--accent-muted-bg);
-}
-
-/* Utility classes (optional) for manual use */
-.accent-bg { background: var(--accent); }
-.accent-text { color: var(--accent); }
-.accent-border { border-color: var(--accent); }
-.accent-muted-bg { background: var(--accent-muted-bg); }
-.accent-soft-text { color: var(--accent-text-soft); }
-.accent-subtle-text { color: var(--accent-text-subtle); }
-.accent-dark-text { color: var(--accent-dark); }
