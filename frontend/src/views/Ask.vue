@@ -216,33 +216,9 @@
                 </button>
               </div>
             </div>
-            <details v-if="sqlForDisplay" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
-              <summary class="cursor-pointer px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Generated SQL
-              </summary>
-              <div class="border-t border-gray-100 dark:border-gray-700">
-                <div v-if="editingSql" class="p-3 space-y-2">
-                  <textarea v-model="sqlDraft" class="w-full min-h-40 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-3 text-xs font-mono text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30"></textarea>
-                  <div class="flex gap-2 justify-end">
-                    <button @click="cancelSqlEdit" class="px-2.5 py-1.5 rounded-lg text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">Cancel</button>
-                    <button @click="runEditedSql" :disabled="sqlRunning || !sqlDraft.trim()" class="px-2.5 py-1.5 rounded-lg text-xs bg-blue-500 text-white hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-600">
-                      <i :class="sqlRunning ? 'pi pi-spin pi-spinner' : 'pi pi-play'" class="mr-1"></i>Run SQL
-                    </button>
-                  </div>
-                </div>
-                <div v-else>
-                  <div class="flex justify-end gap-1 px-3 pt-2">
-                    <button @click="startSqlEdit" class="px-2.5 py-1.5 rounded-md text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
-                      <i class="pi pi-pencil mr-1"></i>Edit
-                    </button>
-                    <button @click="copySql" class="px-2.5 py-1.5 rounded-md text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
-                      <i class="pi pi-copy mr-1"></i>Copy
-                    </button>
-                  </div>
-                  <pre class="p-4 pt-2 text-xs overflow-x-auto text-gray-700 dark:text-gray-300"><code>{{ sqlForDisplay }}</code></pre>
-                </div>
-              </div>
-            </details>
+            <SqlDetailsPanel v-if="sqlForDisplay" label="Generated SQL" :sql="sqlForDisplay"
+              :editing="editingSql" :running="sqlRunning" v-model:draft="sqlDraft"
+              @edit="startSqlEdit" @cancel="cancelSqlEdit" @run="runEditedSql" />
           </div>
 
           <!-- SQL Result Table (from text-to-SQL) -->
@@ -278,33 +254,9 @@
               <SqlChart :type="sqlData?.suggestedChart?.type" :data="chartData" :options="chartOptions" />
             </div>
 
-            <details class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
-              <summary class="cursor-pointer px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                SQL details
-              </summary>
-              <div class="border-t border-gray-100 dark:border-gray-700">
-                <div v-if="editingSql" class="p-3 space-y-2">
-                  <textarea v-model="sqlDraft" class="w-full min-h-40 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-3 text-xs font-mono text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30"></textarea>
-                  <div class="flex gap-2 justify-end">
-                    <button @click="cancelSqlEdit" class="px-2.5 py-1.5 rounded-lg text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">Cancel</button>
-                    <button @click="runEditedSql" :disabled="sqlRunning || !sqlDraft.trim()" class="px-2.5 py-1.5 rounded-lg text-xs bg-blue-500 text-white hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-600">
-                      <i :class="sqlRunning ? 'pi pi-spin pi-spinner' : 'pi pi-play'" class="mr-1"></i>Run SQL
-                    </button>
-                  </div>
-                </div>
-                <div v-else>
-                  <div class="flex justify-end gap-1 px-3 pt-2">
-                    <button @click="startSqlEdit" class="px-2.5 py-1.5 rounded-md text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
-                      <i class="pi pi-pencil mr-1"></i>Edit
-                    </button>
-                    <button @click="copySql" class="px-2.5 py-1.5 rounded-md text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
-                      <i class="pi pi-copy mr-1"></i>Copy
-                    </button>
-                  </div>
-                  <pre class="p-4 pt-2 text-xs overflow-x-auto text-gray-700 dark:text-gray-300"><code>{{ sqlForDisplay }}</code></pre>
-                </div>
-              </div>
-            </details>
+            <SqlDetailsPanel v-if="sqlForDisplay" label="SQL details" :sql="sqlForDisplay"
+              :editing="editingSql" :running="sqlRunning" v-model:draft="sqlDraft"
+              @edit="startSqlEdit" @cancel="cancelSqlEdit" @run="runEditedSql" />
 
             <div v-if="sortedSqlRows.length && !showChart" class="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div class="overflow-x-auto max-h-[60vh]">
@@ -313,6 +265,7 @@
                   <tr class="bg-gray-50 dark:bg-gray-800">
                     <th v-for="col in sqlColumns" :key="col"
                       @click="sortByColumn(col)"
+                      :aria-sort="sortKey === col ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'"
                       class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200">
                       <span class="inline-flex items-center gap-1">
                         {{ col.replace(/_/g, ' ') }}
@@ -404,65 +357,57 @@
     </div>
 
     <!-- Message Context Modal -->
-    <Teleport to="body">
-      <div v-if="contextModal.open" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="closeContext">
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="closeContext"></div>
-        <div class="relative w-full max-w-2xl max-h-[85vh] bg-gray-50 dark:bg-gray-900 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-          <!-- Modal Header -->
-          <div class="shrink-0 flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            <div class="flex items-center gap-2">
-              <i class="pi pi-comments text-emerald-500"></i>
-              <span class="font-semibold text-sm text-gray-800 dark:text-gray-200">Conversation Context</span>
-              <span v-if="contextModal.contactName" class="text-xs text-gray-400">— {{ contextModal.contactName }}</span>
-              <span v-if="contextIsGroupChat" class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 font-medium">Group</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <button @click="openInMessages" class="text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 font-medium">
-                <i class="pi pi-external-link mr-1"></i>Open in Messages
-              </button>
-              <button @click="closeContext" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 transition-colors">
-                <i class="pi pi-times text-sm"></i>
-              </button>
-            </div>
+    <Dialog
+      :visible="contextModal.open"
+      @update:visible="(v: boolean) => { if (!v) closeContext(); }"
+      modal
+      dismissableMask
+      :draggable="false"
+      class="w-full max-w-2xl mx-4"
+    >
+      <template #header>
+        <div class="flex items-center justify-between flex-1 gap-2 min-w-0">
+          <div class="flex items-center gap-2 min-w-0">
+            <i class="pi pi-comments text-emerald-500"></i>
+            <span class="font-semibold text-sm text-gray-800 dark:text-gray-200">Conversation Context</span>
+            <span v-if="contextModal.contactName" class="text-xs text-gray-400 truncate">— {{ contextModal.contactName }}</span>
+            <span v-if="contextIsGroupChat" class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 font-medium">Group</span>
           </div>
-
-          <!-- Loading -->
-          <div v-if="contextModal.loading" class="flex-1 flex items-center justify-center py-12">
-            <i class="pi pi-spin pi-spinner text-2xl text-emerald-500"></i>
-          </div>
-
-          <!-- Messages -->
-          <div v-else ref="contextScroll" class="flex-1 overflow-y-auto px-4 py-3 space-y-1">
-            <MessageBubble
-              v-for="msg in contextModal.messages"
-              :key="msg.id"
-              :message="msg"
-              :is-group-chat="contextIsGroupChat"
-              :participant-color-map="contextParticipantColorMap"
-              :highlight-class="msg.id === contextModal.centerId ? 'ring-4 ring-emerald-400 dark:ring-emerald-500 shadow-2xl scale-[1.02]' : ''"
-            />
-          </div>
+          <button @click="openInMessages" class="text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">
+            <i class="pi pi-external-link mr-1"></i>Open in Messages
+          </button>
         </div>
+      </template>
+
+      <!-- Loading -->
+      <div v-if="contextModal.loading" class="flex items-center justify-center py-12">
+        <i class="pi pi-spin pi-spinner text-2xl text-emerald-500"></i>
       </div>
-    </Teleport>
+
+      <!-- Messages -->
+      <div v-else ref="contextScroll" class="max-h-[65vh] overflow-y-auto px-1 py-2 space-y-1">
+        <MessageBubble
+          v-for="msg in contextModal.messages"
+          :key="msg.id"
+          :message="msg"
+          :is-group-chat="contextIsGroupChat"
+          :participant-color-map="contextParticipantColorMap"
+          :highlight-class="msg.id === contextModal.centerId ? 'ring-4 ring-emerald-400 dark:ring-emerald-500 shadow-2xl scale-[1.02]' : ''"
+        />
+      </div>
+    </Dialog>
     <!-- Query History Drawer -->
-    <Teleport to="body">
-      <div v-if="showHistory" class="fixed inset-0 z-50 flex justify-end" @click.self="showHistory = false">
-        <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" @click="showHistory = false"></div>
-        <div class="relative w-full max-w-sm bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col overflow-hidden">
-          <div class="shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            <h2 class="font-semibold text-sm text-gray-800 dark:text-gray-200 flex items-center gap-2">
-              <i class="pi pi-history text-gray-400"></i>
-              Query History
-            </h2>
-            <div class="flex items-center gap-3">
-              <button @click="clearHistory" class="text-xs text-red-400 hover:text-red-500 transition-colors">Clear all</button>
-              <button @click="showHistory = false" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 transition-colors">
-                <i class="pi pi-times text-sm"></i>
-              </button>
-            </div>
-          </div>
-          <div class="flex-1 overflow-y-auto">
+    <Drawer v-model:visible="showHistory" position="right" class="w-full sm:!w-96">
+      <template #header>
+        <div class="flex items-center justify-between flex-1 gap-2">
+          <h2 class="font-semibold text-sm text-gray-800 dark:text-gray-200 flex items-center gap-2">
+            <i class="pi pi-history text-gray-400"></i>
+            Query History
+          </h2>
+          <button @click="confirmClearHistory" class="text-xs text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors">Clear all</button>
+        </div>
+      </template>
+      <div class="-mx-4 h-full overflow-y-auto">
             <div v-if="!queryHistory.length" class="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
               No history yet.
             </div>
@@ -484,10 +429,8 @@
               </div>
               <p class="text-sm text-gray-700 dark:text-gray-300 line-clamp-2 text-left">{{ entry.question }}</p>
             </button>
-          </div>
-        </div>
       </div>
-    </Teleport>
+    </Drawer>
 
   </div>
 </template>
@@ -498,6 +441,10 @@ import { useRouter } from 'vue-router';
 import { marked } from 'marked';
 import { askQuestion, getMessageContext, runSql, type QaResponse, type Message } from '../services/api';
 import MessageBubble from '../components/MessageBubble.vue';
+import SqlDetailsPanel from '../components/SqlDetailsPanel.vue';
+import Dialog from 'primevue/dialog';
+import Drawer from 'primevue/drawer';
+import { useConfirm } from 'primevue/useconfirm';
 import { useDarkMode } from '../composables/useDarkMode';
 
 // chart.js is heavy and only needed when the user toggles the chart view, so load it
@@ -505,6 +452,7 @@ import { useDarkMode } from '../composables/useDarkMode';
 const SqlChart = defineAsyncComponent(() => import('../components/SqlChart.vue'));
 
 const router = useRouter();
+const confirmDialog = useConfirm();
 const searchInput = ref<HTMLInputElement | null>(null);
 const query = ref('');
 const loading = ref(false);
@@ -550,6 +498,17 @@ function restoreHistory(entry: HistoryEntry) {
   sortKey.value = null;
   editingSql.value = false;
   showHistory.value = false;
+}
+
+function confirmClearHistory() {
+  confirmDialog.require({
+    header: 'Clear Query History',
+    message: `Delete all ${queryHistory.value.length} saved queries? This cannot be undone.`,
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Clear All', severity: 'danger' },
+    accept: clearHistory,
+  });
 }
 
 function clearHistory() {
@@ -903,15 +862,6 @@ async function runEditedSql() {
 function regenerateQuestion() {
   editingSql.value = false;
   submitQuestion();
-}
-
-async function copySql() {
-  if (!sqlForDisplay.value) return;
-  try {
-    await navigator.clipboard.writeText(sqlForDisplay.value);
-  } catch (e) {
-    console.error('Failed to copy SQL', e);
-  }
 }
 
 function csvEscape(value: any): string {

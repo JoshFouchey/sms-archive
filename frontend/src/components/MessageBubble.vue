@@ -44,7 +44,7 @@
             <div
               v-for="img in imageParts"
               :key="img.id"
-              class="relative group cursor-pointer overflow-hidden rounded-xl bg-black/10 dark:bg-black/30 transition-all hover:scale-105"
+              class="relative group cursor-pointer overflow-hidden rounded-xl bg-black/10 dark:bg-black/30 transition-all"
               :class="img.isSingle ? 'w-48 h-48' : 'w-32 h-32'"
               @click="$emit('imageClick', img.globalIndex)"
               role="button"
@@ -62,7 +62,7 @@
           </div>
 
           <div 
-            class="text-[10px] mt-1 opacity-75"
+            class="text-[11px] mt-1 opacity-75"
             :class="groupedReactions.length ? 'mr-16' : ''"
           >
             {{ formatTime(message.timestamp) }}
@@ -144,7 +144,7 @@ const participantColors = [
 ];
 
 function getParticipantColor(senderContactId: number | undefined | null): string {
-  const defaultColor = 'bg-gray-200';
+  const defaultColor = 'bg-gray-400 dark:bg-gray-500';
 
   if (!senderContactId || !props.participantColorMap) {
     return defaultColor;

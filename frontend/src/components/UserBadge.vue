@@ -10,7 +10,7 @@
       </div>
     </div>
   </div>
-  <div v-else class="flex items-center gap-2 px-3 py-1 text-xs text-gray-500">Loading...</div>
+  <div v-else class="flex items-center gap-2 px-3 py-1 text-xs text-gray-500 dark:text-gray-400">Loading...</div>
 </template>
 
 <script setup lang="ts">
@@ -40,7 +40,7 @@ const statusClass = computed(() => {
     'text-green-600 dark:text-green-400': statusLabel.value === 'Online',
     'text-yellow-600 dark:text-yellow-400': statusLabel.value === 'Authenticating',
     'text-red-600 dark:text-red-400': statusLabel.value === 'Error',
-    'text-gray-500': statusLabel.value === 'Offline'
+    'text-gray-500 dark:text-gray-400': statusLabel.value === 'Offline'
   };
 });
 </script>

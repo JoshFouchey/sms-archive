@@ -54,7 +54,7 @@
               :style="{ width: `${embeddingStats?.percentComplete ?? 0}%` }"
             ></div>
           </div>
-          <div class="text-right text-xs text-gray-500 mt-1">
+          <div class="text-right text-xs text-gray-500 dark:text-gray-400 mt-1">
             {{ (embeddingStats?.percentComplete ?? 0).toFixed(1) }}%
           </div>
         </div>
@@ -68,7 +68,7 @@
             </div>
             <button
               @click="handleCancelEmbedding"
-              class="text-xs text-red-600 hover:text-red-700 font-medium"
+              class="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium"
             >
               Cancel
             </button>
@@ -102,7 +102,7 @@
                   {{ formatDate(job.createdAt) }}
                 </span>
               </div>
-              <span class="text-xs text-gray-500">
+              <span class="text-xs text-gray-500 dark:text-gray-400">
                 {{ job.processed.toLocaleString() }} msgs
               </span>
             </div>
@@ -281,7 +281,7 @@ function statusBadgeClass(status: string): string {
     case 'RUNNING': return `${base} bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400`;
     case 'PENDING': return `${base} bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400`;
     case 'FAILED': return `${base} bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400`;
-    default: return `${base} bg-gray-100 text-gray-700`;
+    default: return `${base} bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300`;
   }
 }
 

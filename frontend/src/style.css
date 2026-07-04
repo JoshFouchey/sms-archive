@@ -36,3 +36,34 @@ a {
 a:hover {
     @apply text-blue-700 dark:text-blue-300;
 }
+
+/* Themed scrollbars + selection so native chrome matches both themes */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(156 163 175) transparent;
+}
+.dark * {
+    scrollbar-color: rgb(75 85 99) transparent;
+}
+::selection {
+    background: rgb(37 99 235 / 0.25);
+}
+
+/* Route transition (used by <router-view> in App.vue) */
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.15s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+}
+
+/* Respect reduced-motion preferences: collapse all animation/transitions */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

@@ -63,9 +63,8 @@
           :class="[
             'group p-4 rounded-xl border transition-all duration-200 flex flex-col gap-1.5 shadow-sm hover:shadow-md relative cursor-pointer',
             selectedConversation?.id === conversation.id
-              ? 'bg-gradient-to-br from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 border-blue-500 text-white scale-[1.02]'
-              : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-slate-700',
-            showActionsMenu === conversation.id ? 'z-50' : ''
+              ? 'bg-gradient-to-br from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 border-blue-500 text-white ring-2 ring-blue-400/60'
+              : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-slate-700'
           ]"
           @click="selectConversation(conversation)"
         >
@@ -96,43 +95,19 @@
             </div>
             
             <!-- Action menu button -->
-            <div class="relative flex-shrink-0" :class="showActionsMenu === conversation.id ? 'z-50' : 'z-10'">
-              <button
-                @click.stop="toggleActionsMenu(conversation.id)"
-                aria-label="Conversation actions"
-                :class="[
-                  'p-2.5 rounded-lg transition-all',
-                  selectedConversation?.id === conversation.id
-                    ? 'hover:bg-white/20 text-white'
-                    : 'hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-600 dark:text-gray-400'
-                ]"
-                title="Actions"
-              >
-                <i class="pi pi-ellipsis-v text-xs"></i>
-              </button>
-              
-              <!-- Actions dropdown menu -->
-              <div
-                v-if="showActionsMenu === conversation.id"
-                @click.stop
-                class="absolute right-0 top-full mt-1 bg-white dark:bg-slate-700 rounded-lg shadow-xl border border-gray-200 dark:border-slate-600 py-1 z-50 min-w-[150px]"
-              >
-                <button
-                  @click.stop="openRenameDialog(conversation); showActionsMenu = null"
-                  class="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-slate-600 flex items-center gap-2 text-gray-700 dark:text-gray-300"
-                >
-                  <i class="pi pi-pencil text-xs"></i>
-                  <span>Rename</span>
-                </button>
-                <button
-                  @click.stop="confirmDelete(conversation); showActionsMenu = null"
-                  class="w-full px-4 py-2 text-left text-sm hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center gap-2 text-red-600 dark:text-red-400"
-                >
-                  <i class="pi pi-trash text-xs"></i>
-                  <span>Delete</span>
-                </button>
-              </div>
-            </div>
+            <button
+              @click.stop="openActionsMenu($event, conversation)"
+              aria-label="Conversation actions"
+              :class="[
+                'p-2.5 rounded-lg transition-all flex-shrink-0',
+                selectedConversation?.id === conversation.id
+                  ? 'hover:bg-white/20 text-white'
+                  : 'hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-600 dark:text-gray-400'
+              ]"
+              title="Actions"
+            >
+              <i class="pi pi-ellipsis-v text-xs"></i>
+            </button>
           </div>
         </div>
         </div>
@@ -238,7 +213,7 @@
             <div class="flex items-center gap-2 text-green-700 dark:text-green-300">
               <i class="pi pi-check-circle text-sm flex-shrink-0"></i>
               <span class="text-sm font-medium truncate">
-                ✓ All {{ messages.length.toLocaleString() }} messages loaded (search ready)
+                All {{ messages.length.toLocaleString() }} messages loaded (search ready)
               </span>
             </div>
           </div>
@@ -256,7 +231,7 @@
               <input
                 v-model="dateFrom"
                 type="date"
-                class="w-full px-3 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:bg-white/30 focus:border-white/50 focus:outline-none transition-all text-sm min-w-0"
+                class="w-full px-3 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:bg-white/30 focus:border-white/50 focus:outline-none transition-all text-sm min-w-0 [&::-webkit-calendar-picker-indicator]:invert"
               />
             </div>
 
@@ -266,7 +241,7 @@
               <input
                 v-model="dateTo"
                 type="date"
-                class="w-full px-3 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:bg-white/30 focus:border-white/50 focus:outline-none transition-all text-sm min-w-0"
+                class="w-full px-3 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:bg-white/30 focus:border-white/50 focus:outline-none transition-all text-sm min-w-0 [&::-webkit-calendar-picker-indicator]:invert"
               />
             </div>
 
@@ -340,7 +315,7 @@
             :is-group-chat="isGroupConversation"
             :participant-color-map="participantColorMap"
             :reaction-index="reactionIndex"
-            :highlight-class="isCurrentMatch(msg.id) ? 'ring-4 ring-yellow-400 dark:ring-yellow-500 shadow-2xl scale-[1.02]' : ''"
+            :highlight-class="isCurrentMatch(msg.id) ? 'ring-4 ring-amber-400 dark:ring-amber-500 shadow-2xl scale-[1.02]' : ''"
             class="scroll-mt-24"
             @image-click="openImage"
           />
@@ -424,8 +399,8 @@
         <div v-else-if="messages.length" class="space-y-3">
           <!-- Active search/filter indicator -->
           <div v-if="isSearchActive && searchMatches.length === 0" class="flex items-center justify-center py-2">
-            <div class="bg-yellow-100 dark:bg-yellow-900/30 px-4 py-2 rounded-full text-xs text-yellow-700 dark:text-yellow-300 flex items-center gap-2 font-medium">
-              <i class="pi pi-exclamation-triangle"></i>
+            <div class="bg-gray-200 dark:bg-slate-700 px-4 py-2 rounded-full text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 font-medium">
+              <i class="pi pi-info-circle"></i>
               No matches found
             </div>
           </div>
@@ -478,20 +453,29 @@
       />
     </main>
 
+    <!-- Conversation actions popup menu (shared instance) -->
+    <Menu ref="actionsMenuRef" :model="actionsMenuItems" popup />
+
     <!-- Rename Dialog -->
-    <div v-if="showRenameDialog" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
-        <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Rename Conversation</h3>
-        <input
-          v-model="newConversationName"
-          type="text"
-          placeholder="Enter new name..."
-          class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          @keyup.enter="submitRename"
-          @keyup.escape="cancelRename"
-          autofocus
-        />
-        <div class="flex gap-3 mt-6">
+    <Dialog
+      v-model:visible="showRenameDialog"
+      modal
+      dismissableMask
+      :draggable="false"
+      header="Rename Conversation"
+      class="w-full max-w-md mx-4"
+      @hide="cancelRename"
+    >
+      <input
+        v-model="newConversationName"
+        type="text"
+        placeholder="Enter new name..."
+        class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+        @keyup.enter="submitRename"
+        autofocus
+      />
+      <template #footer>
+        <div class="flex gap-3 w-full">
           <button
             @click="cancelRename"
             class="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
@@ -501,13 +485,13 @@
           <button
             @click="submitRename"
             :disabled="!newConversationName.trim()"
-            class="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white transition-colors"
+            class="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-slate-600 disabled:text-gray-500 dark:disabled:text-slate-400 disabled:cursor-not-allowed text-white transition-colors"
           >
             Rename
           </button>
         </div>
-      </div>
-    </div>
+      </template>
+    </Dialog>
   </div>
 </template>
 
@@ -532,6 +516,8 @@ import MessageBubble from '@/components/MessageBubble.vue';
 import type { ViewerImage } from '@/components/ImageViewer.vue';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
+import Dialog from 'primevue/dialog';
+import Menu from 'primevue/menu';
 
 const toast = useToast();
 const confirmDialog = useConfirm();
@@ -579,7 +565,26 @@ const loadingInBackground = ref(false);
 const showRenameDialog = ref(false);
 const conversationToRename = ref<ConversationSummary | null>(null);
 const newConversationName = ref('');
-const showActionsMenu = ref<number | null>(null); // Track which conversation's menu is open
+// Conversation actions popup (PrimeVue Menu handles layering/outside-click/keyboard)
+const actionsMenuRef = ref();
+const actionsMenuConversation = ref<ConversationSummary | null>(null);
+const actionsMenuItems = computed(() => [
+  {
+    label: 'Rename',
+    icon: 'pi pi-pencil',
+    command: () => { if (actionsMenuConversation.value) openRenameDialog(actionsMenuConversation.value); },
+  },
+  {
+    label: 'Delete',
+    icon: 'pi pi-trash',
+    command: () => { if (actionsMenuConversation.value) confirmDelete(actionsMenuConversation.value); },
+  },
+]);
+
+function openActionsMenu(event: Event, conversation: ConversationSummary) {
+  actionsMenuConversation.value = conversation;
+  actionsMenuRef.value?.toggle(event);
+}
 
 // Image handling functions (matching Messages.vue approach)
 interface ImagePart {
@@ -1279,27 +1284,6 @@ async function loadAllMessagesInBackground() {
   }
 }
 
-
-// Actions menu
-function toggleActionsMenu(conversationId: number) {
-  showActionsMenu.value = showActionsMenu.value === conversationId ? null : conversationId;
-}
-
-// Close menu when clicking outside
-function handleClickOutside(event: MouseEvent) {
-  const target = event.target as HTMLElement;
-  if (!target.closest('.relative')) {
-    showActionsMenu.value = null;
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside);
-});
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside);
-});
 
 // Rename conversation
 function openRenameDialog(conversation: ConversationSummary) {

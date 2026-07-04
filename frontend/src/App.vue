@@ -1,7 +1,7 @@
 <template>
   <div class="flex h-dvh bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
     <!-- Sidebar (hidden on mobile, visible md+) -->
-    <div class="hidden md:flex flex-col w-16 bg-gradient-to-b from-blue-600 to-cyan-500 dark:from-blue-800 dark:to-cyan-700 shadow-xl">
+    <div v-if="!isAuthPage" class="hidden md:flex flex-col w-16 bg-gradient-to-b from-blue-600 to-cyan-500 dark:from-blue-800 dark:to-cyan-700 shadow-xl">
       <!-- Logo/Brand -->
       <div class="flex items-center justify-center py-4 mb-2">
         <div class="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
@@ -70,7 +70,7 @@
     </div>
 
     <!-- Bottom Navigation Bar (visible on mobile, hidden md+) -->
-    <div class="flex md:hidden fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-800 dark:to-cyan-700 shadow-[0_-2px_10px_rgba(0,0,0,0.15)] pb-[env(safe-area-inset-bottom)]">
+    <div v-if="!isAuthPage" class="flex md:hidden fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-800 dark:to-cyan-700 shadow-[0_-2px_10px_rgba(0,0,0,0.15)] pb-[env(safe-area-inset-bottom)]">
       <nav class="flex flex-1 items-center justify-around px-1 py-1">
         <router-link
           v-for="item in items"
@@ -115,7 +115,8 @@
 
     <!-- Main Content Area -->
     <div :class="[
-      'flex-1 flex flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0',
+      'flex-1 flex flex-col md:pb-0',
+      isAuthPage ? 'pb-0' : 'pb-[calc(4rem+env(safe-area-inset-bottom))]',
       isFullHeightPage ? 'overflow-hidden' : 'overflow-y-auto'
     ]">
       <!-- Toast Container -->
@@ -124,7 +125,11 @@
 
       <!-- Main -->
       <main :class="mainClasses">
-        <router-view />
+        <router-view v-slot="{ Component }">
+          <transition name="fade" mode="out-in">
+            <component :is="Component" />
+          </transition>
+        </router-view>
       </main>
     </div>
   </div>
@@ -163,6 +168,9 @@ async function handleLogout() {
   auth.logout();
   router.push('/login');
 }
+
+// Auth pages render without the app chrome (no nav/logout for unauthenticated users)
+const isAuthPage = computed(() => route.path === '/login' || route.path === '/register');
 
 // Check if we're on a full-height page (manages its own layout)
 const isFullHeightPage = computed(() => {

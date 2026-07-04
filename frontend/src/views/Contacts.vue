@@ -61,7 +61,7 @@
         <div
           v-for="c in filteredContacts"
           :key="c.id"
-          class="group relative rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 backdrop-blur p-5 flex flex-col shadow-md hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+          class="group relative rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 backdrop-blur p-5 flex flex-col shadow-md hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
         >
           <!-- Avatar Circle -->
           <div class="flex items-start gap-3 mb-4">
@@ -88,7 +88,7 @@
                   ref="editInputEl"
                   v-model="editName"
                   type="text"
-                  class="px-3 py-2 text-sm rounded-lg border-2 border-blue-500 dark:border-blue-400 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                  class="px-3 py-2 text-sm rounded-lg border-2 border-blue-500 dark:border-blue-400 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                   :placeholder="originalName || 'Enter name'"
                   @keyup.enter="saveEdit(c)"
                   @keyup.esc="cancelEdit()"
@@ -107,7 +107,7 @@
                   <button
                     @click="cancelEdit()"
                     :disabled="saving"
-                    class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-100 text-xs font-semibold active:scale-95 transition-all"
+                    class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-100 text-xs font-semibold active:scale-95 transition-all"
                     aria-label="Cancel"
                   >
                     Cancel
@@ -118,13 +118,13 @@
           </div>
 
           <!-- Phone Number Section -->
-          <div class="mt-auto pt-4 border-t border-gray-200 dark:border-slate-700 space-y-2">
+          <div class="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
             <div>
               <p class="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-semibold mb-1">
                 <i class="pi pi-phone text-xs mr-1"></i>
                 Phone Number
               </p>
-              <p class="text-sm font-mono text-gray-800 dark:text-gray-200 break-all bg-gray-50 dark:bg-slate-900/50 px-3 py-2 rounded-lg">
+              <p class="text-sm font-mono text-gray-800 dark:text-gray-200 break-all bg-gray-50 dark:bg-gray-900/50 px-3 py-2 rounded-lg">
                 {{ c.number }}
               </p>
             </div>
@@ -214,7 +214,7 @@
           <button
             @click="closeMergeDialog"
             :disabled="merging"
-            class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 text-gray-900 dark:text-gray-100 text-sm font-semibold transition-all"
+            class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 text-sm font-semibold transition-all"
           >
             Cancel
           </button>

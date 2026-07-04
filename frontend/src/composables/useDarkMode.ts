@@ -8,6 +8,9 @@ const isDark = ref(false);
 
 function apply() {
   document.documentElement.classList.toggle('dark', isDark.value);
+  // Keep mobile browser chrome in sync with the page background (gray-50 / gray-900)
+  document.querySelector('meta[name="theme-color"]')
+    ?.setAttribute('content', isDark.value ? '#111827' : '#f9fafb');
 }
 
 /** Call once before mount to set the initial theme without a flash. */
