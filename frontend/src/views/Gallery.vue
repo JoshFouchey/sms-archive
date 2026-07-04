@@ -75,7 +75,7 @@
 
         <button
             @click.stop="requestDelete(img.id)"
-            class="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white w-8 h-8 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center shadow-lg hover:scale-110 z-10"
+            class="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white w-9 h-9 rounded-full opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-90 transition-all duration-300 flex items-center justify-center shadow-lg hover:scale-110 z-10"
             title="Delete image"
         >
           <i class="pi pi-trash text-sm"></i>

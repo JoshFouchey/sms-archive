@@ -76,7 +76,7 @@
                 </span>
                 <button
                   @click="startEdit(c)"
-                  class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 active:scale-95 transition-all"
+                  class="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100 p-2 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 active:scale-95 transition-all"
                   aria-label="Edit name"
                   title="Edit name"
                 >

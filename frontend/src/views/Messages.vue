@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-screen bg-gray-100 dark:bg-slate-950 text-gray-900 dark:text-gray-100">
+  <div class="flex h-full bg-gray-100 dark:bg-slate-950 text-gray-900 dark:text-gray-100">
     <!-- Conversations List Sidebar -->
     <aside
       :class="[
@@ -35,7 +35,8 @@
             <button
               v-if="conversationSearchQuery"
               @click="conversationSearchQuery = ''"
-              class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              aria-label="Clear search"
+              class="absolute right-1 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             >
               <i class="pi pi-times text-xs"></i>
             </button>
@@ -60,15 +61,16 @@
             v-for="conversation in filteredConversations"
             :key="conversation.id"
           :class="[
-            'group p-4 rounded-xl border transition-all duration-200 flex flex-col gap-1.5 shadow-sm hover:shadow-md relative',
+            'group p-4 rounded-xl border transition-all duration-200 flex flex-col gap-1.5 shadow-sm hover:shadow-md relative cursor-pointer',
             selectedConversation?.id === conversation.id
               ? 'bg-gradient-to-br from-blue-600 to-cyan-500 dark:from-blue-700 dark:to-cyan-600 border-blue-500 text-white scale-[1.02]'
               : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-slate-700',
             showActionsMenu === conversation.id ? 'z-50' : ''
           ]"
+          @click="selectConversation(conversation)"
         >
           <div class="flex justify-between items-start gap-2">
-            <div class="flex items-center gap-2 flex-1 min-w-0 cursor-pointer" @click="selectConversation(conversation)">
+            <div class="flex items-center gap-2 flex-1 min-w-0">
               <div :class="[
                 'w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold shrink-0',
                 selectedConversation?.id === conversation.id
@@ -97,8 +99,9 @@
             <div class="relative flex-shrink-0" :class="showActionsMenu === conversation.id ? 'z-50' : 'z-10'">
               <button
                 @click.stop="toggleActionsMenu(conversation.id)"
+                aria-label="Conversation actions"
                 :class="[
-                  'p-2 rounded-lg transition-all',
+                  'p-2.5 rounded-lg transition-all',
                   selectedConversation?.id === conversation.id
                     ? 'hover:bg-white/20 text-white'
                     : 'hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-600 dark:text-gray-400'
@@ -111,6 +114,7 @@
               <!-- Actions dropdown menu -->
               <div
                 v-if="showActionsMenu === conversation.id"
+                @click.stop
                 class="absolute right-0 top-full mt-1 bg-white dark:bg-slate-700 rounded-lg shadow-xl border border-gray-200 dark:border-slate-600 py-1 z-50 min-w-[150px]"
               >
                 <button
@@ -149,6 +153,7 @@
           <button
             v-if="selectedConversation"
             @click="clearConversation"
+            aria-label="Back to conversations"
             class="md:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm active:scale-95 transition-all"
           >
             <i class="pi pi-arrow-left text-white"></i>
@@ -194,8 +199,9 @@
             />
             <button
               @click="applySearch"
-              class="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors"
+              class="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-white/70 hover:text-white transition-colors"
               title="Search"
+              aria-label="Search messages"
             >
               <i class="pi pi-search"></i>
             </button>
@@ -212,13 +218,6 @@
             title="More filters"
           >
             <i class="pi pi-filter text-white"></i>
-          </button>
-          <button
-            @click="applySearch"
-            class="px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 transition-all"
-            title="Search"
-          >
-            <i class="pi pi-search text-white"></i>
           </button>
         </div>
 
@@ -347,26 +346,28 @@
           />
 
           <!-- Navigation Controls -->
-          <div class="sticky bottom-4 flex justify-center gap-3 mt-6">
+          <div class="sticky bottom-[max(1rem,env(safe-area-inset-bottom))] flex justify-center gap-2 sm:gap-3 mt-6">
             <button
               @click="prevMatch"
               :disabled="currentMatchIndex === 0"
-              class="flex items-center gap-2 px-6 py-3 rounded-xl bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-gray-100 font-semibold shadow-lg hover:shadow-xl transition-all"
+              aria-label="Previous match"
+              class="flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-gray-100 font-semibold shadow-lg hover:shadow-xl transition-all"
             >
               <i class="pi pi-chevron-left"></i>
-              <span>Previous Match</span>
+              <span class="hidden sm:inline">Previous Match</span>
             </button>
-            
-            <div class="flex items-center px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold shadow-lg">
-              Match {{ currentMatchIndex + 1 }} of {{ searchMatches.length }}
+
+            <div class="flex items-center px-4 sm:px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold shadow-lg whitespace-nowrap">
+              {{ currentMatchIndex + 1 }} / {{ searchMatches.length }}
             </div>
 
             <button
               @click="nextMatch"
               :disabled="currentMatchIndex === searchMatches.length - 1"
-              class="flex items-center gap-2 px-6 py-3 rounded-xl bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-gray-100 font-semibold shadow-lg hover:shadow-xl transition-all"
+              aria-label="Next match"
+              class="flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-gray-100 font-semibold shadow-lg hover:shadow-xl transition-all"
             >
-              <span>Next Match</span>
+              <span class="hidden sm:inline">Next Match</span>
               <i class="pi pi-chevron-right"></i>
             </button>
           </div>

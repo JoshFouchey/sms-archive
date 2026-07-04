@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
+  <div class="flex h-dvh bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
     <!-- Sidebar (hidden on mobile, visible md+) -->
     <div class="hidden md:flex flex-col w-16 bg-gradient-to-b from-blue-600 to-cyan-500 dark:from-blue-800 dark:to-cyan-700 shadow-xl">
       <!-- Logo/Brand -->
@@ -83,7 +83,7 @@
             :href="item.route"
             @click.prevent="navigateTo(item.route)"
             :class="[
-              'flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 rounded-xl transition-all duration-200 min-w-[3rem]',
+              'flex flex-col items-center justify-center gap-0.5 px-1 py-2 rounded-xl transition-all duration-200 flex-1 min-w-0',
               isActive
                 ? 'bg-white/30 shadow-lg'
                 : 'hover:bg-white/10'
@@ -91,12 +91,12 @@
             :aria-label="item.label"
           >
             <i :class="[item.icon, 'text-lg text-white']"></i>
-            <span class="text-[10px] leading-tight text-white/90 font-medium">{{ item.label }}</span>
+            <span class="text-[10px] leading-tight text-white/90 font-medium truncate max-w-full">{{ item.label }}</span>
           </a>
         </router-link>
         <button
           @click="toggleDarkMode"
-          class="flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 rounded-xl hover:bg-white/10 transition-all duration-200 min-w-[3rem]"
+          class="flex flex-col items-center justify-center gap-0.5 px-1 py-2 rounded-xl hover:bg-white/10 transition-all duration-200 flex-1 min-w-0"
           :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
         >
           <i :class="[isDark ? 'pi pi-sun' : 'pi pi-moon', 'text-lg text-white']"></i>
@@ -104,7 +104,7 @@
         </button>
         <button
           @click="handleLogout"
-          class="flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 rounded-xl hover:bg-white/10 transition-all duration-200 min-w-[3rem]"
+          class="flex flex-col items-center justify-center gap-0.5 px-1 py-2 rounded-xl hover:bg-white/10 transition-all duration-200 flex-1 min-w-0"
           aria-label="Logout"
         >
           <i class="pi pi-sign-out text-lg text-white"></i>
@@ -115,7 +115,7 @@
 
     <!-- Main Content Area -->
     <div :class="[
-      'flex-1 flex flex-col pb-16 md:pb-0',
+      'flex-1 flex flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0',
       isFullHeightPage ? 'overflow-hidden' : 'overflow-y-auto'
     ]">
       <!-- Toast Container -->

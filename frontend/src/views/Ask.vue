@@ -103,7 +103,7 @@
             :key="chip"
             @click="query = chip; submitQuestion()"
             :class="[
-              'px-3 py-1.5 rounded-full text-sm transition-all border',
+              'px-3 py-2.5 sm:py-1.5 rounded-full text-sm transition-all border',
               mode === 'SEARCH'
                 ? 'bg-gray-100 dark:bg-gray-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-gray-600 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 border-gray-200 dark:border-gray-600 hover:border-emerald-300'
                 : 'bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-gray-600 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-300 border-gray-200 dark:border-gray-600 hover:border-blue-300'
@@ -230,16 +230,16 @@
                     </button>
                   </div>
                 </div>
-                <div v-else class="relative">
-                  <div class="absolute top-2 right-2 flex gap-1">
-                    <button @click="startSqlEdit" class="px-2 py-1 rounded-md text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
+                <div v-else>
+                  <div class="flex justify-end gap-1 px-3 pt-2">
+                    <button @click="startSqlEdit" class="px-2.5 py-1.5 rounded-md text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
                       <i class="pi pi-pencil mr-1"></i>Edit
                     </button>
-                    <button @click="copySql" class="px-2 py-1 rounded-md text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
+                    <button @click="copySql" class="px-2.5 py-1.5 rounded-md text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
                       <i class="pi pi-copy mr-1"></i>Copy
                     </button>
                   </div>
-                  <pre class="p-4 pr-32 text-xs overflow-x-auto text-gray-700 dark:text-gray-300"><code>{{ sqlForDisplay }}</code></pre>
+                  <pre class="p-4 pt-2 text-xs overflow-x-auto text-gray-700 dark:text-gray-300"><code>{{ sqlForDisplay }}</code></pre>
                 </div>
               </div>
             </details>
@@ -292,16 +292,16 @@
                     </button>
                   </div>
                 </div>
-                <div v-else class="relative">
-                  <div class="absolute top-2 right-2 flex gap-1">
-                    <button @click="startSqlEdit" class="px-2 py-1 rounded-md text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
+                <div v-else>
+                  <div class="flex justify-end gap-1 px-3 pt-2">
+                    <button @click="startSqlEdit" class="px-2.5 py-1.5 rounded-md text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
                       <i class="pi pi-pencil mr-1"></i>Edit
                     </button>
-                    <button @click="copySql" class="px-2 py-1 rounded-md text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
+                    <button @click="copySql" class="px-2.5 py-1.5 rounded-md text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
                       <i class="pi pi-copy mr-1"></i>Copy
                     </button>
                   </div>
-                  <pre class="p-4 pr-32 text-xs overflow-x-auto text-gray-700 dark:text-gray-300"><code>{{ sqlForDisplay }}</code></pre>
+                  <pre class="p-4 pt-2 text-xs overflow-x-auto text-gray-700 dark:text-gray-300"><code>{{ sqlForDisplay }}</code></pre>
                 </div>
               </div>
             </details>
