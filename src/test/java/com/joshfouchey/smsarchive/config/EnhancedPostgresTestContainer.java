@@ -14,7 +14,9 @@ import java.time.Duration;
  * Includes Hikari tuning & startup robustness.
  */
 public abstract class EnhancedPostgresTestContainer {
-    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
+    // pgvector image (matches docker-compose) - the V9 migration needs the vector extension
+    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
+            DockerImageName.parse("pgvector/pgvector:pg15").asCompatibleSubstituteFor("postgres"))
             .withDatabaseName("sms_archive_test")
             .withUsername("postgres")
             .withPassword("postgres")

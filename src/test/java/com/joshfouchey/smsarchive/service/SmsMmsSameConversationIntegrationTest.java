@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -34,14 +33,19 @@ public class SmsMmsSameConversationIntegrationTest extends EnhancedPostgresTestC
 
     private com.joshfouchey.smsarchive.model.User testUser;
 
+    @Autowired com.joshfouchey.smsarchive.repository.EmbeddingJobRepository embeddingJobRepository;
+
     @BeforeEach
-    @Transactional
     void setup() {
         messagePartRepository.deleteAll();
         messageRepository.deleteAll();
         conversationRepository.deleteAll();
         contactRepository.deleteAll();
+        // embedding_jobs rows (created by the post-import listener) block user deletion
+        embeddingJobRepository.deleteAll();
         userRepository.deleteAll();
+        // The singleton ImportService caches Contact entities; they are stale after the wipe
+        importService.clearImportCaches();
         // Don't create user here - let TestOverridesConfig create it during import
         // to avoid duplicate key constraint violation
     }
@@ -53,8 +57,9 @@ public class SmsMmsSameConversationIntegrationTest extends EnhancedPostgresTestC
         });
     }
 
+    // NOT @Transactional: the import runs on a worker thread with its own DB session,
+    // which cannot see rows created in an uncommitted test transaction.
     @Test
-    @Transactional
     void smsAndMmsBetweenSameCounterpartyCreateOnlyOneConversation() throws Exception {
         Path xml = Path.of("src/test/resources/sms_mms_same_conversation.xml");
         UUID jobId = importService.startImportAsync(xml);

@@ -1,0 +1,17 @@
+# Test-profile overrides (loaded via @ActiveProfiles("test")).
+#
+# Disable the Spring cache layer in tests: caches like "currentUser" hold JPA entities,
+# and the shared application context outlives each test class's deleteAll() cleanup.
+# A cached User/Contact pointing at a deleted row causes TransientPropertyValueException,
+# stale lookups (404s), and empty query results in later tests.
+spring:
+  cache:
+    type: none
+
+# Don't auto-start embedding jobs after test imports: the background embedding threads
+# outlive the test that triggered them and interfere with later tests sharing the
+# reused database (FK rows on users, concurrent writes during cleanup).
+smsarchive:
+  ai:
+    embedding:
+      auto-embed: false

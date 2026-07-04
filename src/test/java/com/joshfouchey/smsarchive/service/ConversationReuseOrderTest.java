@@ -112,8 +112,8 @@ class ConversationReuseOrderTest {
             Thread.sleep(25);
         }
 
-        // Only one conversation should be created for number 15551234567
-        assertThat(oneToOneMap.keySet()).containsExactly("15551234567");
+        // Only one conversation should be created for number +15551234567 (E.164 normalized)
+        assertThat(oneToOneMap.keySet()).containsExactly("+15551234567");
         assertThat(oneToOneMap.values()).hasSize(1);
         Conversation convo = oneToOneMap.values().iterator().next();
         assertThat(convo.getParticipants()).hasSize(1);

@@ -74,6 +74,9 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
     systemProperty 'spring.profiles.active', System.getProperty('spring.profiles.active', 'test')
+    // Docker Desktop dropped engine API < 1.44; docker-java 3.4.x defaults to 1.32,
+    // so Testcontainers fails discovery (400 on /info) without this override.
+    systemProperty 'api.version', '1.44'
     jvmArgs += ['-XX:+EnableDynamicAgentLoading']
 }
 
