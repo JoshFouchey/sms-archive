@@ -14,6 +14,7 @@ import java.nio.file.attribute.FileTime;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -64,6 +65,18 @@ class ImportDirectoryWatcherTest {
         return u;
     }
 
+    /** Stub the import to finish immediately with the given outcome, invoking the disposal callback. */
+    @SuppressWarnings("unchecked")
+    private void stubImportFinishing(String username, boolean success) throws Exception {
+        when(importService.startImportAsyncForUser(any(Path.class), eq(username), any(BiConsumer.class)))
+                .thenAnswer(inv -> {
+                    UUID jobId = UUID.randomUUID();
+                    BiConsumer<UUID, Boolean> onFinished = inv.getArgument(2);
+                    onFinished.accept(jobId, success);
+                    return jobId;
+                });
+    }
+
     @Test
     @DisplayName("Processes eligible XML file and deletes it in deleteAfterImport mode")
     void processesAndDeletesFile() throws Exception {
@@ -75,7 +88,7 @@ class ImportDirectoryWatcherTest {
         Files.createDirectories(userDir);
 
         when(userRepository.findByUsername(username)).thenReturn(Optional.of(makeUser(username)));
-        when(importService.startImportAsyncForUser(any(Path.class), eq(username))).thenReturn(UUID.randomUUID());
+        stubImportFinishing(username, true);
 
         Path xml = userDir.resolve("backup.xml");
         Files.writeString(xml, "<messages></messages>");
@@ -86,7 +99,7 @@ class ImportDirectoryWatcherTest {
 
         // Verify import triggered
         ArgumentCaptor<Path> pathCaptor = ArgumentCaptor.forClass(Path.class);
-        verify(importService).startImportAsyncForUser(pathCaptor.capture(), eq(username));
+        verify(importService).startImportAsyncForUser(pathCaptor.capture(), eq(username), any());
         assertThat(pathCaptor.getValue().getFileName().toString()).isEqualTo("backup.xml");
         // File should be deleted
         assertThat(Files.exists(xml)).isFalse();
@@ -103,7 +116,7 @@ class ImportDirectoryWatcherTest {
         Files.createDirectories(userDir);
 
         when(userRepository.findByUsername(username)).thenReturn(Optional.of(makeUser(username)));
-        when(importService.startImportAsyncForUser(any(Path.class), eq(username))).thenReturn(UUID.randomUUID());
+        stubImportFinishing(username, true);
 
         Path xml = userDir.resolve("conversation.xml");
         Files.writeString(xml, "<messages></messages>");
@@ -112,7 +125,7 @@ class ImportDirectoryWatcherTest {
         watcher.scanImportDirectory();
 
         // Verify import triggered
-        verify(importService).startImportAsyncForUser(any(Path.class), eq(username));
+        verify(importService).startImportAsyncForUser(any(Path.class), eq(username), any());
 
         Path processedDir = userDir.resolve("processed");
         assertThat(Files.exists(processedDir)).isTrue();
@@ -139,7 +152,7 @@ class ImportDirectoryWatcherTest {
         // creationTime is NOW (not old enough)
         watcher.scanImportDirectory();
 
-        verify(importService, never()).startImportAsyncForUser(any(Path.class), eq(username));
+        verify(importService, never()).startImportAsyncForUser(any(Path.class), eq(username), any());
         assertThat(Files.exists(xml)).isTrue(); // still there
     }
 
@@ -159,11 +172,73 @@ class ImportDirectoryWatcherTest {
 
         watcher.pauseScanning();
         watcher.scanImportDirectory();
-        verify(importService, never()).startImportAsyncForUser(any(Path.class), eq(username));
+        verify(importService, never()).startImportAsyncForUser(any(Path.class), eq(username), any());
 
         watcher.resumeScanning();
         watcher.scanImportDirectory();
-        verify(importService, times(1)).startImportAsyncForUser(any(Path.class), eq(username));
+        verify(importService, times(1)).startImportAsyncForUser(any(Path.class), eq(username), any());
+    }
+
+    @Test
+    @DisplayName("Failed import moves file to failed directory instead of processed")
+    void failedImportMovesToFailedDirectory() throws Exception {
+        setField("deleteAfterImport", true); // even in delete mode, a failed file must be kept
+        watcher.init();
+
+        String username = "erin";
+        Path userDir = tempRoot.resolve(username);
+        Files.createDirectories(userDir);
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(makeUser(username)));
+        stubImportFinishing(username, false);
+
+        Path xml = userDir.resolve("bad-backup.xml");
+        Files.writeString(xml, "<messages></messages>");
+        Files.setAttribute(xml, "basic:creationTime", FileTime.from(Instant.now().minusSeconds(5)));
+
+        watcher.scanImportDirectory();
+
+        assertThat(Files.exists(xml)).isFalse();
+        Path failedDir = userDir.resolve("failed");
+        assertThat(Files.exists(failedDir)).isTrue();
+        assertThat(Files.list(failedDir)
+                .filter(p -> p.getFileName().toString().startsWith("bad-backup"))
+                .count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("File is not deleted or moved until the import job completes")
+    @SuppressWarnings("unchecked")
+    void fileStaysInPlaceUntilImportCompletes() throws Exception {
+        setField("deleteAfterImport", true);
+        watcher.init();
+
+        String username = "frank";
+        Path userDir = tempRoot.resolve(username);
+        Files.createDirectories(userDir);
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(makeUser(username)));
+
+        // Capture the callback without invoking it - simulates a still-running async job
+        ArgumentCaptor<BiConsumer<UUID, Boolean>> callbackCaptor = ArgumentCaptor.forClass(BiConsumer.class);
+        when(importService.startImportAsyncForUser(any(Path.class), eq(username), any(BiConsumer.class)))
+                .thenReturn(UUID.randomUUID());
+
+        Path xml = userDir.resolve("large-backup.xml");
+        Files.writeString(xml, "<messages></messages>");
+        Files.setAttribute(xml, "basic:creationTime", FileTime.from(Instant.now().minusSeconds(5)));
+
+        watcher.scanImportDirectory();
+        verify(importService).startImportAsyncForUser(any(Path.class), eq(username), callbackCaptor.capture());
+
+        // Job still running: the file must remain readable for the worker thread
+        assertThat(Files.exists(xml)).isTrue();
+
+        // A rescan must not re-process the in-flight file
+        watcher.scanImportDirectory();
+        verify(importService, times(1)).startImportAsyncForUser(any(Path.class), eq(username), any());
+
+        // Job finishes: now the file gets disposed
+        callbackCaptor.getValue().accept(UUID.randomUUID(), true);
+        assertThat(Files.exists(xml)).isFalse();
     }
 }
 

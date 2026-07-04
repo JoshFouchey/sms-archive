@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -31,23 +30,34 @@ public class GroupChatImportIntegrationTest extends EnhancedPostgresTestContaine
     @Autowired ContactRepository contactRepository;
     @Autowired ConversationRepository conversationRepository;
     @Autowired UserRepository userRepository;
+    @Autowired com.joshfouchey.smsarchive.repository.EmbeddingJobRepository embeddingJobRepository;
+    @Autowired org.springframework.cache.CacheManager cacheManager;
 
     private com.joshfouchey.smsarchive.model.User testUser;
 
     @BeforeEach
-    @Transactional
     void setup() {
         messagePartRepository.deleteAll();
         messageRepository.deleteAll();
         conversationRepository.deleteAll();
         contactRepository.deleteAll();
+        // embedding_jobs rows (created by the post-import listener) block user deletion
+        embeddingJobRepository.deleteAll();
         userRepository.deleteAll();
+        // The singleton ImportService caches Contact entities, and the "currentUser" Spring
+        // cache holds User entities - all stale after the wipe above
+        importService.clearImportCaches();
+        cacheManager.getCacheNames().forEach(name -> {
+            var cache = cacheManager.getCache(name);
+            if (cache != null) cache.clear();
+        });
         // Don't create user here - let TestOverridesConfig create it during import
         // to avoid duplicate key constraint violation
     }
 
+    // NOT @Transactional: the import runs on a worker thread with its own DB session,
+    // which cannot see rows created in an uncommitted test transaction.
     @Test
-    @Transactional
     void importsGroupChatAndCreatesConversation() throws Exception {
         Path xml = Path.of("src/test/resources/test-group-chat.xml");
         UUID jobId = importService.startImportAsync(xml);

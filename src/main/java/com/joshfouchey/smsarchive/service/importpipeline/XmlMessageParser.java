@@ -1,7 +1,6 @@
 package com.joshfouchey.smsarchive.service.importpipeline;
 
 import com.joshfouchey.smsarchive.model.*;
-import com.joshfouchey.smsarchive.service.MediaRelocationHelper;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -33,16 +32,13 @@ public class XmlMessageParser {
 
     private final ContactResolver contactResolver;
     private final MediaHandler mediaHandler;
-    private final MediaRelocationHelper mediaRelocationHelper;
     private final Supplier<User> userSupplier;
 
     public XmlMessageParser(ContactResolver contactResolver,
                             MediaHandler mediaHandler,
-                            MediaRelocationHelper mediaRelocationHelper,
                             Supplier<User> userSupplier) {
         this.contactResolver = contactResolver;
         this.mediaHandler = mediaHandler;
-        this.mediaRelocationHelper = mediaRelocationHelper;
         this.userSupplier = userSupplier;
     }
 
@@ -250,7 +246,8 @@ public class XmlMessageParser {
         } else {
             finalizeStreamingContact(cur, suggestedName);
         }
-        mediaRelocationHelper.relocate(cur);
+        // Media relocation happens in ImportService after conversation assignment;
+        // at this point the message has no conversation yet.
     }
 
     // ===== Message building =====

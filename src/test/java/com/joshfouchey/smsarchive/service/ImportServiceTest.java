@@ -231,6 +231,37 @@ class ImportServiceTest {
             assertThat(progress.getImportedMessages()).isEqualTo(5);
             assertThat(saved.get()).isEqualTo(5);
         }
+
+        @Test
+        @DisplayName("persistence failure during batch save marks the import FAILED, never COMPLETED")
+        void persistenceFailureMarksImportFailed() throws Exception {
+            // Run inline so the import executes synchronously on this thread
+            var inlineField = ImportService.class.getDeclaredField("importInline");
+            inlineField.setAccessible(true);
+            inlineField.set(service, true);
+
+            when(contactRepository.findByUserAndNormalizedNumber(any(), anyString())).thenReturn(java.util.Optional.empty());
+            when(contactRepository.save(any(Contact.class))).thenAnswer(inv -> {
+                Contact c = inv.getArgument(0);
+                if (c.getId() == null) c.setId(1L);
+                return c;
+            });
+            when(messageRepository.saveAll(anyList())).thenThrow(new RuntimeException("simulated DB outage"));
+
+            Path xml = Files.createTempFile("failing-import", ".xml");
+            Files.writeString(xml, """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <smses count="1">
+                      <sms protocol="0" address="15551234567" date="1672531200000" type="1" body="hello" contact_name="Test"/>
+                    </smses>
+                    """);
+
+            var jobId = service.startImportAsync(xml);
+            ImportService.ImportProgress progress = service.getProgress(jobId);
+            assertThat(progress).isNotNull();
+            assertThat(progress.getStatus()).isEqualTo("FAILED");
+            assertThat(progress.getError()).contains("simulated DB outage");
+        }
     }
 
     // ------------------------ INTEGRATION TESTS (Spring + DB) ------------------------
@@ -245,6 +276,8 @@ class ImportServiceTest {
         @Autowired ContactRepository contactRepository;
         @Autowired com.joshfouchey.smsarchive.repository.UserRepository userRepository;
         @Autowired com.joshfouchey.smsarchive.repository.ConversationRepository conversationRepository;
+        @Autowired com.joshfouchey.smsarchive.repository.EmbeddingJobRepository embeddingJobRepository;
+        @Autowired org.springframework.cache.CacheManager cacheManager;
 
         private com.joshfouchey.smsarchive.model.User testUser;
 
@@ -255,7 +288,17 @@ class ImportServiceTest {
             messageRepository.deleteAll();
             conversationRepository.deleteAll();
             contactRepository.deleteAll();
+            // embedding_jobs rows (created by the post-import listener) block user deletion
+            embeddingJobRepository.deleteAll();
             userRepository.deleteAll();
+
+            // The singleton ImportService caches Contact entities, and the "currentUser" Spring
+            // cache holds User entities - all stale after the wipe above
+            importService.clearImportCaches();
+            cacheManager.getCacheNames().forEach(name -> {
+                var cache = cacheManager.getCache(name);
+                if (cache != null) cache.clear();
+            });
 
             // Find or create testuser - needed because @Transactional on test methods
             // can cause timing issues where the user might still exist from a previous test
@@ -420,6 +463,41 @@ class ImportServiceTest {
         }
 
         @Test
+        @SuppressWarnings("unchecked")
+        void mmsMediaIsRelocatedToConversationDirectory() throws Exception {
+            Path xml = Path.of("src/test/resources/test-messages.xml");
+            UUID job = importService.startImportAsync(xml);
+            ImportService.ImportProgress progress = awaitCompletion(job);
+            assertThat(progress.getStatus()).isEqualTo("COMPLETED");
+
+            var imageParts = messagePartRepository.findAll().stream()
+                    .filter(p -> p.getContentType() != null && p.getContentType().startsWith("image/"))
+                    .toList();
+            assertThat(imageParts).isNotEmpty();
+            for (var part : imageParts) {
+                assertThat(part.getFilePath()).isNotNull();
+                Path mediaPath = Path.of(part.getFilePath());
+                String parentDir = mediaPath.getParent().getFileName().toString();
+                assertThat(parentDir)
+                        .as("media must be relocated into its conversation directory after import")
+                        .isNotEqualTo("_noconversation")
+                        .matches("\\d+");
+                assertThat(Files.exists(mediaPath)).isTrue();
+            }
+
+            // The message's media JSON stores paths too - it must reference the relocated files
+            var mmsMessages = messageRepository.findAll().stream()
+                    .filter(m -> m.getProtocol() == MessageProtocol.MMS)
+                    .toList();
+            assertThat(mmsMessages).hasSize(1);
+            var media = mmsMessages.get(0).getMedia();
+            assertThat(media).isNotNull();
+            var entries = (java.util.List<java.util.Map<String, Object>>) media.get("parts");
+            var jsonPaths = entries.stream().map(e -> (String) e.get("filePath")).toList();
+            assertThat(jsonPaths).contains(imageParts.get(0).getFilePath());
+        }
+
+        @Test
         void streamingImportProcessesAllMessagesAndTracksProgressRealRepos() throws Exception {
             Path xml = Path.of("src/test/resources/test-streaming-large.xml");
             assertThat(xml).exists();
@@ -431,8 +509,9 @@ class ImportServiceTest {
             assertThat(messageRepository.count() - before).isEqualTo(5);
         }
 
+        // NOT @Transactional: the import runs on a worker thread with its own DB session,
+        // which cannot see rows created in an uncommitted test transaction.
         @Test
-        @Transactional
         @DisplayName("SMS messages are assigned to conversations after contact resolution")
         void smsMessagesAreAssignedToConversations() throws Exception {
             // Create XML with SMS messages between two contacts
@@ -472,7 +551,7 @@ class ImportServiceTest {
                     "All conversations should have non-null IDs");
 
             // Verify messages are grouped correctly by contact through conversations
-            var aliceContact = contactRepository.findByUserAndNormalizedNumber(testUser, "15551234567")
+            var aliceContact = contactRepository.findByUserAndNormalizedNumber(testUser, "+15551234567")
                     .orElseThrow(() -> new AssertionError("Alice contact should exist"));
             long aliceMessageCount = allMessages.stream()
                     .filter(msg -> msg.getConversation() != null &&
@@ -481,7 +560,7 @@ class ImportServiceTest {
                     .count();
             assertThat(aliceMessageCount).isEqualTo(3);
 
-            var bobContact = contactRepository.findByUserAndNormalizedNumber(testUser, "15559876543")
+            var bobContact = contactRepository.findByUserAndNormalizedNumber(testUser, "+15559876543")
                     .orElseThrow(() -> new AssertionError("Bob contact should exist"));
             long bobMessageCount = allMessages.stream()
                     .filter(msg -> msg.getConversation() != null &&
@@ -491,8 +570,8 @@ class ImportServiceTest {
             assertThat(bobMessageCount).isEqualTo(2);
         }
 
+        // NOT @Transactional (see above)
         @Test
-        @Transactional
         @DisplayName("SMS and MMS messages from same contact should be in the same conversation")
         void smsAndMmsFromSameContactShouldShareConversation() throws Exception {
             // This test demonstrates the bug where an SMS message and MMS messages from the same
@@ -552,7 +631,7 @@ class ImportServiceTest {
 
             // Verify there's only ONE contact created for Alice
             var aliceContacts = contactRepository.findAll().stream()
-                    .filter(c -> c.getNormalizedNumber().equals("15551234567"))
+                    .filter(c -> c.getNormalizedNumber().equals("+15551234567"))
                     .toList();
             assertThat(aliceContacts).hasSize(1)
                     .describedAs("Should have exactly one contact for Alice's number");

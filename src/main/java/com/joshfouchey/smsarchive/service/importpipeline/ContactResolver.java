@@ -34,14 +34,22 @@ public class ContactResolver {
         String cacheKey = user.getId() + "|" + normalized;
         Contact cached = contactCache.getIfPresent(cacheKey);
         if (cached != null) {
-            if (shouldUpdateContactName(cached, suggestedName)) {
-                String sanitized = sanitizeContactName(suggestedName);
-                cached.setName(sanitized);
-                cached = contactRepo.save(cached);
-                contactCache.put(cacheKey, cached);
-                log.debug("Updated contact {} name", cached.getId());
+            try {
+                if (shouldUpdateContactName(cached, suggestedName)) {
+                    String sanitized = sanitizeContactName(suggestedName);
+                    cached.setName(sanitized);
+                    cached = contactRepo.save(cached);
+                    contactCache.put(cacheKey, cached);
+                    log.debug("Updated contact {} name", cached.getId());
+                }
+                return cached;
+            } catch (org.springframework.dao.DataAccessException e) {
+                // The cached entity no longer matches the DB (e.g. the contact was deleted
+                // by a merge since it was cached). Drop it and re-resolve from the DB.
+                log.warn("Cached contact for {} is stale ({}); re-resolving from database",
+                        normalized, e.getClass().getSimpleName());
+                contactCache.invalidate(cacheKey);
             }
-            return cached;
         }
         Contact contact = contactRepo.findByUserAndNormalizedNumber(user, normalized).orElseGet(() -> {
             try {
@@ -64,6 +72,11 @@ public class ContactResolver {
         }
         contactCache.put(cacheKey, contact);
         return contact;
+    }
+
+    /** Drop all cached contacts (used after bulk deletes, e.g. test cleanup). */
+    public void clearCache() {
+        contactCache.invalidateAll();
     }
 
     public String normalizeNumber(String number) {

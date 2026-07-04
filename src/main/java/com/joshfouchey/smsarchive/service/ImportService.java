@@ -53,9 +53,11 @@ public class ImportService {
     private XmlMessageParser xmlParser;
     private final ThreadLocal<User> threadLocalImportUser = new ThreadLocal<>();
 
+    // expireAfterAccess (not Write): the entry is only written once at job start, but is
+    // read continuously while running - a >1h import must not lose its progress mid-run.
     private final Cache<UUID, ImportProgress> progressMap = Caffeine.newBuilder()
             .maximumSize(50)
-            .expireAfterWrite(java.time.Duration.ofHours(1))
+            .expireAfterAccess(java.time.Duration.ofHours(1))
             .build();
 
     @Value("${smsarchive.import.inline:false}")
@@ -76,7 +78,7 @@ public class ImportService {
         log.info("Resolved media root: {}", Paths.get(mediaRoot).toAbsolutePath());
         mediaRelocationHelper = new MediaRelocationHelper(thumbnailService, getMediaRoot());
         mediaHandler = new MediaHandler(thumbnailService, getMediaRoot());
-        xmlParser = new XmlMessageParser(contactResolver, mediaHandler, mediaRelocationHelper, this::resolveImportUser);
+        xmlParser = new XmlMessageParser(contactResolver, mediaHandler, this::resolveImportUser);
     }
 
     public ImportService(MessageRepository messageRepo, ContactRepository contactRepo,
@@ -109,25 +111,64 @@ public class ImportService {
     private void ensureXmlParser() {
         if (xmlParser == null) {
             ensureMediaHelper();
-            xmlParser = new XmlMessageParser(contactResolver, mediaHandler, mediaRelocationHelper, this::resolveImportUser);
+            xmlParser = new XmlMessageParser(contactResolver, mediaHandler, this::resolveImportUser);
         }
     }
 
     // ===== Streaming Import (Large XML) =====
     @CacheEvict(value = {"analyticsDashboard", "contactSummaries", "conversationList", "distinctContacts", "conversationTimeline"}, allEntries = true)
     public UUID startImportAsync(Path xmlPath) throws Exception {
+        // Capture authenticated user now
+        return startImportInternal(xmlPath, currentUserProvider.getCurrentUser(), null);
+    }
+
+    /**
+     * Start import for a specific user by username (used by ImportDirectoryWatcher).
+     * This method does not require an authenticated security context.
+     */
+    @CacheEvict(value = {"analyticsDashboard", "contactSummaries", "conversationList", "distinctContacts", "conversationTimeline"}, allEntries = true)
+    public UUID startImportAsyncForUser(Path xmlPath, String username) throws Exception {
+        return startImportAsyncForUser(xmlPath, username, null);
+    }
+
+    /**
+     * Variant with a completion callback, invoked on the import worker thread after the job
+     * reaches a terminal state. The boolean is true only when the import COMPLETED - callers
+     * (e.g. the directory watcher) must not dispose of the source file before this fires.
+     */
+    @CacheEvict(value = {"analyticsDashboard", "contactSummaries", "conversationList", "distinctContacts", "conversationTimeline"}, allEntries = true)
+    public UUID startImportAsyncForUser(Path xmlPath, String username,
+                                        java.util.function.BiConsumer<UUID, Boolean> onFinished) throws Exception {
+        User importUser = userRepository.findByUsername(username)
+            .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+        return startImportInternal(xmlPath, importUser, onFinished);
+    }
+
+    private UUID startImportInternal(Path xmlPath, User importUser,
+                                     java.util.function.BiConsumer<UUID, Boolean> onFinished) throws Exception {
         ensureMediaHelper();
         UUID jobId = UUID.randomUUID();
         long size = Files.size(xmlPath);
         ImportProgress progress = new ImportProgress(jobId, size);
         progressMap.put(jobId, progress);
-        // Capture authenticated user now
-        User importUser = currentUserProvider.getCurrentUser();
+
         Runnable task = () -> {
             threadLocalImportUser.set(importUser);
-            try { runStreamingImportAsync(jobId, xmlPath); }
-            finally { threadLocalImportUser.remove(); }
+            try {
+                runStreamingImportAsync(jobId, xmlPath);
+            } finally {
+                threadLocalImportUser.remove();
+                if (onFinished != null) {
+                    boolean success = "COMPLETED".equals(progress.getStatus());
+                    try {
+                        onFinished.accept(jobId, success);
+                    } catch (Exception e) {
+                        log.error("Import completion callback failed for job {}", jobId, e);
+                    }
+                }
+            }
         };
+
         if (importInline) {
             task.run();
             return jobId;
@@ -143,50 +184,12 @@ public class ImportService {
         return jobId;
     }
 
-    /**
-     * Start import for a specific user by username (used by ImportDirectoryWatcher).
-     * This method does not require an authenticated security context.
-     */
-    @CacheEvict(value = {"analyticsDashboard", "contactSummaries", "conversationList", "distinctContacts", "conversationTimeline"}, allEntries = true)
-    public UUID startImportAsyncForUser(Path xmlPath, String username) throws Exception {
-        ensureMediaHelper();
-
-        // Look up user by username
-        User importUser = userRepository.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
-
-        UUID jobId = UUID.randomUUID();
-        long size = Files.size(xmlPath);
-        ImportProgress progress = new ImportProgress(jobId, size);
-        progressMap.put(jobId, progress);
-
-        Runnable task = () -> {
-            threadLocalImportUser.set(importUser);
-            try {
-                runStreamingImportAsync(jobId, xmlPath);
-            } finally {
-                threadLocalImportUser.remove();
-            }
-        };
-
-        if (importInline) {
-            task.run();
-            return jobId;
-        }
-
-        if (importTaskExecutor != null) {
-            importTaskExecutor.execute(task);
-        } else {
-            // Fallback: create a dedicated thread
-            Thread t = new Thread(task, "import-worker-" + username + "-" + jobId);
-            t.setDaemon(true);
-            t.start();
-        }
-
-        return jobId;
-    }
-
     public ImportProgress getProgress(UUID id) { return progressMap.getIfPresent(id); }
+
+    /** Clear import-scoped entity caches. Call after bulk-deleting contacts outside the import path. */
+    public void clearImportCaches() {
+        contactResolver.clearCache();
+    }
 
     private XMLStreamReader createSecureXmlStreamReader(CountingInputStream cis) throws Exception {
         XMLInputFactory factory = XMLInputFactory.newFactory();
@@ -223,7 +226,13 @@ public class ImportService {
         conversationAssigner.assignConversationForMultipart(msg, threadKey, participantNumbers, suggestedName, resolveImportUser());
         boolean dup = duplicateDetector.isDuplicateInRunOrDb(msg, seenKeys, batch);
         if (dup) { progress.incDuplicateMessages(); }
-        else { batch.add(msg); progress.incImportedMessages(); }
+        else {
+            // Now that the conversation is assigned, move media out of _noconversation.
+            // Duplicates are skipped: their files are discarded copies, not the canonical media.
+            mediaRelocationHelper.relocate(msg);
+            batch.add(msg);
+            progress.incImportedMessages();
+        }
         progress.incProcessedMessages();
         flushStreamingIfNeeded(batch, progress);
     }
@@ -352,6 +361,7 @@ public class ImportService {
         void setBytesRead(long v){bytesRead.set(v);}
         void incProcessedMessages(){processedMessages.incrementAndGet();}
         void incImportedMessages(){importedMessages.incrementAndGet();}
+        void decImportedMessages(){importedMessages.decrementAndGet();}
         void incDuplicateMessages(){duplicateMessagesAtomic.incrementAndGet();}
         void setDuplicateMessages(int v){duplicateMessages=v;}
     }
@@ -362,56 +372,39 @@ public class ImportService {
     }
     private void flushStreamingBatch(List<Message> batch, ImportProgress progress) {
         if (batch.isEmpty()) return;
-        try { 
-            messageRepo.saveAll(batch); 
-            batch.clear(); 
-        }
-        catch (org.springframework.dao.DataIntegrityViolationException dive) {
-            // Duplicate key constraint violation - retry individually
-            log.warn("Constraint violation during batch save (likely duplicates), retrying individually");
-            int saved = 0;
-            int skipped = 0;
-            for (Message msg : batch) {
-                try {
-                    messageRepo.save(msg);
-                    saved++;
-                } catch (org.springframework.dao.DataIntegrityViolationException ex) {
-                    // Skip this duplicate message
-                    log.debug("Skipped duplicate message: conversation={}, timestamp={}, direction={}", 
-                        msg.getConversation().getId(), msg.getTimestamp(), msg.getDirection());
-                    skipped++;
-                    progress.incDuplicateMessages();
-                } catch (Exception ex) {
-                    log.error("Failed to save message", ex);
-                    skipped++;
-                }
-            }
-            log.info("Individual save complete: {} saved, {} skipped as duplicates", saved, skipped);
+        try {
+            messageRepo.saveAll(batch);
             batch.clear();
+            return;
         }
-        catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
-            // A duplicate message was found during the batch save
-            // Try to save messages individually, skipping duplicates
-            log.warn("Optimistic locking failure during batch save, retrying individually");
-            int saved = 0;
-            int skipped = 0;
-            for (Message msg : batch) {
-                try {
-                    messageRepo.save(msg);
-                    saved++;
-                } catch (Exception ex) {
-                    // Skip this message, it's likely a duplicate
-                    log.debug("Skipped message during individual save: {}", ex.getMessage());
-                    skipped++;
-                }
+        catch (org.springframework.dao.DataIntegrityViolationException
+               | org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+            // Likely duplicate-key collisions inside the batch - retry each message individually.
+            // Any other exception propagates and fails the import; swallowing it here would
+            // report COMPLETED with silently missing messages.
+            log.warn("Batch save hit constraint/lock conflict (likely duplicates), retrying individually");
+        }
+        int saved = 0;
+        int skippedDuplicates = 0;
+        int failed = 0;
+        for (Message msg : batch) {
+            try {
+                messageRepo.save(msg);
+                saved++;
+            } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+                log.debug("Skipped duplicate message: conversation={}, timestamp={}, direction={}",
+                    msg.getConversation() != null ? msg.getConversation().getId() : null,
+                    msg.getTimestamp(), msg.getDirection());
+                skippedDuplicates++;
+                progress.incDuplicateMessages();
+                progress.decImportedMessages(); // was counted as imported when added to the batch
+            } catch (Exception ex) {
+                log.error("Failed to save message", ex);
+                failed++;
+                progress.decImportedMessages();
             }
-            log.info("Individual save complete: {} saved, {} skipped", saved, skipped);
-            batch.clear();
         }
-        catch (Exception e) { 
-            log.error("Batch persist failed size={}", batch.size(), e); 
-            progress.setStatus("FAILED"); 
-            progress.setError("Persistence error: " + e.getMessage()); 
-        }
+        log.info("Individual save complete: {} saved, {} skipped as duplicates, {} failed", saved, skippedDuplicates, failed);
+        batch.clear();
     }
 }

@@ -255,36 +255,63 @@ public class ImportDirectoryWatcher {
                     username,
                     Files.size(xmlFile) / 1024 / 1024);
 
-            // Start async import with username
-            var jobId = importService.startImportAsyncForUser(xmlFile, username);
+            // The file must stay in place until the async job has finished reading it.
+            // Disposal (delete / move to processed or failed) happens in the completion
+            // callback; the processingFiles entry guards against rescans until then.
+            var jobId = importService.startImportAsyncForUser(xmlFile, username,
+                    (id, success) -> disposeImportedFile(xmlFile, username, fileKey, id, success));
 
             log.info("Import job {} started for user: {}, file: {}", jobId, username, fileName);
-
-            if (deleteAfterImport) {
-                // Delete the file after import starts
-                Files.delete(xmlFile);
-                log.info("Deleted {} after starting import for user: {}", fileName, username);
-            } else {
-                // Move to user's processed subdirectory
-                Path processedDir = xmlFile.getParent().resolve("processed");
-                Files.createDirectories(processedDir);
-                Path targetPath = processedDir.resolve(fileName);
-
-                // If file already exists in processed, add timestamp
-                if (Files.exists(targetPath)) {
-                    String nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
-                    String ext = fileName.substring(fileName.lastIndexOf('.'));
-                    targetPath = processedDir.resolve(nameWithoutExt + "_" + System.currentTimeMillis() + ext);
-                }
-
-                Files.move(xmlFile, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                log.info("Moved {} to processed directory for user: {}", fileName, username);
-            }
-
         } catch (Exception e) {
-            log.error("Failed to process import file: {} for user: {}", fileName, username, e);
+            log.error("Failed to start import for file: {} user: {}", fileName, username, e);
+            // Park the file in failed/ so the next scan doesn't retry it in a loop
+            moveToSubdirectory(xmlFile, "failed");
+            processingFiles.remove(fileKey);
+        }
+    }
+
+    /** Invoked on the import worker thread once the job reaches a terminal state. */
+    private void disposeImportedFile(Path xmlFile, String username, String fileKey, java.util.UUID jobId, boolean success) {
+        try {
+            if (!success) {
+                log.warn("Import job {} FAILED for user: {}; moving {} to failed directory",
+                        jobId, username, xmlFile.getFileName());
+                moveToSubdirectory(xmlFile, "failed");
+                return;
+            }
+            if (deleteAfterImport) {
+                Files.deleteIfExists(xmlFile);
+                log.info("Deleted {} after successful import for user: {}", xmlFile.getFileName(), username);
+            } else {
+                moveToSubdirectory(xmlFile, "processed");
+                log.info("Moved {} to processed directory for user: {}", xmlFile.getFileName(), username);
+            }
+        } catch (Exception e) {
+            log.error("Failed to dispose of import file: {} for user: {}", xmlFile.getFileName(), username, e);
         } finally {
             processingFiles.remove(fileKey);
+        }
+    }
+
+    private void moveToSubdirectory(Path xmlFile, String subdirectory) {
+        try {
+            if (!Files.exists(xmlFile)) return;
+            Path dir = xmlFile.getParent().resolve(subdirectory);
+            Files.createDirectories(dir);
+            String fileName = xmlFile.getFileName().toString();
+            Path targetPath = dir.resolve(fileName);
+
+            // If file already exists there, add timestamp
+            if (Files.exists(targetPath)) {
+                int dotIdx = fileName.lastIndexOf('.');
+                String stem = dotIdx > 0 ? fileName.substring(0, dotIdx) : fileName;
+                String ext = dotIdx > 0 ? fileName.substring(dotIdx) : "";
+                targetPath = dir.resolve(stem + "_" + System.currentTimeMillis() + ext);
+            }
+
+            Files.move(xmlFile, targetPath, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            log.error("Failed to move {} to {}/", xmlFile, subdirectory, e);
         }
     }
 

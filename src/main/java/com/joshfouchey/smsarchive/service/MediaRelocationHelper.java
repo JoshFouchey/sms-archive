@@ -5,6 +5,9 @@ import com.joshfouchey.smsarchive.model.MessagePart;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -25,12 +28,16 @@ public class MediaRelocationHelper {
         if (msg == null || msg.getConversation() == null || msg.getConversation().getId() == null || msg.getParts() == null) return;
         Path targetDir = mediaRoot.resolve(msg.getConversation().getId().toString());
         try { Files.createDirectories(targetDir); } catch (Exception e) { log.error("Failed creating target media dir {}", targetDir, e); return; }
+        Map<String, String> movedPaths = new HashMap<>();
         for (MessagePart part : msg.getParts()) {
-            relocatePart(part, targetDir);
+            relocatePart(part, targetDir, movedPaths);
+        }
+        if (!movedPaths.isEmpty()) {
+            updateMediaJson(msg, movedPaths);
         }
     }
 
-    private void relocatePart(MessagePart part, Path targetDir) {
+    private void relocatePart(MessagePart part, Path targetDir, Map<String, String> movedPaths) {
         String fp = part.getFilePath();
         if (fp == null) return;
         Path current = Paths.get(fp).normalize();
@@ -41,9 +48,28 @@ public class MediaRelocationHelper {
             Path newPath = uniqueTargetPath(current, targetDir);
             Files.move(current, newPath, StandardCopyOption.REPLACE_EXISTING);
             part.setFilePath(newPath.toString());
+            movedPaths.put(fp, newPath.toString());
+            movedPaths.put(current.toString(), newPath.toString());
             relocateThumbnail(current, targetDir);
         } catch (Exception ex) {
             log.warn("Failed to relocate media part {}", current, ex);
+        }
+    }
+
+    /** The message's media JSON stores the same file paths as its parts; keep them in sync. */
+    @SuppressWarnings("unchecked")
+    private void updateMediaJson(Message msg, Map<String, String> movedPaths) {
+        Map<String, Object> media = msg.getMedia();
+        if (media == null) return;
+        Object partsObj = media.get("parts");
+        if (!(partsObj instanceof List<?> entries)) return;
+        for (Object entry : entries) {
+            if (entry instanceof Map<?, ?> m && m.get("filePath") instanceof String oldPath) {
+                String newPath = movedPaths.get(oldPath);
+                if (newPath != null) {
+                    ((Map<String, Object>) m).put("filePath", newPath);
+                }
+            }
         }
     }
 
