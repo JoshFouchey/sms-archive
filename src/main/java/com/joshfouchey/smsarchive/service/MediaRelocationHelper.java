@@ -37,13 +37,39 @@ public class MediaRelocationHelper {
         }
     }
 
-    private void relocatePart(MessagePart part, Path targetDir, Map<String, String> movedPaths) {
+    /**
+     * Deletes the temp media (and thumbnails) written while parsing a message that turned out
+     * to be a duplicate. Only files inside "_noconversation" are touched; the canonical copies
+     * belong to the already-imported message and live in its conversation directory.
+     */
+    public void discard(Message msg) {
+        if (msg == null || msg.getParts() == null) return;
+        for (MessagePart part : msg.getParts()) {
+            Path current = tempPath(part);
+            if (current == null) continue;
+            try {
+                Files.deleteIfExists(current);
+                Files.deleteIfExists(thumbnailService.deriveStemThumbnail(current));
+                part.setFilePath(null);
+            } catch (Exception ex) {
+                log.warn("Failed to discard duplicate media {}", current, ex);
+            }
+        }
+    }
+
+    private static Path tempPath(MessagePart part) {
         String fp = part.getFilePath();
-        if (fp == null) return;
+        if (fp == null) return null;
         Path current = Paths.get(fp).normalize();
         Path parent = current.getParent();
-        if (parent == null) return;
-        if (!"_noconversation".equals(parent.getFileName().toString())) return; // only relocate temp media
+        if (parent == null || parent.getFileName() == null) return null;
+        return "_noconversation".equals(parent.getFileName().toString()) ? current : null;
+    }
+
+    private void relocatePart(MessagePart part, Path targetDir, Map<String, String> movedPaths) {
+        String fp = part.getFilePath();
+        Path current = tempPath(part); // only relocate temp media
+        if (current == null) return;
         try {
             Path newPath = uniqueTargetPath(current, targetDir);
             Files.move(current, newPath, StandardCopyOption.REPLACE_EXISTING);

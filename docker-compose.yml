@@ -19,6 +19,13 @@
 # Then ensure it's created (idempotent):
 #   docker network create proxy || true
 # -----------------------------------------------------------------------------
+# Cap container logs (Docker's json-file driver is unbounded by default).
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 networks:
   proxy:
     external: true
@@ -30,6 +37,7 @@ services:
     image: pgvector/pgvector:${DB_VERSION}
     hostname: sms-archive-db
     restart: unless-stopped
+    logging: *default-logging
     env_file:
       - .env
     environment:
@@ -40,7 +48,9 @@ services:
     ports:
       - "${DB_PORT}:5432"
     volumes:
-      - ${DB_DATA_HOST_PATH}:/var/lib/postgresql/data
+      # pg18+ images keep data in /var/lib/postgresql/<major>/docker, so mount the parent dir.
+      # A pg15-era data dir needs DB_DATA_CONTAINER_PATH=/var/lib/postgresql/data (see MIGRATION-PG18.md).
+      - ${DB_DATA_HOST_PATH}:${DB_DATA_CONTAINER_PATH:-/var/lib/postgresql}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
@@ -55,6 +65,7 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     env_file:
       - .env
     environment:
@@ -110,6 +121,7 @@ services:
       args:
         VITE_API_BASE: ${VITE_API_BASE}
     restart: unless-stopped
+    logging: *default-logging
     env_file:
       - .env
     environment:

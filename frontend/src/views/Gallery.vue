@@ -84,7 +84,7 @@
       <!-- Inline spinner when loading more pages -->
       <div v-if="loading" class="col-span-full flex justify-center my-8">
         <div class="text-center">
-          <ProgressSpinner style="width:48px; height:48px" strokeWidth="4" class="text-blue-600" />
+          <ProgressSpinner style="width:48px; height:48px" :strokeWidth="4" class="text-blue-600" />
           <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">Loading more images...</p>
         </div>
       </div>
@@ -299,8 +299,11 @@ function getFullImageUrl(img: GalleryImage) {
 }
 function onThumbError(ev: Event, img: GalleryImage) {
   const target = ev.target as HTMLImageElement;
+  // Fall back to the full image once; if that fails too, stop (re-setting src re-requests it forever).
+  if (target.dataset.fallbackTried) return;
   const rel = extractRelativeMediaPath(img.filePath);
   if (!rel) return;
+  target.dataset.fallbackTried = 'true';
   target.src = buildBackendMediaUrl(rel, false);
 }
 

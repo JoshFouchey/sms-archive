@@ -8,12 +8,16 @@ import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
 import com.joshfouchey.smsarchive.repository.MessagePartRepository;
 import com.joshfouchey.smsarchive.repository.UserRepository;
+import com.joshfouchey.smsarchive.service.TokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -39,6 +43,8 @@ class DistinctContactsControllerTest extends EnhancedPostgresTestContainer {
     @Autowired
     private UserRepository userRepository;
     @Autowired
+    private TokenService tokenService;
+    @Autowired
     private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     private User testUser;
@@ -51,8 +57,6 @@ class DistinctContactsControllerTest extends EnhancedPostgresTestContainer {
         contactRepository.deleteAll();
         userRepository.deleteAll();
 
-        // Use "test_fallback" as the username since TestOverridesConfig's CurrentUserProvider
-        // falls back to this user when there's no authentication (which is the case with TestRestTemplate)
         testUser = new User();
         testUser.setUsername("test_fallback");
         testUser.setPasswordHash(passwordEncoder.encode("password"));
@@ -67,8 +71,11 @@ class DistinctContactsControllerTest extends EnhancedPostgresTestContainer {
 
     @Test
     void getAllContacts_returnsSortedDistinctContacts() {
+        // Real HTTP through the security filter chain, so the request needs a valid JWT
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(tokenService.generateTokens(testUser).get("accessToken"));
         ResponseEntity<ContactDto[]> resp = restTemplate
-                .getForEntity("/api/contacts", ContactDto[].class);
+                .exchange("/api/contacts", HttpMethod.GET, new HttpEntity<>(headers), ContactDto[].class);
         assertThat(resp.getStatusCode().is2xxSuccessful()).isTrue();
         ContactDto[] body = resp.getBody();
         assertThat(body).isNotNull();

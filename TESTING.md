@@ -9,7 +9,7 @@ State of the backend test suite, what was repaired in July 2026, and what's stil
 ./gradlew test --tests "*Import*"   # filtered
 ```
 
-Integration tests use a **reused** PostgreSQL Testcontainer (`pgvector/pgvector:pg15`).
+Integration tests use a **reused** PostgreSQL Testcontainer (`pgvector/pgvector:pg18`).
 For faster runs, add to `~/.testcontainers.properties`:
 
 ```
@@ -82,10 +82,12 @@ rerun), so these are inherited test-suite rot, not regressions:
   `SmsMmsSameConversationIntegrationTest` pass in isolation but can fail depending on which
   other classes run in the same JVM. Cross-class contamination through the shared reused
   container + multiple cached Spring contexts.
-- **Remaining baseline failures (as of 2026-11-19, 5 of 134)**: `ConversationServiceTest`
-  (`createsConversationWhenAbsent`, `emptyDisplayNameSetsNullNameForContact`),
-  `DistinctContactsControllerTest.getAllContacts_returnsSortedDistinctContacts`, and the two
-  `ImportServiceTest$IntegrationTests` above. Not yet diagnosed; needs a dedicated cleanup pass.
+- **Fixed 2026-11-19 (last 5 baseline failures, all stale tests)**: `ConversationServiceTest`
+  expected un-prefixed numbers but contacts are normalized to E.164 (`+1...`);
+  `DistinctContactsControllerTest` made an unauthenticated real HTTP call (401) and now sends a
+  JWT from `TokenService`; the two `ImportServiceTest$IntegrationTests` read lazy
+  `participants` outside a session and now assert inside a `TransactionTemplate`.
+  Suite is green (147/147).
 - **Fixed 2026-11-19**: `spring.cache.type: none` (fix #4 above) never actually took effect —
   `CacheConfig` declared an unconditional `CacheManager` bean, which overrides that property.
   The bean is now `@ConditionalOnProperty(spring.cache.type=caffeine, matchIfMissing=true)`
@@ -98,3 +100,7 @@ The import runs on a worker thread with its own DB session, which cannot see row
 in the test's uncommitted transaction — the import fails with "transient User" errors that
 only reproduce in some run orders. Use committed setup data (the `cleanDb()` pattern)
 instead.
+
+Because those tests aren't transactional, entities loaded afterwards are detached: touching a
+lazy association (e.g. `conversation.getParticipants()`) throws `LazyInitializationException`.
+Run such assertions inside `transactionTemplate.executeWithoutResult(tx -> { ... })`.

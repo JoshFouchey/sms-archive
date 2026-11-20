@@ -66,8 +66,8 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("error","Missing refresh token"));
         }
         return tokenService.parse(req.refreshToken())
-                .filter(j -> "refresh".equals(j.getBody().get("type", String.class)))
-                .flatMap(j -> userRepository.findByUsername(j.getBody().getSubject()))
+                .filter(j -> "refresh".equals(j.getPayload().get("type", String.class)))
+                .flatMap(j -> userRepository.findByUsername(j.getPayload().getSubject()))
                 .<ResponseEntity<?>>map(user -> ResponseEntity.ok(tokenService.generateTokens(user)))
                 .orElseGet(() -> ResponseEntity.status(400).body(Map.of("error","Invalid refresh token")));
     }

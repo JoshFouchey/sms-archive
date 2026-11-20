@@ -26,7 +26,6 @@ import org.springframework.test.context.ActiveProfiles;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
 
@@ -94,9 +93,8 @@ class NativeQueryTemporalTypesTest extends EnhancedPostgresTestContainer {
         List<ContactSummaryDto> summaries = messageService.getAllContactSummaries();
 
         assertThat(summaries).hasSize(1);
-        // Read back in the JVM zone (pre-existing behaviour; exact round trip only when TZ=UTC, as deployed).
-        assertThat(summaries.get(0).getLastMessageTimestamp())
-                .isEqualTo(STORED_WALL_CLOCK.atZone(ZoneId.systemDefault()).toInstant());
+        // Exact round trip regardless of the JVM zone (stored value is UTC wall-clock)
+        assertThat(summaries.get(0).getLastMessageTimestamp()).isEqualTo(SENT_AT);
     }
 
     @Test

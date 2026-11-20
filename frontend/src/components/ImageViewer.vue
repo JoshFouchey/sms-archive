@@ -30,7 +30,7 @@
       <i class="pi pi-chevron-right text-lg"></i>
     </button>
 
-    <div class="relative max-h-full max-w-full flex flex-col items-center select-none" ref="content">
+    <div class="relative max-h-full max-w-full flex flex-col items-center select-none">
       <img
         v-if="current"
         :src="current.fullUrl"
@@ -44,7 +44,7 @@
         <span class="text-sm">Loading...</span>
       </div>
 
-      <div class="flex flex-wrap items-center gap-2 justify-center" ref="controls">
+      <div class="flex flex-wrap items-center gap-2 justify-center">
         <!-- Position counter -->
         <div
           v-if="images.length > 1"
@@ -103,8 +103,6 @@ const index = ref(props.initialIndex ?? 0);
 const imageLoaded = ref(false);
 const closeBtn = ref<HTMLButtonElement|null>(null);
 const overlay = ref<HTMLElement|null>(null);
-const content = ref<HTMLElement|null>(null);
-const controls = ref<HTMLElement|null>(null);
 
 const current = computed(() => props.images[index.value]);
 const currentAlt = computed(() => current.value?.contentType?.replace(/^image\//,'') || 'image');

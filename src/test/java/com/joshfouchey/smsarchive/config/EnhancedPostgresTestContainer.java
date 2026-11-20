@@ -16,7 +16,7 @@ import java.time.Duration;
 public abstract class EnhancedPostgresTestContainer {
     // pgvector image (matches docker-compose) - the V9 migration needs the vector extension
     private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
-            DockerImageName.parse("pgvector/pgvector:pg15").asCompatibleSubstituteFor("postgres"))
+            DockerImageName.parse("pgvector/pgvector:pg18").asCompatibleSubstituteFor("postgres"))
             .withDatabaseName("sms_archive_test")
             .withUsername("postgres")
             .withPassword("postgres")

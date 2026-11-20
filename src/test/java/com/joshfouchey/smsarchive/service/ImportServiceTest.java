@@ -278,6 +278,7 @@ class ImportServiceTest {
         @Autowired com.joshfouchey.smsarchive.repository.ConversationRepository conversationRepository;
         @Autowired com.joshfouchey.smsarchive.repository.EmbeddingJobRepository embeddingJobRepository;
         @Autowired org.springframework.cache.CacheManager cacheManager;
+        @Autowired org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
         private com.joshfouchey.smsarchive.model.User testUser;
 
@@ -498,6 +499,33 @@ class ImportServiceTest {
         }
 
         @Test
+        void reimportingMmsDoesNotLeaveDuplicateMediaInNoConversation() throws Exception {
+            Path xml = Path.of("src/test/resources/test-messages.xml");
+            assertThat(awaitCompletion(importService.startImportAsync(xml)).getStatus()).isEqualTo("COMPLETED");
+            Path tempDir = importService.getMediaRoot().resolve("_noconversation");
+            long tempFilesBefore = countFiles(tempDir);
+
+            ImportService.ImportProgress second = awaitCompletion(importService.startImportAsync(xml));
+            assertThat(second.getStatus()).isEqualTo("COMPLETED");
+            assertThat(second.getImportedMessages()).isZero();
+
+            assertThat(countFiles(tempDir))
+                    .as("duplicate MMS media (and thumbnails) must be deleted, not left in _noconversation")
+                    .isEqualTo(tempFilesBefore);
+            // The original message's relocated media is untouched
+            var imageParts = messagePartRepository.findAll().stream()
+                    .filter(p -> p.getContentType() != null && p.getContentType().startsWith("image/"))
+                    .toList();
+            assertThat(imageParts).isNotEmpty();
+            imageParts.forEach(p -> assertThat(Path.of(p.getFilePath())).exists());
+        }
+
+        private long countFiles(Path dir) throws java.io.IOException {
+            if (!Files.isDirectory(dir)) return 0;
+            try (var s = Files.list(dir)) { return s.count(); }
+        }
+
+        @Test
         void streamingImportProcessesAllMessagesAndTracksProgressRealRepos() throws Exception {
             Path xml = Path.of("src/test/resources/test-streaming-large.xml");
             assertThat(xml).exists();
@@ -506,6 +534,9 @@ class ImportServiceTest {
             ImportService.ImportProgress progress = awaitCompletion(jobId);
             assertThat(progress.getStatus()).isEqualTo("COMPLETED");
             assertThat(progress.getImportedMessages()).isEqualTo(5);
+            assertThat(progress.getBytesRead())
+                    .as("import page shows bytes read; at completion the whole file has been read")
+                    .isEqualTo(Files.size(xml));
             assertThat(messageRepository.count() - before).isEqualTo(5);
         }
 
@@ -543,31 +574,34 @@ class ImportServiceTest {
             assertThat(progress.getImportedMessages()).isEqualTo(5);
 
             // Verify all messages have non-null conversation IDs
-            var allMessages = messageRepository.findAll();
-            assertThat(allMessages).hasSize(5);
-            assertThat(allMessages).allMatch(msg -> msg.getConversation() != null,
-                    "All SMS messages should have a conversation assigned");
-            assertThat(allMessages).allMatch(msg -> msg.getConversation().getId() != null,
-                    "All conversations should have non-null IDs");
+            // Lazy associations (participants) are read after the async import, so assert inside a session
+            transactionTemplate.executeWithoutResult(tx -> {
+                var allMessages = messageRepository.findAll();
+                assertThat(allMessages).hasSize(5);
+                assertThat(allMessages).allMatch(msg -> msg.getConversation() != null,
+                        "All SMS messages should have a conversation assigned");
+                assertThat(allMessages).allMatch(msg -> msg.getConversation().getId() != null,
+                        "All conversations should have non-null IDs");
 
-            // Verify messages are grouped correctly by contact through conversations
-            var aliceContact = contactRepository.findByUserAndNormalizedNumber(testUser, "+15551234567")
-                    .orElseThrow(() -> new AssertionError("Alice contact should exist"));
-            long aliceMessageCount = allMessages.stream()
-                    .filter(msg -> msg.getConversation() != null &&
-                        msg.getConversation().getParticipants().stream()
-                            .anyMatch(c -> c.getId().equals(aliceContact.getId())))
-                    .count();
-            assertThat(aliceMessageCount).isEqualTo(3);
+                // Verify messages are grouped correctly by contact through conversations
+                var aliceContact = contactRepository.findByUserAndNormalizedNumber(testUser, "+15551234567")
+                        .orElseThrow(() -> new AssertionError("Alice contact should exist"));
+                long aliceMessageCount = allMessages.stream()
+                        .filter(msg -> msg.getConversation() != null &&
+                            msg.getConversation().getParticipants().stream()
+                                .anyMatch(c -> c.getId().equals(aliceContact.getId())))
+                        .count();
+                assertThat(aliceMessageCount).isEqualTo(3);
 
-            var bobContact = contactRepository.findByUserAndNormalizedNumber(testUser, "+15559876543")
-                    .orElseThrow(() -> new AssertionError("Bob contact should exist"));
-            long bobMessageCount = allMessages.stream()
-                    .filter(msg -> msg.getConversation() != null &&
-                        msg.getConversation().getParticipants().stream()
-                            .anyMatch(c -> c.getId().equals(bobContact.getId())))
-                    .count();
-            assertThat(bobMessageCount).isEqualTo(2);
+                var bobContact = contactRepository.findByUserAndNormalizedNumber(testUser, "+15559876543")
+                        .orElseThrow(() -> new AssertionError("Bob contact should exist"));
+                long bobMessageCount = allMessages.stream()
+                        .filter(msg -> msg.getConversation() != null &&
+                            msg.getConversation().getParticipants().stream()
+                                .anyMatch(c -> c.getId().equals(bobContact.getId())))
+                        .count();
+                assertThat(bobMessageCount).isEqualTo(2);
+            });
         }
 
         // NOT @Transactional (see above)
@@ -624,51 +658,54 @@ class ImportServiceTest {
             assertThat(progress.getImportedMessages()).isEqualTo(4);
 
             // Verify all messages have conversations assigned
-            var allMessages = messageRepository.findAll();
-            assertThat(allMessages).hasSize(4);
-            assertThat(allMessages).allMatch(msg -> msg.getConversation() != null,
-                    "All messages should have a conversation assigned");
+            // Lazy associations (participants) are read after the async import, so assert inside a session
+            transactionTemplate.executeWithoutResult(tx -> {
+                var allMessages = messageRepository.findAll();
+                assertThat(allMessages).hasSize(4);
+                assertThat(allMessages).allMatch(msg -> msg.getConversation() != null,
+                        "All messages should have a conversation assigned");
 
-            // Verify there's only ONE contact created for Alice
-            var aliceContacts = contactRepository.findAll().stream()
-                    .filter(c -> c.getNormalizedNumber().equals("+15551234567"))
-                    .toList();
-            assertThat(aliceContacts).hasSize(1)
-                    .describedAs("Should have exactly one contact for Alice's number");
+                // Verify there's only ONE contact created for Alice
+                var aliceContacts = contactRepository.findAll().stream()
+                        .filter(c -> c.getNormalizedNumber().equals("+15551234567"))
+                        .toList();
+                assertThat(aliceContacts).hasSize(1)
+                        .describedAs("Should have exactly one contact for Alice's number");
 
-            Contact aliceContact = aliceContacts.get(0);
+                Contact aliceContact = aliceContacts.get(0);
 
-            // Verify all messages are associated with conversations containing Alice
-            var aliceMessages = allMessages.stream()
-                    .filter(msg -> msg.getConversation() != null &&
-                        msg.getConversation().getParticipants().stream()
-                            .anyMatch(c -> c.getId().equals(aliceContact.getId())))
-                    .toList();
-            assertThat(aliceMessages).hasSize(4)
-                    .describedAs("All 4 messages should be in conversations with Alice");
+                // Verify all messages are associated with conversations containing Alice
+                var aliceMessages = allMessages.stream()
+                        .filter(msg -> msg.getConversation() != null &&
+                            msg.getConversation().getParticipants().stream()
+                                .anyMatch(c -> c.getId().equals(aliceContact.getId())))
+                        .toList();
+                assertThat(aliceMessages).hasSize(4)
+                        .describedAs("All 4 messages should be in conversations with Alice");
 
-            // THE KEY ASSERTION: All messages from Alice should be in the SAME conversation
-            var conversationIds = aliceMessages.stream()
-                    .map(msg -> msg.getConversation().getId())
-                    .distinct()
-                    .toList();
+                // THE KEY ASSERTION: All messages from Alice should be in the SAME conversation
+                var conversationIds = aliceMessages.stream()
+                        .map(msg -> msg.getConversation().getId())
+                        .distinct()
+                        .toList();
 
-            assertThat(conversationIds).hasSize(1)
-                    .describedAs("All SMS and MMS messages from the same contact should be in ONE conversation, but found: " + conversationIds.size());
+                assertThat(conversationIds).hasSize(1)
+                        .describedAs("All SMS and MMS messages from the same contact should be in ONE conversation, but found: " + conversationIds.size());
 
-            // Verify the conversation has all 4 messages
-            Long conversationId = conversationIds.get(0);
-            var messagesInConversation = allMessages.stream()
-                    .filter(msg -> msg.getConversation().getId().equals(conversationId))
-                    .toList();
-            assertThat(messagesInConversation).hasSize(4)
-                    .describedAs("The single conversation should contain all 4 messages");
+                // Verify the conversation has all 4 messages
+                Long conversationId = conversationIds.get(0);
+                var messagesInConversation = allMessages.stream()
+                        .filter(msg -> msg.getConversation().getId().equals(conversationId))
+                        .toList();
+                assertThat(messagesInConversation).hasSize(4)
+                        .describedAs("The single conversation should contain all 4 messages");
 
-            // Verify the conversation has the correct number of participants (just Alice)
-            var conversation = conversationRepository.findById(conversationId)
-                    .orElseThrow(() -> new AssertionError("Conversation should exist"));
-            assertThat(conversation.getParticipants()).hasSize(1)
-                    .describedAs("One-to-one conversation should have exactly 1 participant");
+                // Verify the conversation has the correct number of participants (just Alice)
+                var conversation = conversationRepository.findById(conversationId)
+                        .orElseThrow(() -> new AssertionError("Conversation should exist"));
+                assertThat(conversation.getParticipants()).hasSize(1)
+                        .describedAs("One-to-one conversation should have exactly 1 participant");
+            });
         }
     }
 }

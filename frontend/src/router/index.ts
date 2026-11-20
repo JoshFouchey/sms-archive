@@ -34,13 +34,12 @@ const router = createRouter({
 });
 
 import { useAuthStore } from '../stores/authStore';
-router.beforeEach((to, _from, next) => {
+router.beforeEach((to) => {
   const store = useAuthStore();
   const publicPaths = ['/login','/register'];
   if (!store.accessToken && !publicPaths.includes(to.path)) {
-    return next('/login');
+    return '/login';
   }
-  next();
 });
 
 export default router;

@@ -31,7 +31,8 @@ public class MessageService {
                 .map(p -> new ContactSummaryDto(
                         p.getContactId(),
                         p.getContactName(),
-                        p.getLastMessageTimestamp().atZone(java.time.ZoneId.systemDefault()).toInstant(),
+                        // Native query returns the UTC wall-clock value stored in a timestamp-without-tz column
+                        p.getLastMessageTimestamp().toInstant(java.time.ZoneOffset.UTC),
                         p.getLastMessagePreview(),
                         p.getHasImage()
                 ))

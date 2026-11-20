@@ -1,6 +1,5 @@
 package com.joshfouchey.smsarchive.service;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.joshfouchey.smsarchive.event.ImportCompletedEvent;
@@ -17,7 +16,7 @@ import com.joshfouchey.smsarchive.service.importpipeline.XmlMessageParser.Elemen
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import lombok.Getter;
-import org.apache.commons.io.input.CountingInputStream;
+import org.apache.commons.io.input.BoundedInputStream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -191,7 +190,7 @@ public class ImportService {
         contactResolver.clearCache();
     }
 
-    private XMLStreamReader createSecureXmlStreamReader(CountingInputStream cis) throws Exception {
+    private XMLStreamReader createSecureXmlStreamReader(BoundedInputStream cis) throws Exception {
         XMLInputFactory factory = XMLInputFactory.newFactory();
         factory.setProperty(XMLInputFactory.IS_COALESCING, Boolean.TRUE);
         try {
@@ -225,10 +224,13 @@ public class ImportService {
                                       Set<String> seenKeys, List<Message> batch) {
         conversationAssigner.assignConversationForMultipart(msg, threadKey, participantNumbers, suggestedName, resolveImportUser());
         boolean dup = duplicateDetector.isDuplicateInRunOrDb(msg, seenKeys, batch);
-        if (dup) { progress.incDuplicateMessages(); }
-        else {
+        if (dup) {
+            // The parser already wrote this message's media to _noconversation; the original
+            // message owns the canonical copies, so delete these or every re-import leaks them.
+            mediaRelocationHelper.discard(msg);
+            progress.incDuplicateMessages();
+        } else {
             // Now that the conversation is assigned, move media out of _noconversation.
-            // Duplicates are skipped: their files are discarded copies, not the canonical media.
             mediaRelocationHelper.relocate(msg);
             batch.add(msg);
             progress.incImportedMessages();
@@ -245,7 +247,7 @@ public class ImportService {
         List<Message> batch = new ArrayList<>(streamBatchSize);
         Set<String> seenKeys = new HashSet<>();
         ensureXmlParser();
-        try (CountingInputStream cis = new CountingInputStream(Files.newInputStream(xmlPath))) {
+        try (BoundedInputStream cis = BoundedInputStream.builder().setPath(xmlPath).get()) { // unbounded; used to count bytes read
             XMLStreamReader r = createSecureXmlStreamReader(cis);
             ElementContext ctx = new ElementContext();
             XmlMessageParser.SmsReadyHandler onSms = (msg, name) ->
@@ -259,7 +261,7 @@ public class ImportService {
                 } else if (evt == XMLStreamConstants.END_ELEMENT) {
                     xmlParser.handleEndElement(r, ctx, onMultipart);
                 }
-                progress.setBytesRead(cis.getByteCount());
+                progress.setBytesRead(cis.getCount());
             }
             flushStreamingBatch(batch, progress);
             r.close();
@@ -322,13 +324,9 @@ public class ImportService {
         private final UUID id;
         @Getter
         private final long totalBytes;
-        @JsonIgnore
         private final AtomicLong bytesRead = new AtomicLong(0);
-        @JsonIgnore
         private final AtomicLong processedMessages = new AtomicLong(0);
-        @JsonIgnore
         private final AtomicLong importedMessages = new AtomicLong(0);
-        @JsonIgnore
         private final AtomicLong duplicateMessagesAtomic = new AtomicLong(0);
         private volatile int duplicateMessages;
         @Getter

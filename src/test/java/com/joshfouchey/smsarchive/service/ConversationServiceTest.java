@@ -50,7 +50,7 @@ class ConversationServiceTest extends EnhancedPostgresTestContainer {
         Conversation c = conversationService.findOrCreateOneToOne("15553334444", "Charlie");
         assertThat(c.getId()).isNotNull();
         assertThat(c.getParticipants()).hasSize(1);
-        assertThat(c.getParticipants().iterator().next().getNormalizedNumber()).isEqualTo("15553334444");
+        assertThat(c.getParticipants().iterator().next().getNormalizedNumber()).isEqualTo("+15553334444");
         assertThat(c.getName()).isEqualTo("Charlie");
     }
 
@@ -69,7 +69,7 @@ class ConversationServiceTest extends EnhancedPostgresTestContainer {
         Conversation c = conversationService.findOrCreateOneToOne("15556667777", "");
         assertThat(c.getParticipants().iterator().next().getName()).isNull();
         // Conversation name falls back to number
-        assertThat(c.getName()).isEqualTo("15556667777");
+        assertThat(c.getName()).isEqualTo("+15556667777");
     }
 
     @Test

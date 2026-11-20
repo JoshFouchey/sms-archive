@@ -28,7 +28,12 @@ const AppPreset = definePreset(Aura, {
     },
   },
 });
-app.use(PrimeVue, { theme: { preset: AppPreset, options: { darkModeSelector: '.dark' } } });
+// The PrimeUI license key is injected at build time (frontend/.env.local locally, a GitHub
+// Actions secret in CI). It is not secret once built: it ships in the JS bundle by design.
+app.use(PrimeVue, {
+  license: import.meta.env.VITE_PRIMEUI_LICENSE || undefined,
+  theme: { preset: AppPreset, options: { darkModeSelector: '.dark' } },
+});
 app.use(ToastService);
 app.use(ConfirmationService);
 app.use(router);

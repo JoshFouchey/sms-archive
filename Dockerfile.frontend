@@ -9,7 +9,15 @@ COPY frontend/ .
 # Allow override from docker compose build args
 ARG VITE_API_BASE=
 ENV VITE_API_BASE=$VITE_API_BASE
-RUN npm run build
+# PrimeUI license key: a BuildKit secret (CI) so it never lands in image metadata or build args.
+# Local builds can instead pick it up from frontend/.env.local, which Vite reads automatically.
+# Secrets are not part of BuildKit's cache key, so CI passes a fingerprint of the key to force a
+# rebuild when it is added or rotated.
+ARG PRIMEUI_LICENSE_HASH=
+# Export only when the secret is non-empty: an empty env var would override frontend/.env.local.
+RUN --mount=type=secret,id=primeui_license \
+    if [ -s /run/secrets/primeui_license ]; then export VITE_PRIMEUI_LICENSE="$(cat /run/secrets/primeui_license)"; fi; \
+    npm run build
 
 # ---- Run stage (Nginx) ----
 FROM nginx:1.30-alpine AS run

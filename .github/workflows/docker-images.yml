@@ -55,6 +55,12 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,format=short
 
+      - name: Fingerprint PrimeUI license
+        id: license
+        env:
+          PRIMEUI_LICENSE: ${{ secrets.PRIMEUI_LICENSE }}
+        run: echo "hash=$(printf %s "$PRIMEUI_LICENSE" | sha256sum | cut -c1-12)" >> "$GITHUB_OUTPUT"
+
       - name: Build and push ${{ matrix.name }}
         uses: docker/build-push-action@v7
         with:
@@ -65,3 +71,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,scope=${{ matrix.name }},mode=max
+          # Only the frontend Dockerfile mounts this; unset secret = build still succeeds (license badge shows).
+          secrets: |
+            primeui_license=${{ secrets.PRIMEUI_LICENSE }}
+          build-args: |
+            PRIMEUI_LICENSE_HASH=${{ steps.license.outputs.hash }}

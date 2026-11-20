@@ -91,4 +91,21 @@ class MediaControllerTest {
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.message").value("Contact not found: 9999"));
     }
+
+    @Test
+    @WithMockUser
+    void missingMediaFile_returns404NotServerError() throws Exception {
+        mockMvc.perform(get("/media/messages/_noconversation/missing.jpg"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").value("Resource not found"));
+    }
+
+    @Test
+    @WithMockUser
+    void unknownPath_returns404NotServerError() throws Exception {
+        mockMvc.perform(get("/api/nope"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
+    }
 }

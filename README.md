@@ -7,7 +7,7 @@ Experimental - schema, importer, and API surface likely to change.
 
 ## Features (current)
 - Parse XML backups (SMS / MMS / RCS) (details TBD).
-- Persist messages (PostgreSQL 15) via Spring Data JPA / Hibernate.
+- Persist messages (PostgreSQL 18 + pgvector) via Spring Data JPA / Hibernate.
 - Flyway migrations for schema versioning.
 - JSONB support (via `hibernate-types` and `hypersistence-utils`) for flexible payload fields.
 - Attachment / media handling (thumbnail generation via Thumbnailator).
@@ -28,16 +28,18 @@ Experimental - schema, importer, and API surface likely to change.
 - Java 25 (Gradle toolchain enforced).
 - Spring Boot 4.1.2 (Web MVC, Data JPA / Hibernate 7, Security 7, Jackson 3).
 - Spring AI 2.0 (OpenAI-compatible client for llama.cpp chat + embeddings; base URLs must end in `/v1`).
-- PostgreSQL 15 (primary DB) + Flyway (Testcontainers for integration tests).  
-  (Pinned to 15 due to prior Flyway compatibility issue; bump to 16+ once validated.)
+- PostgreSQL 18 with pgvector (`pgvector/pgvector:pg18`) + Flyway (Testcontainers for integration tests).  
+  Upgrading an existing PostgreSQL 15 install: see [MIGRATION-PG18.md](MIGRATION-PG18.md).
 - Testcontainers PostgreSQL for integration tests (real jsonb & indexes).
-- Node 26 LTS (frontend: Vue / TypeScript).
+- Node 26 LTS (frontend: Vue 3.5, TypeScript 6, Vite 8, Pinia 4, Vue Router 5, PrimeVue 5).
+  - PrimeVue 5, `@primeuix/themes` 3 and `primeicons` 8 use the commercial PrimeUI License. Without a key every page shows an "Invalid PrimeUI License" badge (nothing else is disabled). See [PrimeUI license key](#primeui-license-key).
+  - TypeScript 7 is not yet usable: `vue-tsc` requires the TypeScript JS API that 7.x no longer ships.
 - JAXB for XML parsing.
 - Lombok (version managed by the Spring Boot BOM).
 - Commons IO, Thumbnailator utilities.
 
 ## Quickstart (Docker Compose)
-Run both database (PostgreSQL 15) and the application container:
+Run both database (PostgreSQL 18) and the application container:
 
 ```bash
 # Build & start (first run builds the backend image)
@@ -49,13 +51,13 @@ docker compose logs -f app
 # Stop
 docker compose down
 ```
-The compose file pins `postgres:15-alpine` to avoid Flyway compatibility issues observed with 16.x. Adjust to 16+ only after validating against Flyway migrations locally.
+The compose file uses `pgvector/pgvector:${DB_VERSION}` (`pg18`). Existing PostgreSQL 15 data directories can't be opened by 18 directly; follow [MIGRATION-PG18.md](MIGRATION-PG18.md).
 
 To run backend locally without containers:
 ```bash
-# Start local PostgreSQL 15 however you prefer (brew, container, etc.)
+# Start local PostgreSQL 18 with pgvector however you prefer (brew, container, etc.)
 # Example with Docker:
-docker run --rm -p 5432:5432 -e POSTGRES_DB=sms_archive -e POSTGRES_USER=sms_user -e POSTGRES_PASSWORD=sms_pass postgres:15-alpine
+docker run --rm -p 5432:5432 -e POSTGRES_DB=sms_archive -e POSTGRES_USER=sms_user -e POSTGRES_PASSWORD=sms_pass pgvector/pgvector:pg18
 
 # In another shell, run backend
 gradle bootRun
@@ -107,10 +109,10 @@ This project ships with a `docker-compose.yml` and a `.env.example` you can copy
 ### 1. Prepare Host Paths
 Choose a fast disk (SSD) for Postgres if possible, and a larger HDD path for media if you prefer:
 ```bash
-sudo mkdir -p /srv/sms-archive/postgres
+sudo mkdir -p /srv/sms-archive/postgres18
 sudo mkdir -p /srv/sms-archive/media/messages
 # Postgres UID/GID in official image is 999:999
-sudo chown 999:999 /srv/sms-archive/postgres
+sudo chown 999:999 /srv/sms-archive/postgres18
 # App runs as non-root; ensure write access to media
 sudo chown $(id -u):$(id -g) /srv/sms-archive/media/messages
 ```
@@ -129,7 +131,7 @@ cp .env.example .env
 $EDITOR .env
 ```
 Key variables:
-- `DB_VERSION` (Postgres image tag, pinned to 15-alpine)
+- `DB_VERSION` (pgvector image tag, `pg18`; changing the major version needs a dump/restore, see MIGRATION-PG18.md)
 - `DB_DATA_HOST_PATH` (persistent DB storage)
 - `MEDIA_ROOT_HOST_PATH` (media + thumbnails)
 - `APP_BASE_URL` (for links / future absolute URL generation)
@@ -169,15 +171,29 @@ docker compose up -d
 ```
 Pin a specific build with `IMAGE_TAG=sha-abc1234` in `.env`.
 
+#### PrimeUI license key
+The key is read at build time from `VITE_PRIMEUI_LICENSE` and is checked offline in the browser. It ends up in the frontend JavaScript bundle (that is how PrimeUI keys work), so keep it out of git and keep the frontend image private.
+- **CI:** add a repository secret `PRIMEUI_LICENSE` (Settings → Secrets and variables → Actions). The workflow passes it as a BuildKit secret, so it is not stored in image metadata, and passes a fingerprint of it so adding or rotating the key triggers a rebuild.
+- **Local:** put `VITE_PRIMEUI_LICENSE=<key>` in `frontend/.env.local` (gitignored). `npm run dev`, `npm run build` and `docker compose build frontend` all pick it up.
+
 ### 7. Manual Backups (Recommended)
 Until an automated job is added, you can run:
 ```bash
-docker exec -t sms-archive-postgres pg_dump -U $DB_USER $DB_NAME | gzip > sms-archive_$(date +%F).sql.gz
+docker compose exec -T db pg_dump -U "$DB_USER" "$DB_NAME" | gzip > sms-archive_$(date +%F).sql.gz
 ```
 Store dumps somewhere off-host or in a different disk.
 
 ### 8. Media Directory Layout
-Files are stored under `${MEDIA_ROOT_HOST_PATH}` with per-import UUID folders. Thumbnails (`*_thumb.jpg`) are generated alongside originals.
+Files are stored under `${MEDIA_ROOT_HOST_PATH}/<conversation id>/`. Thumbnails (`*_thumb.jpg`) are generated alongside originals. Media for messages that could not be assigned a conversation stays in `_noconversation/`.
+
+Older versions leaked a copy of every MMS attachment into `_noconversation/` each time an already-imported message was re-imported. To reclaim that space (run from the compose directory, after a backup):
+
+```bash
+scripts/cleanup-noconversation.sh           # dry run: lists unreferenced files and their total size
+scripts/cleanup-noconversation.sh --apply   # moves them to _quarantine-<timestamp>/ (nothing is deleted)
+```
+
+Files still referenced by a message are never touched, nor are files modified in the last hour. After checking the gallery, delete the quarantine folder; the script prints the undo command too.
 
 ### 9. Zero-Downtime Rebuild (Optional)
 For small homelab setups a quick restart is fine. If you later add a separate migration job, run migrations before rolling out new code.
