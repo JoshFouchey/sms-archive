@@ -41,6 +41,7 @@ services:
       - internal
 
   app:
+    image: ghcr.io/joshfouchey/sms-archive:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile
@@ -66,8 +67,8 @@ services:
       SMSARCHIVE_IMPORT_DIRECTORY_FILE_AGE_THRESHOLD: ${SMSARCHIVE_IMPORT_DIRECTORY_FILE_AGE_THRESHOLD:-30}
       # AI / LLM connection (OpenAI-compatible)
       SPRING_AI_OPENAI_API_KEY: ${SPRING_AI_OPENAI_API_KEY:-not-needed}
-      SPRING_AI_OPENAI_CHAT_BASE_URL: ${SPRING_AI_OPENAI_CHAT_BASE_URL:-http://llama-cpp-sql:8080}
-      SPRING_AI_OPENAI_EMBEDDING_BASE_URL: ${SPRING_AI_OPENAI_EMBEDDING_BASE_URL:-http://llama-cpp-embed:8080}
+      SPRING_AI_OPENAI_CHAT_BASE_URL: ${SPRING_AI_OPENAI_CHAT_BASE_URL:-http://llama-cpp-sql:8080/v1}
+      SPRING_AI_OPENAI_EMBEDDING_BASE_URL: ${SPRING_AI_OPENAI_EMBEDDING_BASE_URL:-http://llama-cpp-embed:8080/v1}
       SMSARCHIVE_AI_ENABLED: ${SMSARCHIVE_AI_ENABLED:-true}
       DB_WAIT_MAX_SECONDS: 120
       TZ: ${TZ}
@@ -91,6 +92,7 @@ services:
       - proxy
 
   frontend:
+    image: ghcr.io/joshfouchey/sms-archive-frontend:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.frontend

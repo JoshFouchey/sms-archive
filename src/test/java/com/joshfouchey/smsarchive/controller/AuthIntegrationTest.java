@@ -1,7 +1,7 @@
 package com.joshfouchey.smsarchive.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.joshfouchey.smsarchive.config.EnhancedPostgresTestContainer;
 import com.joshfouchey.smsarchive.repository.ContactRepository;
 import com.joshfouchey.smsarchive.repository.MessageRepository;
@@ -10,7 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -181,7 +181,7 @@ class AuthIntegrationTest extends EnhancedPostgresTestContainer {
         @Test
         void validRefreshTokenReturnsNewTokens() throws Exception {
             JsonNode tokens = registerUser("refreshuser", "password123");
-            String refreshToken = tokens.get("refreshToken").asText();
+            String refreshToken = tokens.get("refreshToken").asString();
 
             mockMvc.perform(post("/api/auth/refresh")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -194,7 +194,7 @@ class AuthIntegrationTest extends EnhancedPostgresTestContainer {
         @Test
         void accessTokenRejectedAsRefresh() throws Exception {
             JsonNode tokens = registerUser("atrefresh", "password123");
-            String accessToken = tokens.get("accessToken").asText();
+            String accessToken = tokens.get("accessToken").asString();
 
             mockMvc.perform(post("/api/auth/refresh")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -247,7 +247,7 @@ class AuthIntegrationTest extends EnhancedPostgresTestContainer {
         @Test
         void protectedEndpointAcceptsValidAccessToken() throws Exception {
             JsonNode tokens = registerUser("secuser", "password123");
-            String accessToken = tokens.get("accessToken").asText();
+            String accessToken = tokens.get("accessToken").asString();
 
             mockMvc.perform(get("/api/messages/contacts")
                             .header("Authorization", "Bearer " + accessToken))
@@ -257,7 +257,7 @@ class AuthIntegrationTest extends EnhancedPostgresTestContainer {
         @Test
         void refreshTokenCannotAccessProtectedEndpoints() throws Exception {
             JsonNode tokens = registerUser("reftok", "password123");
-            String refreshToken = tokens.get("refreshToken").asText();
+            String refreshToken = tokens.get("refreshToken").asString();
 
             mockMvc.perform(get("/api/messages/contacts")
                             .header("Authorization", "Bearer " + refreshToken))
@@ -279,7 +279,7 @@ class AuthIntegrationTest extends EnhancedPostgresTestContainer {
         @Test
         void meEndpointReturnsUserWithValidToken() throws Exception {
             JsonNode tokens = registerUser("meuser", "password123");
-            String accessToken = tokens.get("accessToken").asText();
+            String accessToken = tokens.get("accessToken").asString();
 
             mockMvc.perform(get("/api/auth/me")
                             .header("Authorization", "Bearer " + accessToken))

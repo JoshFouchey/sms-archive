@@ -12,8 +12,8 @@ Experimental - schema, importer, and API surface likely to change.
 - JSONB support (via `hibernate-types` and `hypersistence-utils`) for flexible payload fields.
 - Attachment / media handling (thumbnail generation via Thumbnailator).
 - Optional SQLite usage (test/import staging) present via `sqlite-jdbc`.
-- Java 25 toolchain build (Gradle) with Spring Boot 3.5.6.
-- Node 22.20.0 & Vue frontend scaffolding (assumed).
+- Java 25 toolchain build (Gradle) with Spring Boot 4.1.2.
+- Node 26 LTS & Vue frontend scaffolding (assumed).
 - **Import Directory Watcher** - Drop large XML files directly on the server to bypass upload limits. See [IMPORT_DIRECTORY.md](IMPORT_DIRECTORY.md) for details.
 
 ## Roadmap (abridged)
@@ -26,13 +26,14 @@ Experimental - schema, importer, and API surface likely to change.
 
 ## Tech Stack
 - Java 25 (Gradle toolchain enforced).
-- Spring Boot 3.5.6 (Web, Data JPA).
+- Spring Boot 4.1.2 (Web MVC, Data JPA / Hibernate 7, Security 7, Jackson 3).
+- Spring AI 2.0 (OpenAI-compatible client for llama.cpp chat + embeddings; base URLs must end in `/v1`).
 - PostgreSQL 15 (primary DB) + Flyway (Testcontainers for integration tests).  
   (Pinned to 15 due to prior Flyway compatibility issue; bump to 16+ once validated.)
 - Testcontainers PostgreSQL for integration tests (real jsonb & indexes).
-- Node 22.20.0 (frontend: Vue / TypeScript).
+- Node 26 LTS (frontend: Vue / TypeScript).
 - JAXB for XML parsing.
-- Lombok 1.18.42 (pending long-term JDK 25 stability).
+- Lombok (version managed by the Spring Boot BOM).
 - Commons IO, Thumbnailator utilities.
 
 ## Quickstart (Docker Compose)
@@ -155,6 +156,18 @@ docker compose build app
 docker compose up -d app
 ```
 (Or rely on the multi-stage build in the Compose file to recompile automatically.)
+
+#### Prebuilt images (GitHub Actions)
+`.github/workflows/docker-images.yml` builds and pushes both images to GHCR on every push to `master` (docs/SQL-only changes are skipped) and on manual dispatch:
+- `ghcr.io/joshfouchey/sms-archive` (backend)
+- `ghcr.io/joshfouchey/sms-archive-frontend` (frontend, built with empty `VITE_API_BASE` so it uses relative URLs via the nginx proxy)
+
+Each is tagged `latest` and `sha-<short>`. To deploy without building locally:
+```bash
+docker compose pull app frontend
+docker compose up -d
+```
+Pin a specific build with `IMAGE_TAG=sha-abc1234` in `.env`.
 
 ### 7. Manual Backups (Recommended)
 Until an automated job is added, you can run:

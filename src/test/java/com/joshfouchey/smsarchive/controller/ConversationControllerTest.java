@@ -1,7 +1,7 @@
 // filepath: /Users/jfouchey/development/git/sms-archive/src/test/java/com/joshfouchey/smsarchive/controller/ConversationControllerTest.java
 package com.joshfouchey.smsarchive.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.joshfouchey.smsarchive.model.Conversation;
 import com.joshfouchey.smsarchive.model.User;
 import com.joshfouchey.smsarchive.repository.ConversationRepository;
@@ -11,7 +11,7 @@ import com.joshfouchey.smsarchive.service.ConversationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;

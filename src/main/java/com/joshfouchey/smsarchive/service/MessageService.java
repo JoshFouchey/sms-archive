@@ -31,7 +31,7 @@ public class MessageService {
                 .map(p -> new ContactSummaryDto(
                         p.getContactId(),
                         p.getContactName(),
-                        p.getLastMessageTimestamp().toInstant(),
+                        p.getLastMessageTimestamp().atZone(java.time.ZoneId.systemDefault()).toInstant(),
                         p.getLastMessagePreview(),
                         p.getHasImage()
                 ))

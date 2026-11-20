@@ -1,6 +1,6 @@
 package com.joshfouchey.smsarchive.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.joshfouchey.smsarchive.config.EnhancedPostgresTestContainer;
 import com.joshfouchey.smsarchive.model.Message;
 import com.joshfouchey.smsarchive.model.Contact;
@@ -13,7 +13,7 @@ import com.joshfouchey.smsarchive.model.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -46,8 +46,8 @@ class UserIsolationTest extends EnhancedPostgresTestContainer {
         messageRepo.deleteAll();
         contactRepo.deleteAll();
         userRepo.deleteAll();
-        tokenA = mapper.readTree(mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(Map.of("username","uA","password","password123")))).andReturn().getResponse().getContentAsString()).get("accessToken").asText();
-        tokenB = mapper.readTree(mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(Map.of("username","uB","password","password123")))).andReturn().getResponse().getContentAsString()).get("accessToken").asText();
+        tokenA = mapper.readTree(mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(Map.of("username","uA","password","password123")))).andReturn().getResponse().getContentAsString()).get("accessToken").asString();
+        tokenB = mapper.readTree(mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(Map.of("username","uB","password","password123")))).andReturn().getResponse().getContentAsString()).get("accessToken").asString();
         userA = userRepo.findByUsername("ua").orElseThrow(); // usernames are normalized to lowercase
         userB = userRepo.findByUsername("ub").orElseThrow(); // usernames are normalized to lowercase
         contactA = new Contact();

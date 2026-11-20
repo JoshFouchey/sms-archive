@@ -1,6 +1,7 @@
 package com.joshfouchey.smsarchive.config;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
@@ -13,7 +14,10 @@ import java.time.Duration;
 @EnableCaching
 public class CacheConfig {
     // Provide an explicit CacheManager; auto-config was not creating one in test profile, causing NoSuchBeanDefinition for CacheManager.
+    // Conditional so `spring.cache.type: none` (test profile) actually disables caching; an
+    // unconditional bean here silently overrides that property.
     @Bean
+    @ConditionalOnProperty(name = "spring.cache.type", havingValue = "caffeine", matchIfMissing = true)
     public CacheManager cacheManager() {
         CaffeineCacheManager mgr = new CaffeineCacheManager(
                 "analyticsDashboard",

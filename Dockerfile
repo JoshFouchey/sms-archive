@@ -13,8 +13,6 @@ RUN ./gradlew --no-daemon dependencies > /dev/null 2>&1 || true
 
 # Copy source
 COPY src src
-COPY frontend frontend
-COPY README.md README.md
 
 # Build the boot jar (skip tests for faster image build; adjust if you want tests in pipeline)
 RUN ./gradlew --no-daemon clean bootJar -x test

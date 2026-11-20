@@ -82,11 +82,14 @@ rerun), so these are inherited test-suite rot, not regressions:
   `SmsMmsSameConversationIntegrationTest` pass in isolation but can fail depending on which
   other classes run in the same JVM. Cross-class contamination through the shared reused
   container + multiple cached Spring contexts.
-- **~14 failures across other classes at baseline**: `ConversationServiceTest` (4),
-  `MediaServiceTest` (3), `AnalyticsServiceRangeTests` (2), and one each in
-  `ConversationControllerTest`, `ContactControllerTest`, `DistinctContactsControllerTest`,
-  `AnalyticsServiceReversedDatesTest`, `AuthIntegrationTest`. Mix of stale expectations and
-  the same isolation problems. Needs a dedicated cleanup pass.
+- **Remaining baseline failures (as of 2026-11-19, 5 of 134)**: `ConversationServiceTest`
+  (`createsConversationWhenAbsent`, `emptyDisplayNameSetsNullNameForContact`),
+  `DistinctContactsControllerTest.getAllContacts_returnsSortedDistinctContacts`, and the two
+  `ImportServiceTest$IntegrationTests` above. Not yet diagnosed; needs a dedicated cleanup pass.
+- **Fixed 2026-11-19**: `spring.cache.type: none` (fix #4 above) never actually took effect —
+  `CacheConfig` declared an unconditional `CacheManager` bean, which overrides that property.
+  The bean is now `@ConditionalOnProperty(spring.cache.type=caffeine, matchIfMissing=true)`
+  (pinned by `CacheConfigTest`), which cleared 11 of the previous 16 baseline failures.
 
 ## Test-design gotcha
 

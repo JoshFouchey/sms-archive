@@ -301,7 +301,7 @@ ORDER BY year, month
                                                   @Param("user") com.joshfouchey.smsarchive.model.User user,
                                                   Pageable pageable);
 
-    interface DayCountProjection { java.sql.Timestamp getDay_ts(); long getCount(); }
+    interface DayCountProjection { java.time.LocalDateTime getDay_ts(); long getCount(); }
 
     interface TimelineBucketProjection {
         int getYear();
@@ -309,14 +309,14 @@ ORDER BY year, month
         long getCount();
         Long getFirst_message_id();
         Long getLast_message_id();
-        java.sql.Timestamp getFirst_timestamp();
-        java.sql.Timestamp getLast_timestamp();
+        java.time.LocalDateTime getFirst_timestamp();
+        java.time.LocalDateTime getLast_timestamp();
     }
 
     interface ContactSummaryProjection {
         Long getContactId();
         String getContactName();
-        java.sql.Timestamp getLastMessageTimestamp();
+        java.time.LocalDateTime getLastMessageTimestamp();
         String getLastMessagePreview();
         boolean getHasImage();
     }

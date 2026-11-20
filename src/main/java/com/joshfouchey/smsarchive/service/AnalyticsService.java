@@ -54,7 +54,7 @@ public class AnalyticsService {
         User user = currentUserProvider.getCurrentUser();
         return messageRepository.countMessagesPerDaySince(Instant.EPOCH, user.getId()).stream()
                 .map(p -> new MessageCountPerDayDto(
-                        p.getDay_ts().toLocalDateTime().toLocalDate(),
+                        p.getDay_ts().toLocalDate(),
                         p.getCount()
                 ))
                 .collect(Collectors.toList());
@@ -82,7 +82,7 @@ public class AnalyticsService {
                 .setParameter("userId", user.getId());
         if (contactId != null) query.setParameter("contactId", contactId);
         @SuppressWarnings("unchecked") List<Object[]> rows = query.getResultList();
-        return rows.stream().map(r -> new MessageCountPerDayDto(((java.sql.Date) r[0]).toLocalDate(), ((Number) r[1]).longValue())).collect(Collectors.toList());
+        return rows.stream().map(r -> new MessageCountPerDayDto((LocalDate) r[0], ((Number) r[1]).longValue())).collect(Collectors.toList());
     }
 
     @org.springframework.cache.annotation.Cacheable(

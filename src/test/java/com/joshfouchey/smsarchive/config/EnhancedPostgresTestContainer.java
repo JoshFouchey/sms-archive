@@ -2,7 +2,7 @@ package com.joshfouchey.smsarchive.config;
 
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.containers.wait.strategy.Wait;
 
@@ -15,7 +15,7 @@ import java.time.Duration;
  */
 public abstract class EnhancedPostgresTestContainer {
     // pgvector image (matches docker-compose) - the V9 migration needs the vector extension
-    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
+    private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
             DockerImageName.parse("pgvector/pgvector:pg15").asCompatibleSubstituteFor("postgres"))
             .withDatabaseName("sms_archive_test")
             .withUsername("postgres")

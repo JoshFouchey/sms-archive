@@ -76,13 +76,15 @@ jwt:
 spring.ai:
   openai:
     api-key: ${SPRING_AI_OPENAI_API_KEY:not-needed}
+    # Spring AI 2.x uses the official openai-java SDK, whose base URL must include /v1
+    # (llama.cpp's un-prefixed /embeddings is NOT the OpenAI format).
+    timeout: 120s
     chat:
-      base-url: ${SPRING_AI_OPENAI_CHAT_BASE_URL:http://localhost:8080}
+      base-url: ${SPRING_AI_OPENAI_CHAT_BASE_URL:http://localhost:8080/v1}
       model: ${SMSARCHIVE_AI_CHAT_MODEL:qwen2.5-coder-3b-instruct}
-      options:
-        temperature: 0.1
+      temperature: 0.1
     embedding:
-      base-url: ${SPRING_AI_OPENAI_EMBEDDING_BASE_URL:http://localhost:8081}
+      base-url: ${SPRING_AI_OPENAI_EMBEDDING_BASE_URL:http://localhost:8081/v1}
       model: ${SMSARCHIVE_AI_EMBEDDING_MODEL:qwen3-embedding-0.6b}
 
 smsarchive.ai:

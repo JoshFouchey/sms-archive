@@ -374,7 +374,7 @@ public class EmbeddingService {
                 return embeddingModel.call(
                         new EmbeddingRequest(texts, OpenAiEmbeddingOptions.builder()
                                 .model(modelName)
-                                .encodingFormat("float")
+                                .encodingFormat(OpenAiEmbeddingOptions.EncodingFormat.FLOAT)
                                 .build()));
             } catch (Exception e) {
                 lastException = e;
@@ -397,7 +397,7 @@ public class EmbeddingService {
         EmbeddingResponse response = embeddingModel.call(
                 new EmbeddingRequest(
                         List.of(truncate(query)),
-                        OpenAiEmbeddingOptions.builder().model(modelName).encodingFormat("float").build()));
+                        OpenAiEmbeddingOptions.builder().model(modelName).encodingFormat(OpenAiEmbeddingOptions.EncodingFormat.FLOAT).build()));
         return response.getResults().get(0).getOutput();
     }
 

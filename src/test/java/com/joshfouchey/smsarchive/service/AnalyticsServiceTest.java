@@ -56,7 +56,7 @@ class AnalyticsServiceTest {
     @Test
     void messagesPerDayAlwaysAllTime() {
         MessageRepository.DayCountProjection projection = new MessageRepository.DayCountProjection() {
-            @Override public java.sql.Timestamp getDay_ts() { return java.sql.Timestamp.from(Instant.now()); }
+            @Override public java.time.LocalDateTime getDay_ts() { return java.time.LocalDateTime.now(); }
             @Override public long getCount() { return 3L; }
         };
         when(messageRepository.countMessagesPerDaySince(Instant.EPOCH, testUser.getId()))
