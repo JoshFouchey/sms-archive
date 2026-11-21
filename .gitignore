@@ -52,6 +52,8 @@ frontend/.vite/
 *.log
 *.sql
 *.sql.gz
+!src/main/resources/db/migration/*.sql
+!scripts/fix-duplicate-contacts.sql
 # OS
 .DS_Store
 

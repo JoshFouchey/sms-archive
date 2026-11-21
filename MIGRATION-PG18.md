@@ -22,6 +22,28 @@ All commands run from the directory containing `docker-compose.yml` and `.env`. 
   df -h .
   ```
 - Note the current values of `DB_VERSION` and `DB_DATA_HOST_PATH` in `.env`. You need them for rollback.
+- Check for corrupt text indexes. If the host OS or the postgres:15 image's glibc changed since the database was created, text indexes may be mis-sorted. Their unique checks then miss existing rows, so duplicate contacts get inserted, and the restore into PostgreSQL 18 fails with `could not create unique index "ux_contacts_user_normalized"`. This check only reads; the `amcheck` extension is created inside a transaction that is rolled back:
+  ```bash
+  cat <<'SQL' | docker compose exec -T db sh -c 'psql -q -U "$POSTGRES_USER" -d "$POSTGRES_DB"' 2>&1 | grep BROKEN
+  BEGIN;
+  CREATE EXTENSION IF NOT EXISTS amcheck;
+  DO $$
+  DECLARE r record;
+  BEGIN
+    FOR r IN SELECT c.oid, c.relname FROM pg_index i
+      JOIN pg_class c ON c.oid = i.indexrelid JOIN pg_am a ON a.oid = c.relam
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE a.amname = 'btree' AND n.nspname = 'public'
+    LOOP
+      BEGIN PERFORM bt_index_check(r.oid, true);
+      EXCEPTION WHEN others THEN RAISE NOTICE 'BROKEN %: %', r.relname, SQLERRM;
+      END;
+    END LOOP;
+  END $$;
+  ROLLBACK;
+  SQL
+  ```
+  No output means all indexes are fine. If anything is reported, stop the app and run [`scripts/fix-duplicate-contacts.sql`](scripts/fix-duplicate-contacts.sql). It merges duplicate contacts and rebuilds the indexes on `contacts` and `conversations`. Run it with `-v apply=0` for a dry run first, then `-v apply=1`. Re-run the check until it prints nothing.
 
 ## 1. Stop writers and record row counts
 
@@ -70,11 +92,13 @@ Create a **new** directory next to the old one (example path; use your own base)
 sudo mkdir -p /opt/stacks/sms-archive/postgres18
 ```
 
-Edit `.env`: change these two values and **delete** the `DB_DATA_CONTAINER_PATH` line:
+Edit `.env`: change these three values:
 ```dotenv
 DB_VERSION=pg18
 DB_DATA_HOST_PATH=/opt/stacks/sms-archive/postgres18
+DB_DATA_CONTAINER_PATH=/var/lib/postgresql
 ```
+(With the repo's compose files you can delete the `DB_DATA_CONTAINER_PATH` line instead, since `/var/lib/postgresql` is the default. Setting it explicitly also works with compose files that require the variable.)
 
 Start only the database. PostgreSQL 18 initialises an empty cluster with the same database name, user, and password:
 ```bash
@@ -102,7 +126,7 @@ docker compose up -d
 docker compose logs app | grep -i -E "flyway|started"
 ```
 
-Flyway should report the schema is up to date (no migrations applied). Log in and spot-check conversations, search, and media.
+Flyway should report the schema is up to date, or apply only migrations that are newer than the app version you ran on PostgreSQL 15 (for example V18 if you upgraded the app and the database together). Log in and spot-check conversations, search, and media.
 
 ## Rollback
 
