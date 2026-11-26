@@ -93,7 +93,7 @@ class ImportDirectoryWatcherTest {
         Path xml = userDir.resolve("backup.xml");
         Files.writeString(xml, "<messages></messages>");
         // Backdate creation time to satisfy age threshold
-        Files.setAttribute(xml, "basic:creationTime", FileTime.from(Instant.now().minusSeconds(5)));
+        Files.setAttribute(xml, "basic:lastModifiedTime", FileTime.from(Instant.now().minusSeconds(5)));
 
         watcher.scanImportDirectory();
 
@@ -120,7 +120,7 @@ class ImportDirectoryWatcherTest {
 
         Path xml = userDir.resolve("conversation.xml");
         Files.writeString(xml, "<messages></messages>");
-        Files.setAttribute(xml, "basic:creationTime", FileTime.from(Instant.now().minusSeconds(5)));
+        Files.setAttribute(xml, "basic:lastModifiedTime", FileTime.from(Instant.now().minusSeconds(5)));
 
         watcher.scanImportDirectory();
 
@@ -168,7 +168,7 @@ class ImportDirectoryWatcherTest {
 
         Path xml = userDir.resolve("file.xml");
         Files.writeString(xml, "<messages></messages>");
-        Files.setAttribute(xml, "basic:creationTime", FileTime.from(Instant.now().minusSeconds(5)));
+        Files.setAttribute(xml, "basic:lastModifiedTime", FileTime.from(Instant.now().minusSeconds(5)));
 
         watcher.pauseScanning();
         watcher.scanImportDirectory();
@@ -193,7 +193,7 @@ class ImportDirectoryWatcherTest {
 
         Path xml = userDir.resolve("bad-backup.xml");
         Files.writeString(xml, "<messages></messages>");
-        Files.setAttribute(xml, "basic:creationTime", FileTime.from(Instant.now().minusSeconds(5)));
+        Files.setAttribute(xml, "basic:lastModifiedTime", FileTime.from(Instant.now().minusSeconds(5)));
 
         watcher.scanImportDirectory();
 
@@ -224,7 +224,7 @@ class ImportDirectoryWatcherTest {
 
         Path xml = userDir.resolve("large-backup.xml");
         Files.writeString(xml, "<messages></messages>");
-        Files.setAttribute(xml, "basic:creationTime", FileTime.from(Instant.now().minusSeconds(5)));
+        Files.setAttribute(xml, "basic:lastModifiedTime", FileTime.from(Instant.now().minusSeconds(5)));
 
         watcher.scanImportDirectory();
         verify(importService).startImportAsyncForUser(any(Path.class), eq(username), callbackCaptor.capture());

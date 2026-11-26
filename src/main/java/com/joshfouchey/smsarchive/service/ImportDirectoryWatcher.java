@@ -229,15 +229,16 @@ public class ImportDirectoryWatcher {
     }
 
     /**
-     * Check if file is old enough to process (created at least X seconds ago)
-     * This is more reliable than checking size stability
+     * Check if file is old enough to process (last modified at least X seconds ago).
+     * Uses last-modified time rather than creation time: birth time is not portable
+     * (cannot be set on Linux) and a file still being copied keeps updating its mtime.
      */
     private boolean isFileOldEnough(Path file) {
         try {
             BasicFileAttributes attrs = Files.readAttributes(file, BasicFileAttributes.class);
-            Instant creationTime = attrs.creationTime().toInstant();
+            Instant lastModified = attrs.lastModifiedTime().toInstant();
             Instant threshold = Instant.now().minus(Duration.ofSeconds(fileAgeThresholdSeconds));
-            return creationTime.isBefore(threshold);
+            return lastModified.isBefore(threshold);
         } catch (IOException e) {
             log.warn("Could not read file attributes for {}, assuming not ready", file.getFileName());
             return false;
