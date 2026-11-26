@@ -16,6 +16,7 @@ public class AsyncConfig {
         exec.setMaxPoolSize(4);
         exec.setQueueCapacity(10_000); // large queue for many messages batches
         exec.setThreadNamePrefix("import-worker-");
+        drainOnShutdown(exec);
         exec.initialize();
         return exec;
     }
@@ -27,8 +28,18 @@ public class AsyncConfig {
         exec.setMaxPoolSize(1);
         exec.setQueueCapacity(5);
         exec.setThreadNamePrefix("ai-worker-");
+        drainOnShutdown(exec);
         exec.initialize();
         return exec;
+    }
+
+    /**
+     * Let running and queued tasks finish for up to 25s on shutdown instead of interrupting them.
+     * Runs after Boot's 30s graceful web phase, so the container stop grace period must cover both (compose: 60s).
+     */
+    static void drainOnShutdown(ThreadPoolTaskExecutor exec) {
+        exec.setWaitForTasksToCompleteOnShutdown(true);
+        exec.setAwaitTerminationSeconds(25);
     }
 
     /** Rate limiter for AI endpoints: 10 requests per minute per user. */

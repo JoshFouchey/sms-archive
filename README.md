@@ -93,12 +93,8 @@ mkdir -p ~/.testcontainers && echo 'testcontainers.reuse.enable=true' >> ~/.test
 - Trigger: `trg_messages_updated_at`
 This guards against accidental migration regressions.
 
-## Removed Legacy Test Properties
-The legacy `application-test.properties` file is deprecated and now empty. All test profile configuration lives in `application-test.yml` plus dynamic Testcontainer overrides in `EnhancedPostgresTestContainer`. You can safely delete `src/test/resources/application-test.properties`:
-```
-rm src/test/resources/application-test.properties
-```
-(No replacement needed; Spring Boot will load `application-test.yml` when `@ActiveProfiles("test")` is used.)
+## Test Profile Configuration
+All test profile configuration lives in `src/test/resources/application-test.yml` (cache disabled, auto-embedding off, inline imports) plus dynamic Testcontainer overrides in `EnhancedPostgresTestContainer`. Keep it there only: a second `application-test.yml` under `src/main/resources` is shadowed on the test classpath and would ship in the production jar.
 
 ## Controller Test Modernization
 `MediaControllerTest` no longer uses deprecated `@MockBean`; a lightweight stub bean is supplied via an inner `@TestConfiguration` to avoid Mockito deprecation warnings.
@@ -135,7 +131,7 @@ Key variables:
 - `DB_DATA_HOST_PATH` (persistent DB storage)
 - `MEDIA_ROOT_HOST_PATH` (media + thumbnails)
 - `APP_BASE_URL` (for links / future absolute URL generation)
-- `LOG_LEVEL` (default INFO)
+- `LOG_LEVEL` (default INFO). Message bodies, search queries and generated SQL are only logged at DEBUG; to troubleshoot search or Q&A without enabling DEBUG everywhere, set `LOGGING_LEVEL_COM_JOSHFOUCHEY_SMSARCHIVE_SERVICE=DEBUG` on the app container.
 
 ### 4. Build & Run
 ```bash
@@ -160,7 +156,7 @@ docker compose up -d app
 (Or rely on the multi-stage build in the Compose file to recompile automatically.)
 
 #### Prebuilt images (GitHub Actions)
-`.github/workflows/docker-images.yml` builds and pushes both images to GHCR on every push to `master` (docs/SQL-only changes are skipped) and on manual dispatch:
+`.github/workflows/docker-images.yml` builds and pushes both images to GHCR on every push to `master` (docs/SQL-only changes are skipped) and on manual dispatch. A `test` job runs the backend suite (`./gradlew test`, Testcontainers on the runner's Docker) first; if it fails, no images are pushed and the test reports are attached to the run as an artifact:
 - `ghcr.io/joshfouchey/sms-archive` (backend)
 - `ghcr.io/joshfouchey/sms-archive-frontend` (frontend, built with empty `VITE_API_BASE` so it uses relative URLs via the nginx proxy)
 

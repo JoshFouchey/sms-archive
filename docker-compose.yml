@@ -61,6 +61,8 @@ services:
 
   app:
     image: ghcr.io/joshfouchey/sms-archive:${IMAGE_TAG:-latest}
+    # Boot graceful shutdown (30s) + executor drain (25s) + margin; Docker default is 10s.
+    stop_grace_period: 60s
     build:
       context: .
       dockerfile: Dockerfile

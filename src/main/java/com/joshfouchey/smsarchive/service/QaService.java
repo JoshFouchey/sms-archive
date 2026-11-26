@@ -86,7 +86,8 @@ public class QaService {
             try {
                 return handleTextToSql(user, question, start);
             } catch (TextToSqlException e) {
-                log.warn("Text-to-SQL failed for user {} on '{}': {}", user.getId(), question, e.getMessage());
+                log.warn("Text-to-SQL failed for user {}: {}", user.getId(), e.getMessage());
+                log.debug("Failed question: '{}'", question);
                 String errorMsg = "SQL generation failed. Try rephrasing your question.";
                 return QaResponse.analytics(errorMsg, sqlErrorData(e), System.currentTimeMillis() - start);
             }

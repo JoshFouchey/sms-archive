@@ -1,4 +1,6 @@
 # Test-profile overrides (loaded via @ActiveProfiles("test")).
+# This is the ONLY application-test.yml: a copy under src/main/resources would be shadowed by
+# this file on the test classpath (and shipped in the production jar).
 #
 # Disable the Spring cache layer in tests: caches like "currentUser" hold JPA entities,
 # and the shared application context outlives each test class's deleteAll() cleanup.
@@ -15,3 +17,7 @@ smsarchive:
   ai:
     embedding:
       auto-embed: false
+  # Process imports synchronously so progress is terminal when the start call returns.
+  import:
+    inline: true
+    batchSize: 500

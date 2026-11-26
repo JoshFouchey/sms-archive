@@ -135,7 +135,8 @@ public class TextToSqlService {
         }
         for (String table : referenced) {
             if (!ALLOWED_TABLES.contains(table)) {
-                log.warn("User SQL references disallowed table: {}. SQL: {}", table, sql);
+                log.warn("User SQL references disallowed table: {}", table);
+                log.debug("Rejected SQL: {}", sql);
                 throw new TextToSqlException("Query references disallowed table: " + table, sql, null, null);
             }
         }
@@ -151,7 +152,7 @@ public class TextToSqlService {
 
             String raw = response.getResult().getOutput().getText().trim();
             raw = extractSql(raw);
-            log.info("Text-to-SQL generated: {}", raw.replace("\n", " "));
+            log.debug("Text-to-SQL generated: {}", raw.replace("\n", " "));
             return new GeneratedSql(raw, System.currentTimeMillis() - start);
         } catch (Exception e) {
             throw new TextToSqlException("Failed to generate SQL: " + e.getMessage(), e);
@@ -292,15 +293,18 @@ public class TextToSqlService {
         // Strip SQL comments and normalize whitespace to prevent regex bypass
         String sanitized = stripComments(sql).replaceAll("\\s+", " ");
         if (!SELECT_ONLY.matcher(sanitized).find()) {
-            log.warn("Text-to-SQL validation failed: not a SELECT query. SQL: {}", sql);
+            log.warn("Text-to-SQL validation failed: not a SELECT query");
+            log.debug("Rejected SQL: {}", sql);
             throw new TextToSqlException("Generated SQL is not a SELECT query", sql, null, null);
         }
         if (DANGEROUS_SQL.matcher(sanitized).find()) {
-            log.warn("Text-to-SQL validation failed: prohibited keywords. SQL: {}", sql);
+            log.warn("Text-to-SQL validation failed: prohibited keywords");
+            log.debug("Rejected SQL: {}", sql);
             throw new TextToSqlException("Generated SQL contains prohibited keywords", sql, null, null);
         }
         if (!sanitized.toLowerCase().contains("user_id")) {
-            log.warn("Text-to-SQL validation failed: missing user_id filter. SQL: {}", sql);
+            log.warn("Text-to-SQL validation failed: missing user_id filter");
+            log.debug("Rejected SQL: {}", sql);
             throw new TextToSqlException("Generated SQL missing user_id filter", sql, null, null);
         }
         // Reject multiple statements
@@ -364,7 +368,8 @@ public class TextToSqlService {
             Throwable root = e;
             while (root.getCause() != null) root = root.getCause();
             String detail = root.getMessage() != null ? root.getMessage() : e.getMessage();
-            log.error("Text-to-SQL execution failed. Detail: {}. SQL: {}", detail, sql);
+            log.error("Text-to-SQL execution failed. Detail: {}", detail);
+            log.debug("Failed SQL: {}", sql);
             throw new TextToSqlException("SQL execution failed", null, sql, null, e);
         }
     }

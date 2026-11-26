@@ -65,7 +65,7 @@ public class MessageService {
     }
 
     @Transactional(readOnly = true)
-    @org.springframework.cache.annotation.Cacheable(value = "messageContext", key = "#messageId + '_' + #before + '_' + #after")
+    @org.springframework.cache.annotation.Cacheable(value = "messageContext", key = "T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName() + ':' + #messageId + '_' + #before + '_' + #after")
     public MessageContextDto getMessageContext(Long messageId, int before, int after) {
         if (before < 0) before = 0; if (before > 500) before = 500;
         if (after < 0) after = 0; if (after > 500) after = 500;

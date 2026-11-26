@@ -3,7 +3,6 @@ package com.joshfouchey.smsarchive.service;
 import com.joshfouchey.smsarchive.dto.ContactDto;
 import com.joshfouchey.smsarchive.dto.ContactMergeResultDto;
 import com.joshfouchey.smsarchive.exception.ResourceNotFoundException;
-import com.joshfouchey.smsarchive.exception.ResourceOwnershipException;
 import com.joshfouchey.smsarchive.mapper.ContactMapper;
 import com.joshfouchey.smsarchive.model.Contact;
 import com.joshfouchey.smsarchive.model.Conversation;
@@ -54,11 +53,8 @@ public class ContactService {
     @org.springframework.cache.annotation.CacheEvict(value = {"distinctContacts", "contactSummaries"}, allEntries = true)
     public ContactDto updateContactName(Long contactId, String name) {
         var user = currentUserProvider.getCurrentUser();
-        var contact = contactRepository.findById(contactId).orElseThrow(java.util.NoSuchElementException::new);
-        if (!contact.getUser().equals(user)) {
-            // Do not expose existence; treat as not found
-            throw new java.util.NoSuchElementException();
-        }
+        // Scoped lookup: another user's contact is indistinguishable from a missing one
+        var contact = contactRepository.findByIdAndUser(contactId, user).orElseThrow(java.util.NoSuchElementException::new);
         // Normalize name: trim; blank -> null
         String normalized = name == null ? null : name.trim();
         if (normalized != null && normalized.isEmpty()) {
@@ -74,15 +70,11 @@ public class ContactService {
     public ContactMergeResultDto mergeContacts(Long primaryContactId, Long mergeFromContactId) {
         var user = currentUserProvider.getCurrentUser();
 
-        // Validate both contacts exist and belong to user
-        Contact primaryContact = contactRepository.findById(primaryContactId)
+        // Scoped lookups: contacts owned by another user are treated as not found
+        Contact primaryContact = contactRepository.findByIdAndUser(primaryContactId, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Primary contact not found"));
-        Contact mergeFromContact = contactRepository.findById(mergeFromContactId)
+        Contact mergeFromContact = contactRepository.findByIdAndUser(mergeFromContactId, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Contact to merge not found"));
-
-        if (!primaryContact.getUser().equals(user) || !mergeFromContact.getUser().equals(user)) {
-            throw new ResourceOwnershipException("Contacts do not belong to current user");
-        }
 
         if (primaryContactId.equals(mergeFromContactId)) {
             throw new IllegalArgumentException("Cannot merge contact with itself");

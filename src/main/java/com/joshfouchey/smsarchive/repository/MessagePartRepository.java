@@ -10,9 +10,13 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface MessagePartRepository extends JpaRepository<MessagePart, Long> {
+
+    @Query("SELECT p FROM MessagePart p WHERE p.id = :id AND p.message.user = :user")
+    Optional<MessagePart> findByIdAndUser(@Param("id") Long id, @Param("user") User user);
 
     @Query("SELECT p FROM MessagePart p WHERE p.contentType LIKE 'image/%' AND p.message.user = :user ORDER BY p.id DESC")
     Page<MessagePart> findAllImages(@Param("user") User user, Pageable pageable);

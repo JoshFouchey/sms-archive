@@ -144,8 +144,8 @@ public class SemanticSearchService {
             Object[] row = dedupedResults.get(i);
             double similarity = ((Number) row[row.length - 1]).doubleValue();
 
-            if (i < 3) {
-                log.info("Semantic top-{}: msgId={} similarity={} body='{}'",
+            if (i < 3 && log.isDebugEnabled()) {
+                log.debug("Semantic top-{}: msgId={} similarity={} body='{}'",
                         i + 1, msgId, String.format("%.4f", similarity),
                         msg.getBody() != null ? msg.getBody().substring(0, Math.min(60, msg.getBody().length())) : "null");
             }
@@ -155,9 +155,10 @@ public class SemanticSearchService {
             }
         }
 
-        log.info("Semantic search '{}': {} raw results, {} after chunk dedup, {} above threshold ({})",
-                naturalLanguageQuery.substring(0, Math.min(50, naturalLanguageQuery.length())),
+        log.info("Semantic search (query {} chars): {} raw results, {} after chunk dedup, {} above threshold ({})",
+                naturalLanguageQuery.length(),
                 rawResults.size(), dedupedResults.size(), hits.size(), similarityThreshold);
+        log.debug("Semantic search query: '{}'", naturalLanguageQuery);
 
         return new SemanticSearchResult(naturalLanguageQuery, hits, hits.size());
     }

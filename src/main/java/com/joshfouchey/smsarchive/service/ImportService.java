@@ -20,7 +20,7 @@ import org.apache.commons.io.input.BoundedInputStream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
@@ -101,6 +101,26 @@ public class ImportService {
         this.importTaskExecutor = executor;
     }
 
+    /** Caches holding data an import can change. Cleared when an import finishes, not when it starts. */
+    static final List<String> IMPORT_AFFECTED_CACHES = List.of(
+            "analyticsDashboard", "contactSummaries", "conversationList", "distinctContacts",
+            "conversationTimeline", "conversationMessages", "conversationMessageCount", "messageContext");
+
+    private CacheManager cacheManager;
+
+    @Autowired(required = false)
+    public void setCacheManager(CacheManager cacheManager) {
+        this.cacheManager = cacheManager;
+    }
+
+    private void evictImportAffectedCaches() {
+        if (cacheManager == null) return;
+        for (String name : IMPORT_AFFECTED_CACHES) {
+            org.springframework.cache.Cache cache = cacheManager.getCache(name);
+            if (cache != null) cache.clear();
+        }
+    }
+
     // visible for testing
     Instant parseInstant(String millisStr) {
         ensureXmlParser();
@@ -115,17 +135,23 @@ public class ImportService {
     }
 
     // ===== Streaming Import (Large XML) =====
-    @CacheEvict(value = {"analyticsDashboard", "contactSummaries", "conversationList", "distinctContacts", "conversationTimeline"}, allEntries = true)
     public UUID startImportAsync(Path xmlPath) throws Exception {
         // Capture authenticated user now
         return startImportInternal(xmlPath, currentUserProvider.getCurrentUser(), null);
     }
 
     /**
+     * Variant with a completion callback, invoked on the import worker thread after the job
+     * reaches a terminal state (success or failure).
+     */
+    public UUID startImportAsync(Path xmlPath, java.util.function.BiConsumer<UUID, Boolean> onFinished) throws Exception {
+        return startImportInternal(xmlPath, currentUserProvider.getCurrentUser(), onFinished);
+    }
+
+    /**
      * Start import for a specific user by username (used by ImportDirectoryWatcher).
      * This method does not require an authenticated security context.
      */
-    @CacheEvict(value = {"analyticsDashboard", "contactSummaries", "conversationList", "distinctContacts", "conversationTimeline"}, allEntries = true)
     public UUID startImportAsyncForUser(Path xmlPath, String username) throws Exception {
         return startImportAsyncForUser(xmlPath, username, null);
     }
@@ -135,7 +161,6 @@ public class ImportService {
      * reaches a terminal state. The boolean is true only when the import COMPLETED - callers
      * (e.g. the directory watcher) must not dispose of the source file before this fires.
      */
-    @CacheEvict(value = {"analyticsDashboard", "contactSummaries", "conversationList", "distinctContacts", "conversationTimeline"}, allEntries = true)
     public UUID startImportAsyncForUser(Path xmlPath, String username,
                                         java.util.function.BiConsumer<UUID, Boolean> onFinished) throws Exception {
         User importUser = userRepository.findByUsername(username)
@@ -157,6 +182,12 @@ public class ImportService {
                 runStreamingImportAsync(jobId, xmlPath);
             } finally {
                 threadLocalImportUser.remove();
+                // Runs on success and failure: a failed import may already have committed batches.
+                try {
+                    evictImportAffectedCaches();
+                } catch (Exception e) {
+                    log.error("Failed to evict caches after import job {}", jobId, e);
+                }
                 if (onFinished != null) {
                     boolean success = "COMPLETED".equals(progress.getStatus());
                     try {

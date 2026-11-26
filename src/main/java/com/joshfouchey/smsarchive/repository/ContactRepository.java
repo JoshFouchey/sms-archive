@@ -30,6 +30,9 @@ public interface ContactRepository extends JpaRepository<Contact, Long> {
     @Query("select c from Contact c where c.user = :user and c.normalizedNumber = :norm")
     Optional<Contact> findByUserAndNormalizedNumber(@Param("user") User user, @Param("norm") String normalizedNumber);
 
+    @Query("select c from Contact c where c.id = :id and c.user = :user")
+    Optional<Contact> findByIdAndUser(@Param("id") Long id, @Param("user") User user);
+
     @Query("select count(c) from Contact c where c.user = :user")
     long countByUser(@Param("user") User user);
 }

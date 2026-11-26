@@ -192,7 +192,7 @@ public class ConversationService {
         return result;
     }
 
-    @Cacheable(value = "conversationMessages", key = "#conversationId")
+    @Cacheable(value = "conversationMessages", key = "T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName() + ':' + #conversationId")
     public List<ConversationMessagesDto> getAllConversationMessages(Long conversationId) {
         var user = currentUserProvider.getCurrentUser();
 
@@ -233,7 +233,7 @@ public class ConversationService {
      * Get message count for a conversation (cached).
      */
     @Transactional(readOnly = true)
-    @Cacheable(value = "conversationMessageCount", key = "#conversationId")
+    @Cacheable(value = "conversationMessageCount", key = "T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName() + ':' + #conversationId")
     public Long getConversationMessageCount(Long conversationId) {
         var user = currentUserProvider.getCurrentUser();
 
@@ -245,7 +245,7 @@ public class ConversationService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "conversationTimeline", key = "#conversationId")
+    @Cacheable(value = "conversationTimeline", key = "T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName() + ':' + #conversationId")
     public ConversationTimelineDto getConversationTimeline(Long conversationId) {
         var user = currentUserProvider.getCurrentUser();
 

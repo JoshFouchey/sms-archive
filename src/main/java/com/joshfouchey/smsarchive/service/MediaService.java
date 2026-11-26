@@ -35,7 +35,7 @@ public class MediaService {
         PageRequest pageable = PageRequest.of(page, size);
         var user = currentUserProvider.getCurrentUser();
         if (contactId != null) {
-            if (!contactRepo.existsById(contactId)) {
+            if (contactRepo.findByIdAndUser(contactId, user).isEmpty()) {
                 throw new EntityNotFoundException("Contact not found: " + contactId);
             }
             return partRepo.findImagesByContactId(contactId, user, pageable);
@@ -44,7 +44,8 @@ public class MediaService {
     }
 
     public boolean deleteImage(Long id) {
-        Optional<MessagePart> opt = partRepo.findById(id);
+        // Scoped lookup: another user's image is treated as not found, before any file is touched
+        Optional<MessagePart> opt = partRepo.findByIdAndUser(id, currentUserProvider.getCurrentUser());
         if (opt.isEmpty()) return false;
 
         MessagePart part = opt.get();
